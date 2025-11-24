@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnLogout = document.getElementById('logout-button');
     const userEmailEl = document.getElementById('user-email');
     
-    // Contenedores de Vistas
+  // Contenedores de Vistas
     const viewSearch = document.getElementById('view-search');
     const viewUpload = document.getElementById('view-upload');
     const navSearch = document.getElementById('nav-search');
@@ -63,7 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalBody = document.getElementById('modal-body');
     const modalCerrar = document.getElementById('modal-cerrar');
 
-    // --- 2. LÓGICA DE AUTENTICACIÓN (El "Guardia" del Frontend) ---
+    // =========================================================
+    // 2. LÓGICA DE AUTENTICACIÓN (El "Guardia" del Frontend)
+    // =========================================================
 
     auth.onAuthStateChanged(async (user) => {
         if (user) {
@@ -84,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // USUARIO NO LOGUEADO
             currentUser = null;
-            loginContainer.style.display = 'block';
+            loginContainer.style.display = 'flex';
             appContainer.style.display = 'none';
         }
     });
@@ -115,7 +117,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- 4. FUNCIÓN DE FETCH SEGURA (CRÍTICA) ---
+    // =========================================================
+    // 4. FUNCIÓN DE FETCH SEGURA (CRÍTICA)
+    // =========================================================
 
     async function secureFetch(url, options) {
         if (!currentUser) {
@@ -139,33 +143,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             throw new Error(`Error de API: ${response.statusText}`);
         }
+        
+        // Leemos como texto primero para evitar errores si la respuesta está vacía
         const text = await response.text();
         return text ? JSON.parse(text) : [];
     }
 
-    // --- 5. LÓGICA DE BÚSQUEDA ---
+    // =========================================================
+    // 5. LÓGICA DE BÚSQUEDA
+    // =========================================================
 
-    function parseDate(dateStr) {
-        if (!dateStr || typeof dateStr !== 'string') return null;
-        const parts = dateStr.split('/');
-        if (parts.length !== 3) return null;
-        // Asumiendo DD/MM/AAAA
-        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-    }
-
-    async function fetchPackages() {
+    async function fetchPackages(filters = {}) {
         loadingPlaceholder.style.display = 'block';
         grillaPaquetes.innerHTML = '';
         try {
             const data = await secureFetch(API_URL_SEARCH, {
                 method: 'POST',
-                body: JSON.stringify({}) // Cuerpo vacío para obtener todos
+                body: JSON.stringify(filters) // Enviamos filtros (o vacío)
             });
             
+            // Ordenar por fecha de creación (dd/mm/aaaa)
             allPackages = data.sort((a, b) => {
-                const dateA = parseDate(a['item.fecha_creacion']);
-                const dateB = parseDate(b['item.fecha_creacion']);
-                return (dateB || 0) - (dateA || 0); // Los más nuevos primero
+                const da = a['fecha_creacion'] ? a['fecha_creacion'].split('/').reverse().join('') : '';
+                const db = b['fecha_creacion'] ? b['fecha_creacion'].split('/').reverse().join('') : '';
+                return db.localeCompare(da);
             });
 
             renderCards(allPackages);
@@ -176,33 +177,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function filterAndRender() {
-        // Obtenemos los valores de los filtros
-        const filtersToSend = {
+    // Lógica del botón buscar
+    btnBuscar.addEventListener('click', () => {
+        const filters = {
             destino: document.getElementById('filtro-destino').value,
             creador: document.getElementById('filtro-creador').value,
             tipo_promo: document.getElementById('filtro-promo').value
         };
-        
-        loadingPlaceholder.style.display = 'block';
-        grillaPaquetes.innerHTML = '<p class="loading-placeholder">Buscando...</p>';
+        fetchPackages(filters);
+    });
 
-        try {
-            const data = await secureFetch(API_URL_SEARCH, {
-                method: 'POST',
-                body: JSON.stringify(filtersToSend)
-            });
-            renderCards(data); // Renderiza solo los filtrados
-        } catch (error) {
-            console.error('Error al filtrar:', error);
-            loadingPlaceholder.style.display = 'none';
-            grillaPaquetes.innerHTML = '<p class="loading-placeholder">Error al buscar.</p>';
-        }
-    }
-    
-    // --- 6. LÓGICA DE CARGA (¡NUEVO!) ---
-    
-    async function handleUploadSubmit(e) {
+    // Lógica del botón limpiar
+    btnLimpiar.addEventListener('click', () => {
+        document.getElementById('filtro-destino').value = '';
+        document.getElementById('filtro-creador').value = '';
+        document.getElementById('filtro-promo').value = '';
+        fetchPackages({});
+    });
+
+    // =========================================================
+    // 6. LÓGICA DE CARGA
+    // =========================================================
+
+    uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault(); // Evita que la página se recargue
         btnSubir.disabled = true;
         uploadStatus.textContent = 'Guardando...';
@@ -219,7 +216,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 moneda: document.getElementById('upload-moneda').value,
                 tipo_promo: document.getElementById('upload-promo').value,
                 financiacion: document.getElementById('upload-financiacion').value,
-                descripcion: document.getElementById('upload-descripcion').value
+                descripcion: document.getElementById('upload-descripcion').value,
+                // El 'creador' y 'fecha_creacion' se asignarán en el backend (n8n)
             };
 
             // 2. Enviar a la API de CARGA
@@ -243,37 +241,38 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             btnSubir.disabled = false;
         }
-    }
+    });
     
-    // --- 7. Event Listeners y Funciones de UI (Render) ---
-    
-    function renderCards(packages) {
+    // =========================================================
+    // 7. INTERFAZ (Render y Modal)
+    // =========================================================
+
+    function renderCards(list) {
         loadingPlaceholder.style.display = 'none';
         grillaPaquetes.innerHTML = '';
 
-        if (packages.length === 0) {
+        if (!list || list.length === 0) {
             grillaPaquetes.innerHTML = '<p class="loading-placeholder">No se encontraron paquetes.</p>';
             return;
         }
 
-        packages.forEach((pkg) => {
-            const destino = pkg['item.destino'] || 'Destino no disponible';
-            const tipoPromo = pkg['item.tipo_promo'] || 'Promo';
-            const fechaSalida = pkg['item.fecha_salida'] || 'Fecha a confirmar';
-            const moneda = pkg['item.moneda'] || '';
-            const tarifa = pkg['item.tarifa'] || 'Consultar';
-
+        list.forEach(pkg => {
             const card = document.createElement('div');
             card.className = 'paquete-card';
-            
-            // Almacenamos el paquete entero como un string JSON en el dataset
-            // Esto es más seguro que usar 'indexOf' si la lista se filtra
+            // Guardamos el paquete entero como un string JSON en el dataset
             card.dataset.packageData = JSON.stringify(pkg);
 
             card.innerHTML = `
-                <div class="card-header"> <h3>${destino}</h3> <span class="tag-promo">${tipoPromo}</span> </div>
-                <div class="card-body"> <p class="fecha-salida">Salida: ${fechaSalida}</p> </div>
-                <div class="card-footer"> <p class="precio-label">Desde</p> <p class="precio-valor">${moneda} $${tarifa}</p> </div>
+                <div class="card-header">
+                    <h3>${pkg['destino'] || 'Sin Destino'}</h3>
+                    <span class="tag-promo">${pkg['tipo_promo'] || '-'}</span>
+                </div>
+                <div class="card-body">
+                    <p><strong>Salida:</strong> ${pkg['fecha_salida'] || '-'}</p>
+                </div>
+                <div class="card-footer">
+                    <p class="precio-valor">${pkg['moneda']} $${pkg['tarifa']}</p>
+                </div>
             `;
             grillaPaquetes.appendChild(card);
         });
@@ -285,58 +284,42 @@ document.addEventListener('DOMContentLoaded', () => {
         // "Bien ordenada": Creamos el HTML para el detalle
         modalBody.innerHTML = `
             <div class="modal-detalle-header">
-                <h2>${pkg['item.destino'] || 'Detalle del Paquete'}</h2>
+                <h2>${pkg['destino'] || 'Detalle del Paquete'}</h2>
             </div>
             
             <div class="modal-detalle-body">
-                <div class="detalle-precios">
-                    <div class="detalle-item">
-                        <label>Costo Proveedor</label>
-                        <p>${pkg['item.moneda'] || ''} $${pkg['item.costos_proveedor'] || 'N/A'}</p>
-                    </div>
-                    <div class="detalle-item tarifa-final">
-                        <label>Tarifa Final</label>
-                        <p>${pkg['item.moneda'] || ''} $${pkg['item.tarifa'] || 'Consultar'}</p>
-                    </div>
-                </div>
-
-                <div class="detalle-item">
-                    <label>Fecha de Salida</label>
-                    <p>${pkg['item.fecha_salida'] || 'No especificada'}</p>
+                <div class="detalle-full precio-final">
+                    <label>Precio Final</label>
+                    <p>${pkg['moneda']} $${pkg['tarifa']}</p>
                 </div>
                 <div class="detalle-item">
-                    <label>Salida</label>
-                    <p>${pkg['item.salida'] || 'No especificada'}</p>
+                    <label>Costo Proveedor</label>
+                    <p>${pkg['moneda']} $${pkg['costos_proveedor']}</p>
                 </div>
                 <div class="detalle-item">
-                    <label>Tipo de Promoción</label>
-                    <p>${pkg['item.tipo_promo'] || 'N/A'}</p>
+                    <label>Fecha Salida</label>
+                    <p>${pkg['fecha_salida']}</p>
+                </div>
+                <div class="detalle-item">
+                    <label>Lugar Salida</label>
+                    <p>${pkg['salida']}</p>
                 </div>
                 <div class="detalle-item">
                     <label>Financiación</label>
-                    <p>${pkg['item.financiacion'] || 'N/A'}</p>
+                    <p>${pkg['financiacion']}</p>
                 </div>
-                <div class="detalle-item-full">
+                <div class="detalle-full">
                     <label>Descripción / Itinerario</label>
-                    <p>${pkg['item.descripcion'] || 'Sin descripción.'}</p>
+                    <p>${pkg['descripcion']}</p>
                 </div>
                 <div class="detalle-item">
-                    <label>Cargado por</label>
-                    <p>${pkg['item.creador'] || 'N/A'}</p>
-                </div>
-                <div class="detalle-item">
-                    <label>Fecha de Carga</label>
-                    <p>${pkg['item.fecha_creacion'] || 'N/A'}</p>
+                    <label>Cargado Por</label>
+                    <p>${pkg['creador']}</p>
                 </div>
             </div>
         `;
         
         modalDetalle.style.display = 'flex';
-    }
-
-    function closeModal() {
-        modalDetalle.style.display = 'none';
-        modalBody.innerHTML = '';
     }
 
     // Listeners de Auth
@@ -347,34 +330,17 @@ document.addEventListener('DOMContentLoaded', () => {
     navSearch.addEventListener('click', () => showView('search'));
     navUpload.addEventListener('click', () => showView('upload'));
 
-    // Listeners de Búsqueda
-    btnBuscar.addEventListener('click', filterAndRender);
-    btnLimpiar.addEventListener('click', () => {
-        document.getElementById('filtro-destino').value = '';
-        document.getElementById('filtro-creador').value = '';
-        document.getElementById('filtro-promo').value = '';
-        fetchPackages(); // Carga todos de nuevo
-    });
-
     // Listener del Modal (Delegación de eventos)
     grillaPaquetes.addEventListener('click', (e) => {
         const card = e.target.closest('.paquete-card');
         if (card) {
-            // Obtenemos el paquete del dataset (más seguro)
             const pkg = JSON.parse(card.dataset.packageData);
             openModal(pkg);
         }
     });
-    modalCerrar.addEventListener('click', closeModal);
-    modalDetalle.addEventListener('click', (e) => {
-        if (e.target === modalDetalle) {
-            closeModal();
-        }
-    });
-    
-    // Listeners de Carga
-    uploadForm.addEventListener('submit', handleUploadSubmit);
-
+    modalCerrar.addEventListener('click', () => modalDetalle.style.display = 'none');
+    window.onclick = (e) => { if (e.target === modalDetalle) modalDetalle.style.display = 'none'; };
 });
+
 
 
