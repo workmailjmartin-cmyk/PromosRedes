@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feliz Viaje - Plataforma</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+</head>
+<body>
+
+    <div id="login-container" class="login-container" style="display: none;">
+        <div class="login-box">
+            <h1>Feliz Viaje</h1>
+            <p>Plataforma de Paquetes</p>
+            <button id="login-button" class="btn btn-primario">Iniciar Sesión con Google</button>
+            <p id="auth-error" class="error-message"></p>
+        </div>
+    </div>
+
+    <div id="app-container" style="display: none;">
+        
+        <header class="main-header">
+            <div class="container header-content">
+                <div class="logo">
+                    <h2>Feliz Viaje</h2>
+                </div>
+                <nav class="app-nav">
+                    <button id="nav-search" class="nav-button active">Buscar</button>
+                    <button id="nav-upload" class="nav-button">Cargar Paquete</button>
+                </nav>
+                <div class="user-info">
+                    <span id="user-email"></span>
+                    <button id="logout-button" class="btn btn-secundario">Cerrar Sesión</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="container">
+            
+            <div id="view-search" class="view active">
+                <section class="panel-filtros">
+                    <div class="filtro-item">
+                        <label for="filtro-destino">Destino</label>
+                        <input type="text" id="filtro-destino" placeholder="Ej: Buzios...">
+                    </div>
+                    <div class="filtro-item">
+                        <label for="filtro-creador">Creador</label>
+                        <select id="filtro-creador">
+                            <option value="">Todos</option>
+                            <option value="Franquicia Tucumán">Franquicia Tucumán</option>
+                            <option value="Franquicia Mendoza">Franquicia Mendoza</option>
+                            <option value="Franquicia San Juan">Franquicia San Juan</option>
+                            <option value="Franquicia Villa Maria">Franquicia Villa Maria</option>
+                            <option value="Franquicia Pilar">Franquicia Pilar</option>
+                            <option value="Franquicia La Plata">Franquicia La Plata</option>
+                            <option value="Franquicia Colonia Caroya">Franquicia Colonia Caroya</option>
+                            <option value="Franquicia Arenales">Franquicia Arenales</option>
+                            <option value="Franquicia Oliva">Franquicia Oliva</option>
+                        </select>
+                    </div>
+                    <div class="filtro-item">
+                        <label for="filtro-promo">Promoción</label>
+                        <select id="filtro-promo">
+                            <option value="">Todas</option>
+                            <option value="Solo X Hoy">Solo X Hoy</option>
+                            <option value="FEED">FEED</option>
+                        </select>
+                    </div>
+                    <div class="filtro-acciones">
+                        <button id="boton-buscar" class="btn btn-primario">Buscar</button>
+                        <button id="boton-limpiar" class="btn btn-secundario">Limpiar</button>
+                    </div>
+                </section>
+                <section id="grilla-paquetes" class="grilla-resultados">
+                    <div id="loading-placeholder" class="loading-placeholder">
+                        <p>Cargando paquetes...</p>
+                    </div>
+                </section>
+            </div>
+
+            <div id="view-upload" class="view">
+                <section class="upload-form-container">
+                    <h3>Cargar Nuevo Paquete</h3>
+                    <p>El campo "Creador" y "Fecha de Carga" se asignarán automáticamente.</p>
+                    <form id="upload-form" class="upload-form">
+                        <div class="form-group">
+                            <label for="upload-destino">Destino</label>
+                            <input type="text" id="upload-destino" required>
+                        </div>
+                        <div class="form-group-row">
+                            <div class="form-group">
+                                <label for="upload-salida">Salida (Ej: Buenos Aires)</label>
+                                <input type="text" id="upload-salida">
+                            </div>
+                            <div class="form-group">
+                                <label for="upload-fecha-salida">Fecha Salida (DD/MM/AAAA)</label>
+                                <input type="text" id="upload-fecha-salida" placeholder="DD/MM/AAAA" required>
+                            </div>
+                        </div>
+                        <div class="form-group-row">
+                            <div class="form-group">
+                                <label for="upload-costo">Costo Proveedor</label>
+                                <input type="number" id="upload-costo" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="upload-tarifa">Tarifa (Venta)</label>
+                                <input type="number" id="upload-tarifa" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="upload-moneda">Moneda</label>
+                                <select id="upload-moneda" required>
+                                    <option value="USD">USD</option>
+                                    <option value="ARS">Pesos (ARS)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group-row">
+                             <div class="form-group">
+                                <label for="upload-promo">Tipo de Promoción</label>
+                                <select id="upload-promo" required>
+                                    <option value="FEED">FEED</option>
+                                    <option value="Solo X Hoy">Solo X Hoy</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="upload-financiacion">Financiación</label>
+                                <input type="text" id="upload-financiacion">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="upload-descripcion">Descripción / Itinerario</label>
+                            <textarea id="upload-descripcion" rows="5" placeholder="Escribe los detalles del paquete aquí..."></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" id="boton-subir" class="btn btn-primario">Guardar Paquete</button>
+                            <p id="upload-status" class="status-message"></p>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        </main>
+
+        <div id="modal-detalle" class="modal-overlay">
+            <div class="modal-contenido">
+                <button id="modal-cerrar" class="modal-cerrar-btn">&times;</button>
+                <div id="modal-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
