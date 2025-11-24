@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
-    const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/TU-NUEVO-WEBHOOK-DE-CARGA'; // ¡¡DEBES CREAR ESTA!!
+    const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb'; // ¡¡DEBES CREAR ESTA!!
 
     // --- 1.B. LA "LISTA DE INVITADOS" (FRONTEND) ---
     const allowedEmails = [
@@ -375,3 +375,4 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadForm.addEventListener('submit', handleUploadSubmit);
 
 });
+
