@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 0. CONFIGURACIÓN DE FIREBASE ---
     
-    // ¡¡¡ REEMPLAZA ESTO CON EL CÓDIGO DE TU PROYECTO DE FIREBASE !!!
+   
     const firebaseConfig = {
      apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk",
      authDomain: "feliz-viaje-43d02.firebaseapp.com",
@@ -21,22 +21,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 1. CONFIGURACIÓN DE LA APP ---
     
-    // ¡¡¡ASEGÚRATE DE QUE ESTAS SEAN TUS URLs DE PRODUCCIÓN DE n8n!!!
+    
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/TU-NUEVO-WEBHOOK-DE-CARGA'; // ¡¡DEBES CREAR ESTA!!
 
     // --- 1.B. LA "LISTA DE INVITADOS" (FRONTEND) ---
     const allowedEmails = [
-        'email.tucuman@gmail.com',
-        'email.mendoza@gmail.com',
-        'email.sanjuan@gmail.com',
-        'email.villamaria@gmail.com',
-        'email.pilar@gmail.com',
-        'email.laplata@gmail.com',
-        'email.coloniacaroya@gmail.com',
-        'email.arenales@gmail.com',
-        'email.oliva@gmail.com',
-        'tu-propio-email-admin@gmail.com' // ¡Importante!
+        'yairlaquis@gmail.com',
     ];
     
     let allPackages = [];
@@ -382,4 +373,5 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Listeners de Carga
     uploadForm.addEventListener('submit', handleUploadSubmit);
+
 });
