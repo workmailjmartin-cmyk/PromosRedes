@@ -139,7 +139,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             throw new Error(`Error de API: ${response.statusText}`);
         }
-        return response.json();
+        const text = await response.text();
+        return text ? JSON.parse(text) : [];
     }
 
     // --- 5. LÓGICA DE BÚSQUEDA ---
@@ -375,4 +376,5 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadForm.addEventListener('submit', handleUploadSubmit);
 
 });
+
 
