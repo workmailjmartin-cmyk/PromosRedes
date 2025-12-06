@@ -1,346 +1,269 @@
-
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- 0. CONFIGURACIÓN DE FIREBASE ---
-    
-   
-    const firebaseConfig = {
-     apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk",
-     authDomain: "feliz-viaje-43d02.firebaseapp.com",
-     projectId: "feliz-viaje-43d02",
-     storageBucket: "feliz-viaje-43d02.firebasestorage.app",
-     messagingSenderId: "931689659600",
-     appId: "1:931689659600:web:66dbce023705936f26b2d5",
-     measurementId: "G-2PNDZR3ZS1"
-    };
-    
-    // Inicializamos Firebase
+    // 1. CONFIGURACIÓN (Tus datos)
+    const firebaseConfig = { /* ... PEGA TUS DATOS DE FIREBASE AQUÍ ... */ };
+    const API_URL_SEARCH = '/* ... PEGA TU URL DE BUSQUEDA ... */';
+    const API_URL_UPLOAD = '/* ... PEGA TU URL DE CARGA ... */';
+    const allowedEmails = [ /* ... PEGA TUS EMAILS ... */ ];
+
+    // Inicialización Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const provider = new firebase.auth.GoogleAuthProvider();
+    let currentUser = null;
 
-    // --- 1. CONFIGURACIÓN DE LA APP ---
-    
-    
-    const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
-    const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb'; // ¡¡DEBES CREAR ESTA!!
+    // Elementos DOM Globales
+    const dom = {
+        // ... (login, header, nav igual que antes) ...
+        viewSearch: document.getElementById('view-search'),
+        viewUpload: document.getElementById('view-upload'),
+        containerServicios: document.getElementById('servicios-container'),
+        btnAgregarServicio: document.getElementById('btn-agregar-servicio'),
+        selectorServicio: document.getElementById('selector-servicio'),
+        inputFechaSalidaViaje: document.getElementById('upload-fecha-salida'),
+        inputCostoTotal: document.getElementById('upload-costo-total'),
+        uploadForm: document.getElementById('upload-form'),
+        // ...
+    };
 
-    // --- 1.B. LA "LISTA DE INVITADOS" (FRONTEND) ---
-    const allowedEmails = [
-        'yairlaquis@gmail.com',
-    ];
-    
-    let allPackages = [];
-    let currentUser = null; // Guardaremos al usuario aquí
-
-    // Referencias a elementos del DOM
-    const loginContainer = document.getElementById('login-container');
-    const appContainer = document.getElementById('app-container');
-    const authError = document.getElementById('auth-error');
-    const btnLogin = document.getElementById('login-button');
-    const btnLogout = document.getElementById('logout-button');
-    const userEmailEl = document.getElementById('user-email');
-    
-  // Contenedores de Vistas
-    const viewSearch = document.getElementById('view-search');
-    const viewUpload = document.getElementById('view-upload');
-    const navSearch = document.getElementById('nav-search');
-    const navUpload = document.getElementById('nav-upload');
-
-    // Elementos de Búsqueda
-    const grillaPaquetes = document.getElementById('grilla-paquetes');
-    const loadingPlaceholder = document.getElementById('loading-placeholder');
-    const btnBuscar = document.getElementById('boton-buscar');
-    const btnLimpiar = document.getElementById('boton-limpiar');
-    
-    // Elementos de Carga
-    const uploadForm = document.getElementById('upload-form');
-    const btnSubir = document.getElementById('boton-subir');
-    const uploadStatus = document.getElementById('upload-status');
-    
-    // Elementos del Modal
-    const modalDetalle = document.getElementById('modal-detalle');
-    const modalBody = document.getElementById('modal-body');
-    const modalCerrar = document.getElementById('modal-cerrar');
+    // --- LOGICA DE AUTENTICACION (Igual que antes) ---
+    // (Copia y pega la lógica de auth.onAuthStateChanged, login, logout, secureFetch de mi respuesta anterior)
+    // ...
 
     // =========================================================
-    // 2. LÓGICA DE AUTENTICACIÓN (El "Guardia" del Frontend)
+    // NUEVA LÓGICA DE SERVICIOS DINÁMICOS
     // =========================================================
 
-    auth.onAuthStateChanged(async (user) => {
-        if (user) {
-            // USUARIO AUTENTICADO
-            if (allowedEmails.includes(user.email)) {
-                // ¡SÍ! AUTORIZADO
-                currentUser = user; // Guardamos al usuario
-                loginContainer.style.display = 'none';
-                appContainer.style.display = 'block';
-                userEmailEl.textContent = user.email;
-                await fetchPackages(); // Cargamos los paquetes iniciales
-                showView('search'); // Asegurarse de empezar en la vista de búsqueda
-            } else {
-                // ¡NO! No está en la lista.
-                authError.textContent = 'Error: No tienes permiso para acceder.';
-                auth.signOut();
-            }
-        } else {
-            // USUARIO NO LOGUEADO
-            currentUser = null;
-            loginContainer.style.display = 'flex';
-            appContainer.style.display = 'none';
-        }
+    dom.btnAgregarServicio.addEventListener('click', () => {
+        const tipo = dom.selectorServicio.value;
+        if (!tipo) return;
+        agregarModuloServicio(tipo);
+        dom.selectorServicio.value = ""; // Reset selector
     });
 
-    const login = () => {
-        authError.textContent = ''; // Limpia errores
-        auth.signInWithPopup(provider)
-            .catch((error) => { authError.textContent = `Error: ${error.message}`; });
-    };
+    function agregarModuloServicio(tipo) {
+        const idUnico = Date.now(); // ID para identificar este módulo
+        const div = document.createElement('div');
+        div.className = `servicio-card ${tipo}`;
+        div.dataset.id = idUnico;
+        div.dataset.tipo = tipo;
 
-    const logout = () => {
-        auth.signOut();
-    };
-
-    // --- 3. LÓGICA DE NAVEGACIÓN DE VISTAS ---
-    
-    function showView(viewName) {
-        if (viewName === 'search') {
-            viewSearch.classList.add('active');
-            viewUpload.classList.remove('active');
-            navSearch.classList.add('active');
-            navUpload.classList.remove('active');
-        } else if (viewName === 'upload') {
-            viewSearch.classList.remove('active');
-            viewUpload.classList.add('active');
-            navSearch.classList.remove('active');
-            navUpload.classList.add('active');
-        }
-    }
-
-    // =========================================================
-    // 4. FUNCIÓN DE FETCH SEGURA (CRÍTICA)
-    // =========================================================
-
-    async function secureFetch(url, options) {
-        if (!currentUser) {
-            alert("Tu sesión ha expirado.");
-            logout();
-            throw new Error('Usuario no autenticado.');
-        }
-
-        const token = await currentUser.getIdToken(true); // Forzar refresco del token
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        };
-
-        const response = await fetch(url, { ...options, headers, cache: 'no-store' });
-
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                alert("Error de seguridad: No tienes permiso. Serás deslogueado.");
-                logout();
-            }
-            throw new Error(`Error de API: ${response.statusText}`);
-        }
+        // HTML base según el tipo
+        let htmlContenido = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); calcularTotal();">×</button>`;
         
-        // Leemos como texto primero para evitar errores si la respuesta está vacía
-        const text = await response.text();
-        return text ? JSON.parse(text) : [];
-    }
-
-    // =========================================================
-    // 5. LÓGICA DE BÚSQUEDA
-    // =========================================================
-
-    async function fetchPackages(filters = {}) {
-        loadingPlaceholder.style.display = 'block';
-        grillaPaquetes.innerHTML = '';
-        try {
-            const data = await secureFetch(API_URL_SEARCH, {
-                method: 'POST',
-                body: JSON.stringify(filters) // Enviamos filtros (o vacío)
-            });
-            
-            // Ordenar por fecha de creación (dd/mm/aaaa)
-            allPackages = data.sort((a, b) => {
-                const da = a['fecha_creacion'] ? a['fecha_creacion'].split('/').reverse().join('') : '';
-                const db = b['fecha_creacion'] ? b['fecha_creacion'].split('/').reverse().join('') : '';
-                return db.localeCompare(da);
-            });
-
-            renderCards(allPackages);
-            
-        } catch (error) {
-            console.error('Error al cargar paquetes:', error);
-            loadingPlaceholder.innerHTML = '<p>No se pudieron cargar los paquetes.</p>';
-        }
-    }
-
-    // Lógica del botón buscar
-    btnBuscar.addEventListener('click', () => {
-        const filters = {
-            destino: document.getElementById('filtro-destino').value,
-            creador: document.getElementById('filtro-creador').value,
-            tipo_promo: document.getElementById('filtro-promo').value
-        };
-        fetchPackages(filters);
-    });
-
-    // Lógica del botón limpiar
-    btnLimpiar.addEventListener('click', () => {
-        document.getElementById('filtro-destino').value = '';
-        document.getElementById('filtro-creador').value = '';
-        document.getElementById('filtro-promo').value = '';
-        fetchPackages({});
-    });
-
-    // =========================================================
-    // 6. LÓGICA DE CARGA
-    // =========================================================
-
-    uploadForm.addEventListener('submit', async (e) => {
-        e.preventDefault(); // Evita que la página se recargue
-        btnSubir.disabled = true;
-        uploadStatus.textContent = 'Guardando...';
-        uploadStatus.className = 'status-message';
-
-        try {
-            // 1. Recolectar los datos del formulario
-            const newPackage = {
-                destino: document.getElementById('upload-destino').value,
-                salida: document.getElementById('upload-salida').value,
-                fecha_salida: document.getElementById('upload-fecha-salida').value,
-                costos_proveedor: document.getElementById('upload-costo').value,
-                tarifa: document.getElementById('upload-tarifa').value,
-                moneda: document.getElementById('upload-moneda').value,
-                tipo_promo: document.getElementById('upload-promo').value,
-                financiacion: document.getElementById('upload-financiacion').value,
-                descripcion: document.getElementById('upload-descripcion').value,
-                // El 'creador' y 'fecha_creacion' se asignarán en el backend (n8n)
-            };
-
-            // 2. Enviar a la API de CARGA
-            await secureFetch(API_URL_UPLOAD, {
-                method: 'POST',
-                body: JSON.stringify(newPackage)
-            });
-
-            // 3. Éxito
-            uploadStatus.textContent = '¡Paquete guardado con éxito!';
-            uploadStatus.className = 'status-message success';
-            uploadForm.reset(); // Limpia el formulario
-            
-            // Opcional: recargar los paquetes en la vista de búsqueda
-            fetchPackages();
-
-        } catch (error) {
-            console.error('Error al guardar:', error);
-            uploadStatus.textContent = 'Error al guardar. Intenta de nuevo.';
-            uploadStatus.className = 'status-message error';
-        } finally {
-            btnSubir.disabled = false;
-        }
-    });
-    
-    // =========================================================
-    // 7. INTERFAZ (Render y Modal)
-    // =========================================================
-
-    function renderCards(list) {
-        loadingPlaceholder.style.display = 'none';
-        grillaPaquetes.innerHTML = '';
-
-        if (!list || list.length === 0) {
-            grillaPaquetes.innerHTML = '<p class="loading-placeholder">No se encontraron paquetes.</p>';
-            return;
-        }
-
-        list.forEach(pkg => {
-            const card = document.createElement('div');
-            card.className = 'paquete-card';
-            // Guardamos el paquete entero como un string JSON en el dataset
-            card.dataset.packageData = JSON.stringify(pkg);
-
-            card.innerHTML = `
-                <div class="card-header">
-                    <h3>${pkg['destino'] || 'Sin Destino'}</h3>
-                    <span class="tag-promo">${pkg['tipo_promo'] || '-'}</span>
+        // --- 1. AÉREO ---
+        if (tipo === 'aereo') {
+            const fechaViaje = dom.inputFechaSalidaViaje.value || '';
+            htmlContenido += `
+                <h4>✈️ Aéreo</h4>
+                <div class="form-group-row">
+                    <div class="form-group">
+                        <label>Compañía Aérea</label>
+                        <input type="text" name="aerolinea" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha Salida</label>
+                        <input type="date" name="fecha_aereo" value="${fechaViaje}" required>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <p><strong>Salida:</strong> ${pkg['fecha_salida'] || '-'}</p>
+                <div class="form-group-row">
+                    <div class="form-group">
+                        <label>Escalas</label>
+                        ${crearContadorHTML('escalas', 0)}
+                    </div>
+                    <div class="form-group">
+                        <label>Equipaje</label>
+                        <select name="tipo_equipaje" onchange="mostrarContadorEquipaje(this, ${idUnico})">
+                            <option value="objeto_personal">Objeto Personal (Mochila)</option>
+                            <option value="carry_on">Carry On</option>
+                            <option value="bodega_chico">Bodega Chico (15kg)</option>
+                            <option value="bodega_grande">Bodega Grande (23kg)</option>
+                        </select>
+                        <div id="equipaje-cantidad-${idUnico}" style="display:none; margin-top:5px;">
+                            <label style="font-size:0.8em">Cantidad:</label>
+                            ${crearContadorHTML('cantidad_equipaje', 1)}
+                        </div>
+                    </div>
                 </div>
-                <div class="card-footer">
-                    <p class="precio-valor">${pkg['moneda']} $${pkg['tarifa']}</p>
+                <div class="form-group-row">
+                    <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
+                    <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="calcularTotal()" required></div>
+                </div>
+                <div class="form-group"><label>Observaciones</label><input type="text" name="obs"></div>
+            `;
+        }
+
+        // --- 2. HOTEL ---
+        else if (tipo === 'hotel') {
+            htmlContenido += `
+                <h4>🏨 Hotel</h4>
+                <div class="form-group"><label>Nombre Alojamiento</label><input type="text" name="hotel_nombre" required></div>
+                <div class="form-group-row">
+                    <div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="calcularNoches(${idUnico})" required></div>
+                    <div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="calcularNoches(${idUnico})" required></div>
+                    <div class="form-group"><label>Noches</label><input type="text" id="noches-${idUnico}" readonly style="background:#eee; width:60px;"></div>
+                </div>
+                <div class="form-group">
+                    <label>Régimen</label>
+                    <select name="regimen">
+                        <option value="Solo Habitacion">Solo Habitación</option>
+                        <option value="Desayuno">Desayuno</option>
+                        <option value="Media Pension">Media Pensión</option>
+                        <option value="Pension Completa">Pensión Completa</option>
+                        <option value="All Inclusive">All Inclusive</option>
+                    </select>
+                </div>
+                <div class="form-group-row">
+                    <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
+                    <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="calcularTotal()" required></div>
+                </div>
+                <div class="form-group"><label>Observaciones</label><input type="text" name="obs"></div>
+            `;
+        }
+
+        // --- 3. TRASLADO ---
+        else if (tipo === 'traslado') {
+            htmlContenido += `
+                <h4>uD83DuDE90 Traslado</h4>
+                <div class="checkbox-group">
+                    <label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label>
+                    <label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label>
+                    <label class="checkbox-label"><input type="checkbox" name="trf_hotel"> Hotel-Hotel</label>
+                </div>
+                <div class="form-group" style="margin-top:10px;">
+                    <label>Tipo</label>
+                    <select name="tipo_trf"><option value="Compartido">Compartido</option><option value="Privado">Privado</option></select>
+                </div>
+                <div class="form-group-row">
+                    <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
+                    <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="calcularTotal()" required></div>
+                </div>
+                <div class="form-group"><label>¿Otro proveedor adicional?</label><input type="text" name="proveedor_extra" placeholder="Nombre y Costo (Opcional)"></div>
+            `;
+        }
+
+        // --- 4. SEGURO ---
+        else if (tipo === 'seguro') {
+            htmlContenido += `
+                <h4>uD83DuDEE1️ Seguro Médico</h4>
+                <div class="form-group-row">
+                    <div class="form-group"><label>Proveedor / Cobertura</label><input type="text" name="proveedor" required></div>
+                    <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="calcularTotal()" required></div>
                 </div>
             `;
-            grillaPaquetes.appendChild(card);
-        });
+        }
+
+        // --- 5. ADICIONAL ---
+        else if (tipo === 'adicional') {
+            htmlContenido += `
+                <h4>➕ Adicional</h4>
+                <div class="form-group"><label>Descripción</label><input type="text" name="descripcion" required></div>
+                <div class="form-group-row">
+                    <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
+                    <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="calcularTotal()" required></div>
+                </div>
+            `;
+        }
+
+        div.innerHTML = htmlContenido;
+        dom.containerServicios.appendChild(div);
     }
 
-    function openModal(pkg) {
-        if (!pkg) return; 
+    // --- Helpers para el HTML Dinámico ---
 
-        // "Bien ordenada": Creamos el HTML para el detalle
-        modalBody.innerHTML = `
-            <div class="modal-detalle-header">
-                <h2>${pkg['destino'] || 'Detalle del Paquete'}</h2>
-            </div>
-            
-            <div class="modal-detalle-body">
-                <div class="detalle-full precio-final">
-                    <label>Precio Final</label>
-                    <p>${pkg['moneda']} $${pkg['tarifa']}</p>
-                </div>
-                <div class="detalle-item">
-                    <label>Costo Proveedor</label>
-                    <p>${pkg['moneda']} $${pkg['costos_proveedor']}</p>
-                </div>
-                <div class="detalle-item">
-                    <label>Fecha Salida</label>
-                    <p>${pkg['fecha_salida']}</p>
-                </div>
-                <div class="detalle-item">
-                    <label>Lugar Salida</label>
-                    <p>${pkg['salida']}</p>
-                </div>
-                <div class="detalle-item">
-                    <label>Financiación</label>
-                    <p>${pkg['financiacion']}</p>
-                </div>
-                <div class="detalle-full">
-                    <label>Descripción / Itinerario</label>
-                    <p>${pkg['descripcion']}</p>
-                </div>
-                <div class="detalle-item">
-                    <label>Cargado Por</label>
-                    <p>${pkg['creador']}</p>
-                </div>
-            </div>
+    window.crearContadorHTML = (name, valDefault) => {
+        return `
+            <div class="counter-wrapper">
+                <button type="button" class="counter-btn" onclick="this.nextElementSibling.innerText = Math.max(0, parseInt(this.nextElementSibling.innerText) - 1)">-</button>
+                <span class="counter-value" id="${name}-val">${valDefault}</span>
+                <button type="button" class="counter-btn" onclick="this.previousElementSibling.innerText = parseInt(this.previousElementSibling.innerText) + 1">+</button>
+                <input type="hidden" name="${name}" value="${valDefault}"> </div>
         `;
+    };
+
+    window.mostrarContadorEquipaje = (select, id) => {
+        const divCant = document.getElementById(`equipaje-cantidad-${id}`);
+        // Si es objeto personal, ocultamos cantidad. Si no, mostramos.
+        divCant.style.display = (select.value === 'objeto_personal') ? 'none' : 'block';
+    };
+
+    window.calcularNoches = (id) => {
+        const card = document.querySelector(`.servicio-card[data-id="${id}"]`);
+        const inDate = new Date(card.querySelector('input[name="checkin"]').value);
+        const outDate = new Date(card.querySelector('input[name="checkout"]').value);
         
-        modalDetalle.style.display = 'flex';
-    }
+        if (inDate && outDate && outDate > inDate) {
+            const diffTime = Math.abs(outDate - inDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            document.getElementById(`noches-${id}`).value = diffDays;
+        } else {
+            document.getElementById(`noches-${id}`).value = "-";
+        }
+    };
 
-    // Listeners de Auth
-    btnLogin.addEventListener('click', login);
-    btnLogout.addEventListener('click', logout);
-    
-    // Listeners de Navegación
-    navSearch.addEventListener('click', () => showView('search'));
-    navUpload.addEventListener('click', () => showView('upload'));
+    window.calcularTotal = () => {
+        let total = 0;
+        document.querySelectorAll('.input-costo').forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
+        dom.inputCostoTotal.value = total;
+    };
 
-    // Listener del Modal (Delegación de eventos)
-    grillaPaquetes.addEventListener('click', (e) => {
-        const card = e.target.closest('.paquete-card');
-        if (card) {
-            const pkg = JSON.parse(card.dataset.packageData);
-            openModal(pkg);
+    // =========================================================
+    // RECOPILAR DATOS PARA EL ENVÍO (Submit)
+    // =========================================================
+
+    dom.uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // 1. Recopilar datos generales
+        const paqueteBase = {
+            destino: document.getElementById('upload-destino').value,
+            salida: document.getElementById('upload-salida').value,
+            fecha_salida: document.getElementById('upload-fecha-salida').value,
+            moneda: document.getElementById('upload-moneda').value,
+            tipo_promo: document.getElementById('upload-promo').value,
+            financiacion: document.getElementById('upload-financiacion').value,
+            descripcion_publica: document.getElementById('upload-descripcion').value,
+            costo_total: document.getElementById('upload-costo-total').value,
+            tarifa_venta: document.getElementById('upload-tarifa-total').value,
+            servicios: [] // Aquí guardaremos el array de detalles
+        };
+
+        // 2. Recorrer cada tarjeta de servicio y extraer datos
+        document.querySelectorAll('.servicio-card').forEach(card => {
+            const tipo = card.dataset.tipo;
+            const servicioData = { tipo: tipo };
+
+            // Extraemos todos los inputs dentro de esa tarjeta
+            card.querySelectorAll('input, select').forEach(input => {
+                if (input.type === 'checkbox') {
+                    servicioData[input.name] = input.checked;
+                } else if (input.type === 'hidden') {
+                    // Para los contadores, leemos el span hermano
+                    const spanVal = input.parentElement.querySelector('.counter-value');
+                    if (spanVal) servicioData[input.name] = spanVal.innerText;
+                } else {
+                    servicioData[input.name] = input.value;
+                }
+            });
+            paqueteBase.servicios.push(servicioData);
+        });
+
+        // 3. Enviar a n8n
+        // (Aquí reutilizas tu función secureFetch existente)
+        try {
+            // Nota: Enviaremos 'paqueteBase' como el body
+            await secureFetch(API_URL_UPLOAD, {
+                method: 'POST',
+                body: JSON.stringify(paqueteBase)
+            });
+            alert('¡Paquete guardado con éxito!');
+            // Resetear form...
+        } catch (error) {
+            console.error(error);
+            alert('Error al guardar');
         }
     });
-    modalCerrar.addEventListener('click', () => modalDetalle.style.display = 'none');
-    window.onclick = (e) => { if (e.target === modalDetalle) modalDetalle.style.display = 'none'; };
+
 });
-
-
-
