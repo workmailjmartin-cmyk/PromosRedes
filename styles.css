@@ -1,8 +1,8 @@
 /* --- 1. Variables de Color y Setup Base --- */
 :root {
-    --color-base: #11173d;       /* Azul Oscuro */
-    --color-acento: #ef5a1a;     /* Naranja */
-    --color-secundario: #56DDE0; /* Cian */
+    --color-base: #11173d;       
+    --color-acento: #ef5a1a;     
+    --color-secundario: #56DDE0; 
     --color-fondo: #f4f7f9;
     --color-tarjeta: #ffffff;
     --color-texto: #333;
@@ -434,4 +434,107 @@ body {
     font-size: 2em;
     font-weight: 700;
     color: var(--color-acento);
+
+}
+/* --- Estilos para Carga Avanzada --- */
+.section-title {
+    font-size: 1.1em;
+    font-weight: 700;
+    color: var(--color-base);
+    margin: 25px 0 15px 0;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #eee;
+}
+
+.servicio-card {
+    background: #fdfdfd;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 15px;
+    position: relative;
+    border-left: 5px solid var(--color-secundario);
+}
+
+.servicio-card.aereo { border-left-color: #3498db; }
+.servicio-card.hotel { border-left-color: #9b59b6; }
+.servicio-card.traslado { border-left-color: #f1c40f; }
+.servicio-card.seguro { border-left-color: #2ecc71; }
+
+.btn-eliminar-servicio {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #e74c3c;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1.2em;
+}
+
+.add-service-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    background: #f4f7f9;
+    padding: 15px;
+    border-radius: 8px;
+    align-items: center;
+}
+
+/* Contadores (+ -) */
+.counter-wrapper {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    width: fit-content;
+}
+.counter-btn {
+    background: #eee;
+    border: none;
+    padding: 10px 15px;
+    cursor: pointer;
+    font-weight: bold;
+}
+.counter-btn:hover { background: #ddd; }
+.counter-value {
+    padding: 0 15px;
+    min-width: 30px;
+    text-align: center;
+    font-weight: 600;
+}
+
+/* Checkbox estilizados */
+.checkbox-group {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-top: 5px;
+}
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    background: #fff;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+}
+.checkbox-label:has(input:checked) {
+    background: var(--color-secundario);
+    border-color: var(--color-secundario);
+    color: var(--color-base);
+    font-weight: 600;
+}
+
+.totales-container {
+    background: #eef2f5;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
 }
