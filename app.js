@@ -1,16 +1,30 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // 1. CONFIGURACIÓN (Tus datos)
-    const firebaseConfig = { /* ... PEGA TUS DATOS DE FIREBASE AQUÍ ... */ };
-    const API_URL_SEARCH = '/* ... PEGA TU URL DE BUSQUEDA ... */';
-    const API_URL_UPLOAD = '/* ... PEGA TU URL DE CARGA ... */';
+     const firebaseConfig = {
+     apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk",
+     authDomain: "feliz-viaje-43d02.firebaseapp.com",
+     projectId: "feliz-viaje-43d02",
+     storageBucket: "feliz-viaje-43d02.firebasestorage.app",
+     messagingSenderId: "931689659600",
+     appId: "1:931689659600:web:66dbce023705936f26b2d5",
+     measurementId: "G-2PNDZR3ZS1"
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
+    };
+    const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
+    const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
     const allowedEmails = [ /* ... PEGA TUS EMAILS ... */ ];
 
     // Inicialización Firebase
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const provider = new firebase.auth.GoogleAuthProvider();
-    let currentUser = null;
+    const allowedEmails = [
+        'yairlaquis@gmail.com',
+    ];
 
     // Elementos DOM Globales
     const dom = {
@@ -267,3 +281,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 });
+
