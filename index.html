@@ -83,65 +83,92 @@
             </div>
 
             <div id="view-upload" class="view">
-                <section class="upload-form-container">
-                    <h3>Cargar Nuevo Paquete</h3>
-                    <p>El campo "Creador" y "Fecha de Carga" se asignarán automáticamente.</p>
-                    <form id="upload-form" class="upload-form">
-                        <div class="form-group">
-                            <label for="upload-destino">Destino</label>
-                            <input type="text" id="upload-destino" required>
-                        </div>
-                        <div class="form-group-row">
-                            <div class="form-group">
-                                <label for="upload-salida">Salida (Ej: Buenos Aires)</label>
-                                <input type="text" id="upload-salida">
-                            </div>
-                            <div class="form-group">
-                                <label for="upload-fecha-salida">Fecha Salida (DD/MM/AAAA)</label>
-                                <input type="text" id="upload-fecha-salida" placeholder="DD/MM/AAAA" required>
-                            </div>
-                        </div>
-                        <div class="form-group-row">
-                            <div class="form-group">
-                                <label for="upload-costo">Costo Proveedor</label>
-                                <input type="number" id="upload-costo" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="upload-tarifa">Tarifa (Venta)</label>
-                                <input type="number" id="upload-tarifa" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="upload-moneda">Moneda</label>
-                                <select id="upload-moneda" required>
-                                    <option value="USD">USD</option>
-                                    <option value="ARS">Pesos (ARS)</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group-row">
-                             <div class="form-group">
-                                <label for="upload-promo">Tipo de Promoción</label>
-                                <select id="upload-promo" required>
-                                    <option value="FEED">FEED</option>
-                                    <option value="Solo X Hoy">Solo X Hoy</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="upload-financiacion">Financiación</label>
-                                <input type="text" id="upload-financiacion">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="upload-descripcion">Descripción / Itinerario</label>
-                            <textarea id="upload-descripcion" rows="5" placeholder="Escribe los detalles del paquete aquí..."></textarea>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" id="boton-subir" class="btn btn-primario">Guardar Paquete</button>
-                            <p id="upload-status" class="status-message"></p>
-                        </div>
-                    </form>
-                </section>
+    <section class="upload-form-container">
+        <h3>Cargar Nuevo Paquete</h3>
+        <form id="upload-form" class="upload-form">
+            
+            <div class="section-title">Datos Generales</div>
+            <div class="form-group-row">
+                <div class="form-group">
+                    <label>Destino Principal</label>
+                    <input type="text" id="upload-destino" required>
+                </div>
+                <div class="form-group">
+                    <label>Lugar de Salida</label>
+                    <input type="text" id="upload-salida" required>
+                </div>
             </div>
+            
+            <div class="form-group-row">
+                <div class="form-group">
+                    <label>Fecha de Salida del Viaje</label>
+                    <input type="date" id="upload-fecha-salida" required>
+                </div>
+                <div class="form-group">
+                    <label>Moneda (Para todos los servicios)</label>
+                    <select id="upload-moneda" required>
+                        <option value="USD">Dólar (USD)</option>
+                        <option value="EUR">Euro (EUR)</option>
+                        <option value="ARS">Pesos (ARS)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group-row">
+                <div class="form-group">
+                    <label>Tipo de Promoción</label>
+                    <select id="upload-promo" required>
+                        <option value="FEED">FEED</option>
+                        <option value="Solo X Hoy">Solo X Hoy</option>
+                        <option value="ADS">ADS</option> </select>
+                </div>
+                <div class="form-group">
+                    <label>Financiación</label>
+                    <input type="text" id="upload-financiacion" placeholder="Ej: 6 cuotas sin interés">
+                </div>
+            </div>
+
+            <div class="section-title">Servicios Incluidos</div>
+            <div id="servicios-container">
+                </div>
+
+            <div class="add-service-bar">
+                <select id="selector-servicio">
+                    <option value="" disabled selected>+ Agregar Servicio...</option>
+                    <option value="aereo">✈️ Aéreo</option>
+                    <option value="hotel">🏨 Hotel</option>
+                    <option value="traslado">uD83DuDE90 Traslado</option>
+                    <option value="seguro">uD83DuDEE1️ Seguro</option>
+                    <option value="adicional">➕ Adicional</option>
+                </select>
+                <button type="button" id="btn-agregar-servicio" class="btn btn-secundario">Agregar</button>
+            </div>
+
+            <div class="totales-container">
+                <div class="form-group-row">
+                    <div class="form-group">
+                        <label>Costo Total Proveedor</label>
+                        <input type="number" id="upload-costo-total" readonly placeholder="Calculado auto...">
+                    </div>
+                    <div class="form-group">
+                        <label>Tarifa Final de Venta</label>
+                        <input type="number" id="upload-tarifa-total" required placeholder="Ingresa el precio final">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Descripción / Itinerario Público</label>
+                <textarea id="upload-descripcion" rows="4" placeholder="Lo que verá el cliente en la tarjeta..."></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" id="boton-subir" class="btn btn-primario">Guardar Paquete Completo</button>
+                <p id="upload-status" class="status-message"></p>
+            </div>
+        </form>
+    </section>
+</div>
         </main>
 
         <div id="modal-detalle" class="modal-overlay">
@@ -154,4 +181,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>
