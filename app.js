@@ -140,11 +140,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Login Handlers
     dom.btnLoginGoogle.addEventListener('click', () => auth.signInWithPopup(provider).catch(e => dom.authError.textContent = e.message));
-    dom.loginEmailForm.addEventListener('submit', (e) => {
+    
+    // --- LOGIN INTELIGENTE (Login o Registro Automático) ---
+    dom.loginEmailForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('login-email').value;
         const pass = document.getElementById('login-pass').value;
-        auth.signInWithEmailAndPassword(email, pass).catch(e => dom.authError.textContent = "Error: " + e.message);
+        dom.authError.textContent = "Verificando...";
+
+        try {
+            // 1. Intentamos iniciar sesión normal
+            await auth.signInWithEmailAndPassword(email, pass);
+        } catch (error) {
+            // 2. Si el error es "Usuario no encontrado", intentamos registrarlo
+            if (error.code === 'auth/user-not-found') {
+                try {
+                    // A. Verificamos si el admin lo autorizó en la base de datos
+                    const doc = await db.collection('usuarios').doc(email).get();
+                    
+                    if (doc.exists) {
+                        // B. ¡SÍ ESTÁ EN LA LISTA! Creamos la cuenta con esa contraseña
+                        await auth.createUserWithEmailAndPassword(email, pass);
+                        // El listener onAuthStateChanged se encargará del resto
+                        alert("¡Bienvenido! Tu cuenta ha sido creada exitosamente.");
+                    } else {
+                        // C. NO ESTÁ EN LA LISTA
+                        dom.authError.textContent = "Error: Este correo no tiene permiso de acceso. Contacta al administrador.";
+                    }
+                } catch (registerError) {
+                    dom.authError.textContent = "Error al registrar: " + registerError.message;
+                }
+            } else if (error.code === 'auth/wrong-password') {
+                dom.authError.textContent = "Error: Contraseña incorrecta.";
+            } else {
+                dom.authError.textContent = "Error: " + error.message;
+            }
+        }
     });
     dom.btnLogout.addEventListener('click', () => auth.signOut());
 
@@ -399,6 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.grid.addEventListener('click', e => { const c=e.target.closest('.paquete-card'); if(c) openModal(JSON.parse(c.dataset.packageData)); });
     dom.modalClose.onclick=()=>dom.modal.style.display='none'; window.onclick=e=>{if(e.target===dom.modal)dom.modal.style.display='none';};
 });
+
 
 
 
