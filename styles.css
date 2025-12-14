@@ -538,3 +538,51 @@ body {
     border-radius: 8px;
     margin-top: 20px;
 }
+.modal-contenido {
+    padding: 0 !important; /* Quitamos padding general para que el pie toque los bordes */
+    max-width: 900px; /* Un poco más ancho para las dos columnas */
+    overflow: hidden; /* Para que el border-radius del pie se vea bien */
+}
+
+.modal-detalle-header {
+    padding: 20px;
+    background: #f4f7f9;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-detalle-header h2 {
+    margin: 0;
+    color: var(--color-base);
+}
+
+/* El cuerpo del modal ahora usa Grid internamente en el JS, 
+   así que quitamos estilos viejos si los hubiera */
+.modal-detalle-body {
+    display: block; 
+    padding: 0;
+}
+
+/* Ajuste para pantallas pequeñas (celulares) */
+@media (max-width: 768px) {
+    .modal-detalle-body > div[style*="display: grid"] {
+        grid-template-columns: 1fr !important; /* Pasa a 1 sola columna */
+        gap: 10px !important;
+    }
+    
+    /* El pie se apila en móviles */
+    .modal-contenido > div:last-child {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    .modal-contenido > div:last-child > div:first-child {
+        flex-direction: column;
+        gap: 15px;
+    }
+    .modal-contenido > div:last-child > div:last-child {
+        text-align: center;
+    }
+}
