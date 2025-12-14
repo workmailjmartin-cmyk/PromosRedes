@@ -38,7 +38,9 @@ firebase.initializeApp(firebaseConfig);
         btnLogout: document.getElementById('logout-button'), userEmail: document.getElementById('user-email'),
         authError: document.getElementById('auth-error'), loginContainer: document.getElementById('login-container'),
         appContainer: document.getElementById('app-container'), btnBuscar: document.getElementById('boton-buscar'),
-        btnLimpiar: document.getElementById('boton-limpiar'), logo: document.querySelector('.logo')
+        btnLimpiar: document.getElementById('boton-limpiar'), logo: document.querySelector('.logo'),
+        // NUEVO SELECTOR
+        filtroOrden: document.getElementById('filtro-orden')
     };
 
     if(dom.logo) { dom.logo.style.cursor = 'pointer'; dom.logo.addEventListener('click', () => window.location.reload()); }
@@ -115,7 +117,7 @@ firebase.initializeApp(firebaseConfig);
     });
 
     // =========================================================
-    // 4. RENDERIZADO Y MODAL (REDISEÑADO)
+    // 4. RENDERIZADO Y MODAL
     // =========================================================
 
     function getNoches(pkg) {
@@ -140,7 +142,6 @@ firebase.initializeApp(firebaseConfig);
         });
     }
 
-    // --- FUNCIÓN 1: Renderizado para el Cliente (Izquierda) ---
     function renderServiciosClienteHTML(rawJson) {
         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>Sin detalles.</p>'; }
         if(!Array.isArray(servicios)||servicios.length===0) return '<p>Sin detalles.</p>';
@@ -153,56 +154,44 @@ firebase.initializeApp(firebaseConfig);
             else if(s.tipo==='seguro'){ icono='🛡️'; titulo='SEGURO'; lineas.push(`<b>Cob:</b> ${s.proveedor}`); }
             else if(s.tipo==='adicional'){ icono='➕'; titulo='ADICIONAL'; lineas.push(`<b>${s.descripcion}</b>`); }
             if(s.obs) lineas.push(`<i>Obs: ${s.obs}</i>`);
-            // ¡IMPORTANTE: AQUÍ NO SE MUESTRAN COSTOS NI PROVEEDORES!
             html+=`<div style="margin-bottom:10px;border-left:3px solid #ddd;padding-left:10px;"><div style="color:#11173d;font-weight:bold;">${icono} ${titulo}</div><div style="font-size:0.9em;color:#555;">${lineas.map(l=>`<div>${l}</div>`).join('')}</div></div>`;
         });
         return html;
     }
 
-    // --- FUNCIÓN 2: Renderizado de Costos (Derecha Abajo) ---
     function renderCostosProveedoresHTML(rawJson) {
         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>-</p>'; }
         if(!Array.isArray(servicios)||servicios.length===0) return '<p>-</p>';
         let html='<ul style="list-style:none; padding:0; margin:0;">';
         servicios.forEach(s => {
             const tipo = s.tipo ? s.tipo.toUpperCase() : 'SERVICIO';
-            html += `<li style="margin-bottom:5px; font-size:0.9em; border-bottom:1px dashed #eee; padding-bottom:5px;">
-                <b>${tipo}:</b> ${s.proveedor || '-'} <span style="float:right;">$${formatMoney(s.costo || 0)}</span>
-            </li>`;
+            html += `<li style="margin-bottom:5px; font-size:0.9em; border-bottom:1px dashed #eee; padding-bottom:5px;"><b>${tipo}:</b> ${s.proveedor || '-'} <span style="float:right;">$${formatMoney(s.costo || 0)}</span></li>`;
         });
         html += '</ul>';
         return html;
     }
 
-    // --- MODAL REDISEÑADO ---
     function openModal(pkg) {
         const rawServicios = pkg['servicios'] || pkg['item.servicios'];
         const htmlCliente = renderServiciosClienteHTML(rawServicios);
         const htmlCostos = renderCostosProveedoresHTML(rawServicios);
         const noches = getNoches(pkg);
+        const tarifaDoble = Math.round((parseFloat(pkg['tarifa']) || 0) / 2);
 
-        // Usamos CSS Grid para el diseño de dos columnas
         dom.modalBody.innerHTML = `
             <div class="modal-detalle-header"><h2>${pkg['destino']}</h2><span class="tag-promo">${pkg['tipo_promo']}</span></div>
             
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">
-                <div>
-                    <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>
-                    ${htmlCliente}
-                </div>
-
+                <div><h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>${htmlCliente}</div>
                 <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;">
                     <div style="margin-bottom:20px;">
-                        <h4 style="margin:0 0 10px 0; color:#11173d;">Resumen del Viaje</h4>
+                        <h4 style="margin:0 0 10px 0; color:#11173d;">Resumen</h4>
                         <p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${formatDateAR(pkg['fecha_salida'])}</p>
                         <p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${pkg['salida']}</p>
                         <p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p>
+                        <p style="margin:5px 0; font-size:0.9em;"><b>📅 Cargado el:</b> ${pkg['fecha_creacion'] || '-'}</p>
                     </div>
-
-                    <div>
-                        <h4 style="margin:0 0 10px 0; color:#11173d; border-top:1px solid #eee; padding-top:15px;">Costos y Proveedores (Interno)</h4>
-                        ${htmlCostos}
-                    </div>
+                    <div><h4 style="margin:0 0 10px 0; color:#11173d; border-top:1px solid #eee; padding-top:15px;">Costos (Interno)</h4>${htmlCostos}</div>
                      ${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}
                 </div>
             </div>
@@ -211,6 +200,7 @@ firebase.initializeApp(firebaseConfig);
                 <div style="display:flex; gap:30px;">
                     <div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div>
                     <div><small style="opacity:0.7;">Tarifa Final</small><div style="font-size:1.2em; font-weight:bold; color:#ef5a1a;">${pkg['moneda']} $${formatMoney(pkg['tarifa'])}</div></div>
+                    <div><small style="opacity:0.7;">Base Doble (x Pax)</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div></div>
                 </div>
                 <div style="text-align:right;"><small style="opacity:0.7;">Cargado por:</small><div style="font-size:0.9em;">${pkg['creador']}</div></div>
             </div>
@@ -218,17 +208,58 @@ firebase.initializeApp(firebaseConfig);
         dom.modal.style.display = 'flex';
     }
 
+    // --- FUNCIÓN CENTRAL DE FILTRADO Y ORDENAMIENTO ---
+    function applyFilters() {
+        const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
+        const fCreador = document.getElementById('filtro-creador').value;
+        const fPromo = document.getElementById('filtro-promo').value;
+        const fOrden = document.getElementById('filtro-orden') ? document.getElementById('filtro-orden').value : 'reciente';
+
+        // 1. Filtrar
+        let result = allPackages.filter(pkg => {
+            const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
+            const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
+            const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
+            return mDestino && mCreador && mPromo;
+        });
+
+        // 2. Ordenar
+        if (fOrden === 'menor_precio') {
+            result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa));
+        } else if (fOrden === 'mayor_precio') {
+            result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
+        } else {
+            // Default: Más reciente (por fecha_creacion string dd/mm/yyyy)
+            result.sort((a, b) => {
+                const da = a['fecha_creacion'] ? a['fecha_creacion'].split('/').reverse().join('') : '';
+                const db = b['fecha_creacion'] ? b['fecha_creacion'].split('/').reverse().join('') : '';
+                return db.localeCompare(da);
+            });
+        }
+
+        renderCards(result);
+    }
+
+    // Funciones Base
     function fetchAndLoadPackages() { fetchPackages(); }
-    async function fetchPackages(f={}) { try{ const d=await secureFetch(API_URL_SEARCH, f); allPackages=d.sort((a,b)=>(b['fecha_creacion']||'').localeCompare(a['fecha_creacion']||'')); renderCards(allPackages); }catch(e){console.error(e);} }
+    async function fetchPackages(f={}) { try{ const d=await secureFetch(API_URL_SEARCH, f); allPackages=d; applyFilters(); }catch(e){console.error(e);} } // applyFilters aplica el orden por defecto
     function showView(n) { dom.viewSearch.classList.toggle('active',n==='search'); dom.viewUpload.classList.toggle('active',n==='upload'); dom.navSearch.classList.toggle('active',n==='search'); dom.navUpload.classList.toggle('active',n==='upload'); }
     dom.navSearch.onclick=()=>showView('search'); dom.navUpload.onclick=()=>showView('upload');
     dom.grid.addEventListener('click', e => { const c=e.target.closest('.paquete-card'); if(c) openModal(JSON.parse(c.dataset.packageData)); });
     dom.modalClose.onclick=()=>dom.modal.style.display='none'; window.onclick=e=>{if(e.target===dom.modal)dom.modal.style.display='none';};
-    dom.btnBuscar.addEventListener('click', () => {
-        const fD=document.getElementById('filtro-destino').value.toLowerCase(), fC=document.getElementById('filtro-creador').value, fP=document.getElementById('filtro-promo').value;
-        renderCards(allPackages.filter(p => (!fD||(p.destino&&p.destino.toLowerCase().includes(fD))) && (!fC||(p.creador&&p.creador===fC)) && (!fP||(p.tipo_promo&&p.tipo_promo===fP))));
+
+    // Listeners de Filtros
+    dom.btnBuscar.addEventListener('click', applyFilters);
+    dom.btnLimpiar.addEventListener('click', () => { 
+        document.getElementById('filtro-destino').value=''; 
+        document.getElementById('filtro-creador').value=''; 
+        document.getElementById('filtro-promo').value='';
+        if(dom.filtroOrden) dom.filtroOrden.value='reciente';
+        applyFilters(); 
     });
-    dom.btnLimpiar.addEventListener('click', () => { document.getElementById('filtro-destino').value=''; document.getElementById('filtro-creador').value=''; document.getElementById('filtro-promo').value=''; renderCards(allPackages); });
+    // Si agregas el selector en el HTML, esto funcionará automáticamente
+    if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
 });
+
 
 
