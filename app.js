@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'yairlaquis@gmail.com'
     ];
 
-firebase.initializeApp(firebaseConfig);
+firebase.initializeApp(firebaseConfig); 
     const auth = firebase.auth();
     const provider = new firebase.auth.GoogleAuthProvider();
     
@@ -40,8 +40,15 @@ firebase.initializeApp(firebaseConfig);
         btnLogout: document.getElementById('logout-button'), userEmail: document.getElementById('user-email'),
         authError: document.getElementById('auth-error'), loginContainer: document.getElementById('login-container'),
         appContainer: document.getElementById('app-container'), btnBuscar: document.getElementById('boton-buscar'),
-        btnLimpiar: document.getElementById('boton-limpiar')
+        btnLimpiar: document.getElementById('boton-limpiar'), 
+        logo: document.querySelector('.logo') // Referencia al logo
     };
+
+    // --- ACCIÓN DEL LOGO (Recargar Página) ---
+    if(dom.logo) {
+        dom.logo.style.cursor = 'pointer';
+        dom.logo.addEventListener('click', () => window.location.reload());
+    }
 
     // --- Auth ---
     auth.onAuthStateChanged(async (u) => {
@@ -63,21 +70,12 @@ firebase.initializeApp(firebaseConfig);
         const txt = await res.text(); return txt ? JSON.parse(txt) : [];
     }
 
-    // =========================================================
-    // 3. LOGICA DE FORMATEO (Moneda y Fechas)
-    // =========================================================
-    
-    const formatMoney = (amount) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(amount);
-    
-    // Convierte YYYY-MM-DD a DD/MM/AAAA
-    const formatDateAR = (s) => { 
-        if(!s) return '-'; 
-        const p = s.split('-'); 
-        return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; 
-    };
+    // Formateo
+    const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
+    const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
 
     // =========================================================
-    // 4. LÓGICA DE CARGA Y VALIDACIÓN (¡ESTRICTA!)
+    // 3. LÓGICA DE CARGA (FORMULARIO DINÁMICO)
     // =========================================================
 
     dom.btnAgregarServicio.addEventListener('click', () => {
@@ -94,7 +92,7 @@ firebase.initializeApp(firebaseConfig);
         const fechaBase = dom.inputFechaViaje.value || '';
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
 
-        // Plantillas HTML
+        // Plantillas HTML (Iguales, asegurando que los inputs tengan los names correctos)
         if (tipo === 'aereo') {
              html += `<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" value="${fechaBase}" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas', 0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
         } else if (tipo === 'hotel') {
@@ -115,46 +113,63 @@ firebase.initializeApp(firebaseConfig);
     window.calcularNoches = (id) => { const c=document.querySelector(`.servicio-card[data-id="${id}"]`); const i=new Date(c.querySelector('input[name="checkin"]').value), o=new Date(c.querySelector('input[name="checkout"]').value); document.getElementById(`noches-${id}`).value=(i&&o&&o>i)?Math.ceil((o-i)/86400000):'-'; };
     window.calcularTotal = () => { let t=0; document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); dom.inputCostoTotal.value=t; };
 
-    // --- ENVÍO CON VALIDACIÓN DE FECHAS ---
+    // =========================================================
+    // 4. VALIDACIÓN Y ENVÍO (LÓGICA ACTUALIZADA)
+    // =========================================================
+
     dom.uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // 1. Validar Precio
+        // --- A. VALIDACIÓN PRECIOS ---
         const costo = parseFloat(dom.inputCostoTotal.value)||0; 
         const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value)||0;
-        if(tarifa < costo) { alert(`⛔ ERROR: La tarifa ($${tarifa}) es menor al costo ($${costo}).`); return; }
+        if(tarifa < costo) { alert(`⛔ ERROR PRECIO: La tarifa ($${tarifa}) es menor al costo ($${costo}).`); return; }
 
-        // 2. Validar Fechas (Regla: Ningún servicio < Fecha Viaje | Hotel Out > In)
+        // --- B. VALIDACIÓN FECHAS ---
         const fechaViajeStr = dom.inputFechaViaje.value;
         if (!fechaViajeStr) { alert("Ingresa la fecha de salida del viaje."); return; }
-        // Truco: Usamos "T00:00:00" para asegurar que se compare la fecha local y no UTC
         const fechaViaje = new Date(fechaViajeStr + 'T00:00:00'); 
         
-        let errorMsg = null;
-        
+        // 1. Buscamos la fecha de regreso del VUELO (Si existe)
+        let fechaRegresoVuelo = null;
         const cards = document.querySelectorAll('.servicio-card');
+        
         if(cards.length === 0) { alert("Agrega al menos un servicio."); return; }
 
-        // Recolectamos datos SOLO si pasa la validación
-        const serviciosData = [];
+        // Buscamos primero el vuelo para establecer el límite
+        for (let card of cards) {
+            if (card.dataset.tipo === 'aereo') {
+                const regresoInput = card.querySelector('input[name="fecha_regreso"]');
+                if (regresoInput && regresoInput.value) {
+                    const f = new Date(regresoInput.value + 'T00:00:00');
+                    // Tomamos la fecha más lejana si hay múltiples vuelos
+                    if (!fechaRegresoVuelo || f > fechaRegresoVuelo) {
+                        fechaRegresoVuelo = f;
+                    }
+                }
+            }
+        }
 
+        let errorMsg = null;
+
+        // 2. Validamos cada servicio
         for (let card of cards) {
             const tipo = card.dataset.tipo;
             
-            // Validar vs Fecha Salida Viaje
+            // --- Regla 1: Ningún servicio anterior a la salida del viaje ---
             const inputsFecha = card.querySelectorAll('input[type="date"]');
             for (let input of inputsFecha) {
                 if(input.value) {
                     const fServicio = new Date(input.value + 'T00:00:00');
                     if (fServicio < fechaViaje) {
-                        errorMsg = `⛔ FECHA INVÁLIDA: Un servicio (${tipo}) tiene fecha anterior a la salida del viaje (${formatDateAR(fechaViajeStr)}).`;
+                        errorMsg = `⛔ FECHA INVÁLIDA: El servicio (${tipo}) inicia antes de la salida del viaje.`;
                         break;
                     }
                 }
             }
             if(errorMsg) break;
 
-            // Validar Hotel (Out > In)
+            // --- Regla 2: Hotel Check-out > Check-in ---
             if (tipo === 'hotel') {
                 const inStr = card.querySelector('input[name="checkin"]').value;
                 const outStr = card.querySelector('input[name="checkout"]').value;
@@ -166,8 +181,47 @@ firebase.initializeApp(firebaseConfig);
                 }
             }
 
-            // Guardar datos
-            const serv = { tipo };
+            // --- Regla 3: Validación contra Regreso de Vuelo (La nueva regla) ---
+            if (fechaRegresoVuelo) {
+                // Definimos fechas de fin del servicio actual
+                let fechaFinServicio = null;
+                
+                if (tipo === 'hotel') {
+                    const outStr = card.querySelector('input[name="checkout"]').value;
+                    if(outStr) fechaFinServicio = new Date(outStr + 'T00:00:00');
+                } else if (tipo === 'seguro' || tipo === 'traslado' || tipo === 'adicional') {
+                    // Como seguro/traslado/adicional no tienen fecha explícita en tu form actual,
+                    // esta validación aplicaría si agregas campo fecha.
+                    // Si no tienen fecha, no podemos validarlos contra el vuelo.
+                    // *NOTA*: Asumiendo que no tienen input de fecha "fin", saltamos.
+                }
+
+                if (fechaFinServicio) {
+                    // Calculamos tolerancia
+                    const limite = new Date(fechaRegresoVuelo);
+                    // Si es Hotel o Seguro, sumamos 1 día de tolerancia
+                    if (tipo === 'hotel' || tipo === 'seguro') {
+                        limite.setDate(limite.getDate() + 1);
+                    }
+
+                    if (fechaFinServicio > limite) {
+                        const maxStr = formatDateAR(limite.toISOString().split('T')[0]);
+                        errorMsg = `⛔ FECHA LÍMITE: El ${tipo} termina después de lo permitido (${maxStr}) respecto al vuelo.`;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if(errorMsg) { alert(errorMsg); return; } // STOP
+
+        // --- C. ENVÍO ---
+        dom.btnSubir.disabled = true; dom.uploadStatus.textContent = 'Guardando...';
+        
+        // Recolectar datos
+        const serviciosData = [];
+        for (let card of cards) {
+            const serv = { tipo: card.dataset.tipo };
             card.querySelectorAll('input, select').forEach(i => {
                 if (i.type === 'checkbox') serv[i.name] = i.checked;
                 else if (i.type === 'hidden') serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value;
@@ -176,61 +230,46 @@ firebase.initializeApp(firebaseConfig);
             serviciosData.push(serv);
         }
 
-        if(errorMsg) { alert(errorMsg); return; } // DETIENE EL GUARDADO
-
-        // Si llegó aquí, todo está bien
-        dom.btnSubir.disabled = true; dom.uploadStatus.textContent = 'Guardando...';
         const newPackage = {
             destino: document.getElementById('upload-destino').value,
             salida: document.getElementById('upload-salida').value,
-            fecha_salida: fechaViajeStr, // Guardamos string YYYY-MM-DD
+            fecha_salida: fechaViajeStr,
             costos_proveedor: costo, tarifa_venta: tarifa,
             moneda: document.getElementById('upload-moneda').value,
             tipo_promo: document.getElementById('upload-promo').value,
             financiacion: document.getElementById('upload-financiacion').value,
             servicios: serviciosData
         };
-        try { await secureFetch(API_URL_UPLOAD, newPackage); alert('¡Paquete guardado!'); dom.uploadForm.reset(); dom.containerServicios.innerHTML=''; fetchAndLoadPackages(); }
-        catch(e) { console.error(e); dom.uploadStatus.textContent='Error al guardar'; } finally { dom.btnSubir.disabled=false; }
+
+        try { 
+            await secureFetch(API_URL_UPLOAD, newPackage); 
+            alert('¡Paquete guardado con éxito!');
+            // Recargamos la página completa como pediste
+            window.location.reload(); 
+        }
+        catch(e) { console.error(e); dom.uploadStatus.textContent='Error al guardar'; dom.btnSubir.disabled=false; }
     });
 
     // =========================================================
     // 5. RENDERIZADO (TARJETAS Y MODAL)
     // =========================================================
 
-    // Cálculo Robusto de Duración (Noches)
     function calculateDuration(pkg) {
-        // Base: Fecha salida del viaje
         if(!pkg['fecha_salida']) return '';
-        const tripStart = new Date(pkg['fecha_salida'].split('/').reverse().join('-') + 'T00:00:00'); // Asume DD/MM/AAAA si viene de sheet, o YYYY-MM-DD
-        
-        // Si no se puede parsear, intentamos directo (si viene YYYY-MM-DD)
-        const tripStartAlt = new Date(pkg['fecha_salida'] + 'T00:00:00');
-        const start = isNaN(tripStart) ? tripStartAlt : tripStart;
-
-        if (isNaN(start)) return '';
-
+        const start = new Date(pkg['fecha_salida'].split('/').reverse().join('-') + 'T00:00:00');
         let maxDate = new Date(start);
-        let hasEndDates = false;
-
+        let hasData = false;
         let servicios = [];
         try { const raw = pkg['servicios']||pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e){}
         if(!Array.isArray(servicios)) return '';
 
         servicios.forEach(s => {
-            if (s.tipo === 'hotel' && s.checkout) { 
-                const d = new Date(s.checkout + 'T00:00:00'); 
-                if (d > maxDate) { maxDate = d; hasEndDates = true; }
-            }
-            if (s.tipo === 'aereo' && s.fecha_regreso) { 
-                const d = new Date(s.fecha_regreso + 'T00:00:00'); 
-                if (d > maxDate) { maxDate = d; hasEndDates = true; }
-            }
+            if (s.tipo === 'hotel' && s.checkout) { const d = new Date(s.checkout + 'T00:00:00'); if (d > maxDate) { maxDate = d; hasData = true; } }
+            if (s.tipo === 'aereo' && s.fecha_regreso) { const d = new Date(s.fecha_regreso + 'T00:00:00'); if (d > maxDate) { maxDate = d; hasData = true; } }
         });
-
-        if (!hasEndDates) return '';
-        const diffDays = Math.ceil((maxDate - start) / (1000 * 60 * 60 * 24));
-        return diffDays > 0 ? `${diffDays} Noches` : ''; 
+        if (!hasData) return '';
+        const diff = Math.ceil((maxDate - start) / 86400000);
+        return diff > 0 ? `${diff} Noches` : ''; 
     }
 
     function renderCards(list) {
@@ -241,9 +280,7 @@ firebase.initializeApp(firebaseConfig);
             const card = document.createElement('div');
             card.className = 'paquete-card';
             card.dataset.packageData = JSON.stringify(pkg);
-            
-            let precio = parseFloat(pkg['tarifa']) || 0;
-            precio = Math.round(precio / 2);
+            let precio = Math.round((parseFloat(pkg['tarifa'])||0) / 2);
             const duracion = calculateDuration(pkg);
 
             card.innerHTML = `
@@ -267,7 +304,6 @@ firebase.initializeApp(firebaseConfig);
         });
     }
 
-    // Modal con Proveedor y Costo discriminado
     function renderServiciosHTML(rawJson) {
         let servicios = [];
         try { servicios = typeof rawJson === 'string' ? JSON.parse(rawJson) : rawJson; } catch(e) { return '<p>Sin detalles.</p>'; }
@@ -275,8 +311,6 @@ firebase.initializeApp(firebaseConfig);
         let html = '';
         servicios.forEach(s => {
             let icono = '🔹', titulo = '', lineas = [];
-            
-            // Info específica
             if (s.tipo === 'aereo') {
                 icono = '✈️'; titulo = 'AÉREO';
                 lineas.push(`<b>Aerolínea:</b> ${s.aerolinea}`);
@@ -296,11 +330,7 @@ firebase.initializeApp(firebaseConfig);
             } else if (s.tipo === 'seguro') { icono='🛡️'; titulo='SEGURO'; lineas.push(`<b>Cob:</b> ${s.proveedor}`); }
             else if (s.tipo === 'adicional') { icono='➕'; titulo='ADICIONAL'; lineas.push(`<b>${s.descripcion}</b>`); }
 
-            // DATOS INTERNOS (PROVEEDOR Y COSTO) - ¡AGREGADO!
-            lineas.push(`<div style="margin-top:5px; padding-top:5px; border-top:1px dashed #ddd; font-size:0.85em; color:#555;">
-                <b>Prov:</b> ${s.proveedor} &nbsp;|&nbsp; <b>Costo:</b> $${formatMoney(s.costo)}
-            </div>`);
-
+            lineas.push(`<div style="margin-top:5px; padding-top:5px; border-top:1px dashed #ddd; font-size:0.85em; color:#555;"><b>Prov:</b> ${s.proveedor} &nbsp;|&nbsp; <b>Costo:</b> $${formatMoney(s.costo)}</div>`);
             if(s.obs) lineas.push(`<i>Obs: ${s.obs}</i>`);
             html += `<div style="margin-bottom:10px; border-left:3px solid #ddd; padding-left:10px;"><div style="color:#11173d; font-weight:bold;">${icono} ${titulo}</div><div style="font-size:0.9em; color:#555;">${lineas.map(l=>`<div>${l}</div>`).join('')}</div></div>`;
         });
@@ -323,14 +353,12 @@ firebase.initializeApp(firebaseConfig);
         dom.modal.style.display = 'flex';
     }
 
-    // Funciones de vista y cierre
-    function fetchAndLoadPackages() { /* Reutiliza la lógica de búsqueda inicial */ fetchPackages(); }
+    function fetchAndLoadPackages() { fetchPackages(); }
     async function fetchPackages(f={}) { try{ const d=await secureFetch(API_URL_SEARCH, f); allPackages=d.sort((a,b)=>(b['fecha_creacion']||'').localeCompare(a['fecha_creacion']||'')); renderCards(allPackages); }catch(e){console.error(e);} }
     function showView(n) { dom.viewSearch.classList.toggle('active',n==='search'); dom.viewUpload.classList.toggle('active',n==='upload'); dom.navSearch.classList.toggle('active',n==='search'); dom.navUpload.classList.toggle('active',n==='upload'); }
     dom.navSearch.onclick=()=>showView('search'); dom.navUpload.onclick=()=>showView('upload');
     dom.grid.addEventListener('click', e => { const c=e.target.closest('.paquete-card'); if(c) openModal(JSON.parse(c.dataset.packageData)); });
     dom.modalClose.onclick=()=>dom.modal.style.display='none'; window.onclick=e=>{if(e.target===dom.modal)dom.modal.style.display='none';};
-
     // Buscador local
     dom.btnBuscar.addEventListener('click', () => {
         const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
@@ -346,3 +374,4 @@ firebase.initializeApp(firebaseConfig);
     });
     dom.btnLimpiar.addEventListener('click', () => { document.getElementById('filtro-destino').value=''; document.getElementById('filtro-creador').value=''; document.getElementById('filtro-promo').value=''; renderCards(allPackages); });
 });
+
