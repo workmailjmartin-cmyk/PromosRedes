@@ -259,4 +259,35 @@ firebase.initializeApp(firebaseConfig);
     });
     // Si agregas el selector en el HTML, esto funcionará automáticamente
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
+
+    window.showAlert = (message, type = 'error') => {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('custom-alert-overlay');
+        const title = document.getElementById('custom-alert-title');
+        const msg = document.getElementById('custom-alert-message');
+        const icon = document.getElementById('custom-alert-icon');
+        const btn = document.getElementById('custom-alert-btn');
+
+        // Configuración según tipo
+        if (type === 'success') {
+            title.innerText = '¡Éxito!';
+            title.style.color = '#4caf50';
+            icon.innerHTML = '✅';
+        } else {
+            title.innerText = 'Atención';
+            title.style.color = '#ef5a1a';
+            icon.innerHTML = '⚠️';
+        }
+
+        msg.innerText = message;
+        overlay.style.display = 'flex';
+
+        // Manejar el cierre
+        btn.onclick = () => {
+            overlay.style.display = 'none';
+            resolve(); // Resuelve la promesa al cerrar
+        };
+    });
+};
 });
+
