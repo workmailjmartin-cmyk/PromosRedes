@@ -45,28 +45,69 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 1. AUTENTICACIÓN ---
     auth.onAuthStateChanged(async (user) => {
         if (user) {
-            const userData = await verificarAcceso(user.email);
-            if (userData) {
-                currentUser = user;
-                currentRole = userData.role || 'usuario';
-                await cargarAliases();
-                
-                document.getElementById('login-container').style.display='none';
-                document.getElementById('app-container').style.display='block';
-                document.getElementById('user-label').textContent = userAliases[user.email] || user.email;
+            console.log("Intentando ingresar con:", user.email);
+            
+            let role = null;
 
-                setupUI();
-                fetchAndLoadPackages();
-                showView('search');
+            // 1. CHEQUEO SUPER ADMIN (Tú siempre entras)
+            if (user.email === 'yairlaquis@gmail.com') { // <--- Asegúrate que este sea TU email exacto
+                role = 'admin';
+            } 
+            // 2. CHEQUEO BASE DE DATOS (Para el resto)
+            else {
+                try {
+                    const doc = await db.collection('usuarios').doc(user.email).get();
+                    if (doc.exists) {
+                        // Si tiene rol guardado lo usamos, si no, es 'usuario' básico
+                        role = doc.data().role || 'usuario'; 
+                    }
+                } catch (e) {
+                    console.error("Error consultando permisos:", e);
+                }
+            }
+
+            // 3. DECISIÓN DE ACCESO
+            if (role) {
+                // --> ¡Adentro!
+                currentUser = user;
+                // Definimos la variable global currentRole (asegúrate de tenerla declarada arriba con 'let currentRole;')
+                window.currentRole = role; 
+                
+                // Acomodar UI
+                if(dom.loginContainer) dom.loginContainer.style.display = 'none';
+                if(dom.appContainer) dom.appContainer.style.display = 'block';
+                if(dom.userLabel) dom.userLabel.textContent = user.email + " (" + role + ")";
+
+                // Activar botones y cargar datos
+                setupNavPermissions(role);
+                await fetchAndLoadPackages(); 
+                showView('search'); 
+
             } else {
-                alert('Usuario no registrado.');
+                // --> ¡Afuera!
+                alert("Lo sentimos, tu usuario no está registrado en el sistema.");
                 auth.signOut();
             }
+
         } else {
-            document.getElementById('login-container').style.display='flex';
-            document.getElementById('app-container').style.display='none';
+            // Nadie logueado
+            currentUser = null;
+            if(window.currentRole) window.currentRole = null;
+            if(dom.loginContainer) dom.loginContainer.style.display = 'flex';
+            if(dom.appContainer) dom.appContainer.style.display = 'none';
         }
     });
+
+    // Función para mostrar botones según el rol
+    function setupNavPermissions(role) {
+        // Botón Cargar: Visible para todos los que entraron
+        if (dom.navUpload) dom.navUpload.style.display = 'inline-block';
+        
+        // Botón Usuarios: Visible SOLO para Admin
+        if (dom.navUsers) {
+            dom.navUsers.style.display = (role === 'admin') ? 'inline-block' : 'none';
+        }
+    }
 
     async function verificarAcceso(email) {
         if(email===SUPER_ADMIN) return {role:'admin'};
@@ -470,6 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.btnNuevoUsuario.onclick=()=>{dom.formUsuario.reset(); dom.modalUsuario.style.display='flex';};
     dom.btnCerrarUserModal.onclick=()=>dom.modalUsuario.style.display='none';
 });
+
 
 
 
