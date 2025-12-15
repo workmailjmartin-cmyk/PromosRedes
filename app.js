@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const role = await verificarAcceso(user.email);
             
             if (role) {
+                // ACCESO CONCEDIDO
                 currentUser = user;
                 currentRole = role; 
                 
@@ -61,10 +62,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 dom.userLabel.textContent = `${user.email}`;
 
                 setupUIByRole();
-                await fetchAndLoadPackages();
+                await fetchAndLoadPackages(); // <--- ESTO FALTABA PARA QUE LOS USUARIOS VIERAN PAQUETES
                 showView('search');
             } else {
-                alert("Acceso denegado: Usuario no registrado en el sistema.");
+                // ACCESO DENEGADO
+                alert("Acceso denegado: Usuario no registrado en el sistema. Contacte al Administrador.");
                 auth.signOut();
             }
         } else {
@@ -97,11 +99,11 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         try {
             await auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-pass').value);
-        } catch (error) { dom.authError.textContent = "Error: Credenciales inválidas."; }
+        } catch (error) { dom.authError.textContent = "Error: Credenciales inválidas o usuario no existe."; }
     };
     dom.btnLogout.onclick = () => auth.signOut();
 
-    // --- GESTIÓN USUARIOS ---
+    // --- GESTIÓN USUARIOS (Solo Admin) ---
     async function cargarTablaUsuarios() {
         if (currentRole !== 'admin') return;
         dom.listaUsuarios.innerHTML = '<tr><td colspan="3">Cargando...</td></tr>';
@@ -150,11 +152,69 @@ document.addEventListener('DOMContentLoaded', () => {
         const id = Date.now(); const div = document.createElement('div'); div.className = `servicio-card ${tipo}`; div.dataset.id = id; div.dataset.tipo = tipo;
         const fechaBase = dom.inputFechaViaje.value || '';
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
-        if (tipo === 'aereo') { html += `<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" value="${fechaBase}" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas', 0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
-        else if (tipo === 'hotel') { html += `<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" value="${fechaBase}" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
-        else if (tipo === 'traslado') { html += `<h4>🚌 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hotel"> Hotel-Hotel</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
-        else if (tipo === 'seguro') { html += `<h4>🛡️ Seguro</h4><div class="form-group-row"><div class="form-group"><label>Cobertura</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
-        else if (tipo === 'adicional') { html += `<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
+        
+        // --- AQUÍ EL HTML PARA EL FORMULARIO MODERNO (GRID) ---
+        if (tipo === 'aereo') { 
+            html += `<h4>✈️ Aéreo</h4>
+            <div class="form-grid">
+                <div class="filtro-item"><label>Aerolínea</label><input type="text" name="aerolinea" required></div>
+                <div class="filtro-item"><label>Ida</label><input type="date" name="fecha_aereo" value="${fechaBase}" required></div>
+            </div>
+            <div class="form-grid">
+                <div class="filtro-item"><label>Vuelta</label><input type="date" name="fecha_regreso"></div>
+                <div class="filtro-item"><label>Escalas</label>${crearContadorHTML('escalas', 0)}</div>
+            </div>
+            <div class="form-grid">
+                <div class="filtro-item"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div>
+                <div class="filtro-item"><label>Proveedor</label><input type="text" name="proveedor" required></div>
+            </div>
+            <div class="filtro-item"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>`; 
+        } 
+        else if (tipo === 'hotel') { 
+            html += `<h4>🏨 Hotel</h4>
+            <div class="filtro-item" style="margin-bottom:15px;"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div>
+            <div class="form-grid">
+                <div class="filtro-item"><label>Check In</label><input type="date" name="checkin" value="${fechaBase}" onchange="window.calcularNoches(${id})" required></div>
+                <div class="filtro-item"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div>
+            </div>
+            <div class="form-grid">
+                <div class="filtro-item"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee;"></div>
+                <div class="filtro-item"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div>
+            </div>
+            <div class="form-grid">
+                <div class="filtro-item"><label>Proveedor</label><input type="text" name="proveedor" required></div>
+                <div class="filtro-item"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
+            </div>`; 
+        }
+        else if (tipo === 'traslado') { 
+            html += `<h4>🚌 Traslado</h4>
+            <div class="checkbox-group" style="margin-bottom:15px;">
+                <label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label>
+                <label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label>
+                <label class="checkbox-label"><input type="checkbox" name="trf_hotel"> Hotel-Hotel</label>
+            </div>
+            <div class="form-grid">
+                <div class="filtro-item"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div>
+                <div class="filtro-item"><label>Proveedor</label><input type="text" name="proveedor" required></div>
+            </div>
+            <div class="filtro-item"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>`; 
+        }
+        else if (tipo === 'seguro') { 
+            html += `<h4>🛡️ Seguro</h4>
+            <div class="form-grid">
+                <div class="filtro-item"><label>Cobertura</label><input type="text" name="proveedor" required></div>
+                <div class="filtro-item"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
+            </div>`; 
+        }
+        else if (tipo === 'adicional') { 
+            html += `<h4>➕ Adicional</h4>
+            <div class="filtro-item" style="margin-bottom:15px;"><label>Detalle</label><input type="text" name="descripcion" required></div>
+            <div class="form-grid">
+                <div class="filtro-item"><label>Proveedor</label><input type="text" name="proveedor" required></div>
+                <div class="filtro-item"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
+            </div>`; 
+        }
+        
         div.innerHTML = html; dom.containerServicios.appendChild(div);
     }
     
@@ -325,7 +385,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     dom.modalClose.onclick=()=>dom.modal.style.display='none'; window.onclick=e=>{if(e.target===dom.modal)dom.modal.style.display='none';};
 });
-
 
 
 
