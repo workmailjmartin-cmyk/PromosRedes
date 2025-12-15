@@ -1,3 +1,4 @@
+
 /* --- 1. Variables de Color y Setup Base --- */
 :root {
     --color-base: #11173d;       
@@ -538,3 +539,64 @@ body {
     border-radius: 8px;
     margin-top: 20px;
 }
+.modal-contenido {
+    padding: 0 !important; /* Quitamos padding general para que el pie toque los bordes */
+    max-width: 900px; /* Un poco más ancho para las dos columnas */
+    overflow: hidden; /* Para que el border-radius del pie se vea bien */
+}
+
+.modal-detalle-header {
+    padding: 20px;
+    background: #f4f7f9;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-detalle-header h2 {
+    margin: 0;
+    color: var(--color-base);
+}
+
+/* El cuerpo del modal ahora usa Grid internamente en el JS, 
+   así que quitamos estilos viejos si los hubiera */
+.modal-detalle-body {
+    display: block; 
+    padding: 0;
+}
+
+/* Ajuste para pantallas pequeñas (celulares) */
+@media (max-width: 768px) {
+    .modal-detalle-body > div[style*="display: grid"] {
+        grid-template-columns: 1fr !important; /* Pasa a 1 sola columna */
+        gap: 10px !important;
+    }
+    
+    /* El pie se apila en móviles */
+    .modal-contenido > div:last-child {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    .modal-contenido > div:last-child > div:first-child {
+        flex-direction: column;
+        gap: 15px;
+    }
+    .modal-contenido > div:last-child > div:last-child {
+        text-align: center;
+    }
+}
+/* Login Divider */
+.divider { text-align: center; margin: 15px 0; border-bottom: 1px solid #ddd; line-height: 0.1em; }
+.divider span { background:#fff; padding:0 10px; color:#777; font-size:0.8em; }
+
+/* Tabla Usuarios */
+.admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.user-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+.user-table th, .user-table td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+.user-table th { background-color: var(--color-base); color: white; font-weight: 500; }
+.badge-permiso { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.75em; margin-right: 5px; color: white; }
+.bg-blue { background-color: #3498db; }
+.bg-orange { background-color: #e67e22; }
+.btn-sm { padding: 5px 10px; font-size: 0.8em; }
