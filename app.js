@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const provider = new firebase.auth.GoogleAuthProvider();
 
     let currentUser = null;
-    let currentRole = 'usuario'; // Rol por defecto
+    let currentRole = null; 
     let allPackages = [];
 
     const dom = {
@@ -38,8 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
         containerServicios: document.getElementById('servicios-container'), btnAgregarServicio: document.getElementById('btn-agregar-servicio'), selectorServicio: document.getElementById('selector-servicio'),
         inputCostoTotal: document.getElementById('upload-costo-total'), inputFechaViaje: document.getElementById('upload-fecha-salida'),
         modal: document.getElementById('modal-detalle'), modalBody: document.getElementById('modal-body'), modalClose: document.getElementById('modal-cerrar'),
-        
-        // Admin
         listaUsuarios: document.getElementById('lista-usuarios-body'), btnNuevoUsuario: document.getElementById('btn-nuevo-usuario'),
         modalUsuario: document.getElementById('modal-usuario'), formUsuario: document.getElementById('form-usuario'),
         btnCerrarUserModal: document.getElementById('btn-cerrar-user-modal'), inputAdminEmail: document.getElementById('admin-user-email'),
@@ -48,159 +46,91 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if(dom.logo) dom.logo.addEventListener('click', () => window.location.reload());
 
-    // =========================================================
-    // 3. AUTENTICACIÓN Y ROLES
-    // =========================================================
-
+    // --- AUTENTICACIÓN ESTRICTA ---
     auth.onAuthStateChanged(async (user) => {
         if (user) {
-            currentUser = user;
+            // Verificar si está en BD (Estricto)
+            const role = await verificarAcceso(user.email);
             
-            // 1. Obtener Rol (Si no existe en BD, es 'usuario' normal)
-            currentRole = await obtenerRol(user.email);
-            
-            // 2. Mostrar App
-            dom.loginContainer.style.display = 'none';
-            dom.appContainer.style.display = 'block';
-            dom.userLabel.textContent = `${user.email} (${currentRole})`;
+            if (role) {
+                currentUser = user;
+                currentRole = role; 
+                
+                dom.loginContainer.style.display = 'none';
+                dom.appContainer.style.display = 'block';
+                dom.userLabel.textContent = `${user.email}`;
 
-            // 3. Configurar Botones
-            setupUIByRole();
-
-            // 4. CARGAR PAQUETES (¡Esto faltaba para los usuarios normales!)
-            await fetchAndLoadPackages();
-            showView('search');
+                setupUIByRole();
+                await fetchAndLoadPackages();
+                showView('search');
+            } else {
+                alert("Acceso denegado: Usuario no registrado en el sistema.");
+                auth.signOut();
+            }
         } else {
             currentUser = null;
-            currentRole = 'usuario';
+            currentRole = null;
             dom.loginContainer.style.display = 'flex';
             dom.appContainer.style.display = 'none';
         }
     });
 
-    async function obtenerRol(email) {
+    async function verificarAcceso(email) {
         if (email === SUPER_ADMIN) return 'admin';
         try {
             const doc = await db.collection('usuarios').doc(email).get();
-            // Si está en la BD, devolvemos su rol. Si no, devolvemos 'usuario' por defecto.
             if (doc.exists) return doc.data().role || 'usuario';
-        } catch (e) { console.error("Error obteniendo rol:", e); }
-        return 'usuario'; 
+        } catch (e) { console.error(e); }
+        return null; // Si no está, retorna null
     }
 
     function setupUIByRole() {
-        // Todos pueden cargar (usuario, editor, admin)
+        // TODOS los registrados pueden cargar
         dom.navUpload.style.display = 'inline-block';
-        
-        // Solo Admin ve usuarios
-        if (currentRole === 'admin') {
-            dom.navUsers.style.display = 'inline-block';
-        } else {
-            dom.navUsers.style.display = 'none';
-        }
+        // Solo Admin gestiona usuarios
+        dom.navUsers.style.display = (currentRole === 'admin') ? 'inline-block' : 'none';
     }
 
+    // Login
     if(dom.btnLoginGoogle) dom.btnLoginGoogle.onclick = () => auth.signInWithPopup(provider).catch(e => dom.authError.textContent = e.message);
-    
     if(dom.loginEmailForm) dom.loginEmailForm.onsubmit = async (e) => {
         e.preventDefault();
-        const email = document.getElementById('login-email').value;
-        const pass = document.getElementById('login-pass').value;
         try {
-            await auth.signInWithEmailAndPassword(email, pass);
-        } catch (error) {
-            // Auto-registro para facilitar acceso
-            if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-                try {
-                    await auth.createUserWithEmailAndPassword(email, pass);
-                    alert("¡Cuenta creada! Bienvenido.");
-                } catch (regError) { dom.authError.textContent = "Error: " + regError.message; }
-            } else {
-                dom.authError.textContent = error.message;
-            }
-        }
+            await auth.signInWithEmailAndPassword(document.getElementById('login-email').value, document.getElementById('login-pass').value);
+        } catch (error) { dom.authError.textContent = "Error: Credenciales inválidas."; }
     };
     dom.btnLogout.onclick = () => auth.signOut();
 
-    // =========================================================
-    // 4. GESTIÓN DE USUARIOS (SOLO ADMIN)
-    // =========================================================
-
+    // --- GESTIÓN USUARIOS ---
     async function cargarTablaUsuarios() {
         if (currentRole !== 'admin') return;
         dom.listaUsuarios.innerHTML = '<tr><td colspan="3">Cargando...</td></tr>';
-        
-        try {
-            const snapshot = await db.collection('usuarios').get();
-            dom.listaUsuarios.innerHTML = '';
-            
-            if(snapshot.empty) {
-                dom.listaUsuarios.innerHTML = '<tr><td colspan="3">No hay usuarios con rol especial.</td></tr>';
-                return;
-            }
-
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                const email = doc.id;
-                let badgeClass = 'bg-blue';
-                if(data.role === 'admin') badgeClass = 'bg-orange';
-                if(data.role === 'editor') badgeClass = 'bg-green';
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${email}</td>
-                    <td><span class="badge-permiso ${badgeClass}">${(data.role || 'usuario').toUpperCase()}</span></td>
-                    <td>
-                        <button class="btn btn-secundario btn-sm" onclick="window.editarUsuario('${email}', '${data.role}')">Editar</button>
-                        <button class="btn btn-secundario btn-sm" style="color:red;" onclick="window.borrarUsuario('${email}')">Borrar</button>
-                    </td>
-                `;
-                dom.listaUsuarios.appendChild(tr);
-            });
-        } catch(e) { console.error(e); }
+        const snapshot = await db.collection('usuarios').get();
+        dom.listaUsuarios.innerHTML = '';
+        snapshot.forEach(doc => {
+            const d = doc.data();
+            let b = 'bg-blue'; if(d.role==='admin') b='bg-orange'; if(d.role==='editor') b='bg-green';
+            dom.listaUsuarios.innerHTML += `<tr><td>${doc.id}</td><td><span class="badge-permiso ${b}">${(d.role||'usuario').toUpperCase()}</span></td><td><button class="btn btn-secundario btn-sm" onclick="window.editarU('${doc.id}','${d.role}')">Editar</button> <button class="btn btn-secundario btn-sm" style="color:red;" onclick="window.borrarU('${doc.id}')">Borrar</button></td></tr>`;
+        });
     }
-
     dom.formUsuario.onsubmit = async (e) => {
         e.preventDefault();
-        const email = dom.inputAdminEmail.value.trim().toLowerCase();
-        const role = dom.inputAdminRole.value;
-        if(!email) return;
-        try {
-            await db.collection('usuarios').doc(email).set({ role: role });
-            alert(`Usuario ${email} guardado como ${role}.`);
-            dom.modalUsuario.style.display = 'none';
-            cargarTablaUsuarios();
-        } catch (e) { alert("Error: " + e.message); }
+        try { await db.collection('usuarios').doc(dom.inputAdminEmail.value.toLowerCase()).set({ role:dom.inputAdminRole.value }); alert('Guardado'); dom.modalUsuario.style.display='none'; cargarTablaUsuarios(); } catch(e){ alert(e.message); }
     };
-
-    window.editarUsuario = (email, role) => {
-        dom.inputAdminEmail.value = email;
-        dom.inputAdminEmail.disabled = true;
-        dom.inputAdminRole.value = role;
-        dom.modalUsuario.style.display = 'flex';
-    };
-    window.borrarUsuario = async (email) => {
-        if(!confirm(`¿Quitar rol especial a ${email}? Pasará a ser usuario normal.`)) return;
-        try { await db.collection('usuarios').doc(email).delete(); cargarTablaUsuarios(); } catch(e){ alert(e.message); }
-    };
-
+    window.editarU = (e,r) => { dom.inputAdminEmail.value=e; dom.inputAdminRole.value=r; dom.modalUsuario.style.display='flex'; };
+    window.borrarU = async (e) => { if(confirm('¿Borrar acceso?')) { await db.collection('usuarios').doc(e).delete(); cargarTablaUsuarios(); } };
     dom.btnNuevoUsuario.onclick = () => { dom.formUsuario.reset(); dom.inputAdminEmail.disabled=false; dom.modalUsuario.style.display='flex'; };
-    if(dom.btnCerrarUserModal) dom.btnCerrarUserModal.onclick = () => dom.modalUsuario.style.display='none';
+    if(dom.btnCerrarUserModal) dom.btnCerrarUserModal.onclick=()=>dom.modalUsuario.style.display='none';
 
-    // =========================================================
-    // 5. NAVEGACIÓN Y FETCH
-    // =========================================================
-
+    // --- NAVEGACIÓN Y CARGA ---
     function showView(name) {
         dom.viewSearch.style.display='none'; dom.navSearch.classList.remove('active');
         dom.viewUpload.style.display='none'; dom.navUpload.classList.remove('active');
         dom.viewUsers.style.display='none'; dom.navUsers.classList.remove('active');
-
         if(name==='search'){ dom.viewSearch.style.display='block'; dom.navSearch.classList.add('active'); }
         else if(name==='upload'){ dom.viewUpload.style.display='block'; dom.navUpload.classList.add('active'); }
         else if(name==='users'){ dom.viewUsers.style.display='block'; dom.navUsers.classList.add('active'); cargarTablaUsuarios(); }
     }
-    
     dom.navSearch.onclick = () => showView('search');
     dom.navUpload.onclick = () => showView('upload');
     dom.navUsers.onclick = () => showView('users');
@@ -209,15 +139,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentUser) throw new Error('No auth');
         const token = await currentUser.getIdToken(true);
         const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body:JSON.stringify(body), cache:'no-store' });
-        if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
         const txt = await res.text(); return txt ? JSON.parse(txt) : [];
     }
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
-
-    // =========================================================
-    // 6. CARGA DE PAQUETES
-    // =========================================================
 
     dom.btnAgregarServicio.onclick = () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } };
 
@@ -225,7 +150,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const id = Date.now(); const div = document.createElement('div'); div.className = `servicio-card ${tipo}`; div.dataset.id = id; div.dataset.tipo = tipo;
         const fechaBase = dom.inputFechaViaje.value || '';
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
-        
         if (tipo === 'aereo') { html += `<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" value="${fechaBase}" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas', 0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'hotel') { html += `<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" value="${fechaBase}" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'traslado') { html += `<h4>🚌 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hotel"> Hotel-Hotel</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
@@ -260,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if(errorMsg) return alert(errorMsg);
         dom.btnSubir.disabled=true; dom.uploadStatus.textContent='Guardando...';
-        try { await secureFetch(API_URL_UPLOAD, { destino:document.getElementById('upload-destino').value, salida:document.getElementById('upload-salida').value, fecha_salida:fechaViajeStr, costos_proveedor:costo, tarifa_venta:tarifa, moneda:document.getElementById('upload-moneda').value, tipo_promo:document.getElementById('upload-promo').value, financiacion:document.getElementById('upload-financiacion').value, servicios:serviciosData, creador: currentUser.email }); alert('¡Guardado!'); window.location.reload(); }
+        try { await secureFetch(API_URL_UPLOAD, { destino:document.getElementById('upload-destino').value, salida:document.getElementById('upload-salida').value, fecha_salida:fechaViajeStr, costos_proveedor:costo, tarifa_venta:tarifa, moneda:document.getElementById('upload-moneda').value, tipo_promo:document.getElementById('upload-promo').value, financiacion:document.getElementById('upload-financiacion').value, servicios:serviciosData, creador:currentUser.email }); alert('¡Guardado!'); window.location.reload(); }
         catch(e) { console.error(e); dom.uploadStatus.textContent='Error al guardar'; dom.btnSubir.disabled=false; }
     };
 
