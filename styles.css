@@ -74,38 +74,108 @@ body {
 .card-footer .precio-label { font-size: 0.9em; color: var(--color-texto-suave); margin: 0; }
 .card-footer .precio-valor { font-size: 1.8em; font-weight: 700; color: var(--color-acento); margin: 0; }
 
-/* --- 8. Formulario de Carga --- */
-.upload-form-container { max-width: 900px; margin: 20px auto; background: var(--color-tarjeta); padding: 30px 40px; border-radius: var(--borde-radio); box-shadow: var(--sombra-card); }
-.upload-form-container h3 { color: var(--color-base); margin-top: 0; font-size: 1.8em; }
-.upload-form .form-group { margin-bottom: 20px; flex: 1 1 auto; }
-.upload-form .form-group-row { display: flex; flex-wrap: wrap; gap: 20px; }
-.upload-form label { font-size: 0.9em; font-weight: 600; margin-bottom: 8px; display: block; color: var(--color-base); }
-.upload-form input, .upload-form select, .upload-form textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1em; font-family: 'Poppins', sans-serif; box-sizing: border-box; }
-.upload-form textarea { resize: vertical; }
-.form-actions { margin-top: 30px; display: flex; align-items: center; gap: 20px; }
-.form-actions .btn { width: auto; }
-.status-message { font-weight: 500; }
-.status-message.success { color: #5CB85C; }
-.status-message.error { color: #D9534F; }
+/* --- 8. Formulario de Carga (MODERNIZADO) --- */
+.upload-form-container {
+    background: var(--color-tarjeta);
+    padding: 40px; /* Más espacio */
+    border-radius: var(--borde-radio);
+    box-shadow: var(--sombra-card);
+    max-width: 900px; /* Un poco más ancho */
+    margin: 20px auto;
+}
 
-/* Servicios Dinámicos */
-.section-title { font-size: 1.1em; font-weight: 700; color: var(--color-base); margin: 25px 0 15px 0; padding-bottom: 5px; border-bottom: 2px solid #eee; }
-.servicio-card { background: #fdfdfd; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 15px; position: relative; border-left: 5px solid var(--color-secundario); }
-.servicio-card.aereo { border-left-color: #3498db; }
-.servicio-card.hotel { border-left-color: #9b59b6; }
-.servicio-card.traslado { border-left-color: #f1c40f; }
-.servicio-card.seguro { border-left-color: #2ecc71; }
-.btn-eliminar-servicio { position: absolute; top: 10px; right: 10px; background: none; border: none; color: #e74c3c; font-weight: bold; cursor: pointer; font-size: 1.2em; }
-.add-service-bar { display: flex; gap: 10px; margin-bottom: 20px; background: #f4f7f9; padding: 15px; border-radius: 8px; align-items: center; }
-.add-service-bar select { flex: 1; }
-.counter-wrapper { display: flex; align-items: center; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; width: fit-content; }
-.counter-btn { background: #eee; border: none; padding: 10px 15px; cursor: pointer; font-weight: bold; }
-.counter-btn:hover { background: #ddd; }
-.counter-value { padding: 0 15px; min-width: 30px; text-align: center; font-weight: 600; }
-.checkbox-group { display: flex; gap: 15px; flex-wrap: wrap; margin-top: 5px; }
-.checkbox-label { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.9em; background: #fff; padding: 8px 12px; border: 1px solid #ddd; border-radius: 20px; }
-.checkbox-label:has(input:checked) { background: var(--color-secundario); border-color: var(--color-secundario); color: var(--color-base); font-weight: 600; }
-.totales-container { background: #eef2f5; padding: 20px; border-radius: 8px; margin-top: 20px; }
+.upload-form-container h3 {
+    color: var(--color-base);
+    margin-top: 0;
+    font-size: 1.8em;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 15px;
+    margin-bottom: 25px;
+}
+
+/* SISTEMA DE GRILLA (Esto es lo que lo hace ver moderno) */
+.form-group-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Dos columnas iguales */
+    gap: 20px; /* Espacio entre columnas */
+    margin-bottom: 20px;
+}
+
+/* Excepción para cuando hay 3 elementos en una fila (Fecha, Moneda, Promo) */
+.form-group-row:has(> :nth-child(3)) {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.upload-form label {
+    font-size: 0.85em;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--color-base);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.upload-form input,
+.upload-form select {
+    width: 100%;
+    padding: 12px 15px; /* Inputs más altos y cómodos */
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1em;
+    font-family: 'Poppins', sans-serif;
+    box-sizing: border-box;
+    background-color: #f9f9f9;
+    transition: 0.3s;
+}
+
+.upload-form input:focus,
+.upload-form select:focus {
+    background-color: #fff;
+    border-color: var(--color-acento);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(239, 90, 26, 0.1);
+}
+
+/* Sección Servicios y Botones */
+.section-title {
+    font-size: 1.1em;
+    font-weight: 700;
+    color: var(--color-base);
+    margin: 30px 0 15px 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #eee;
+}
+
+.add-service-bar {
+    display: flex;
+    gap: 15px;
+    background: #eef2f5;
+    padding: 20px;
+    border-radius: 8px;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.add-service-bar select { flex: 1; background: white; }
+
+.form-actions {
+    margin-top: 30px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+/* Responsivo para celulares */
+@media (max-width: 768px) {
+    .form-group-row, .form-group-row:has(> :nth-child(3)) {
+        grid-template-columns: 1fr; /* Una sola columna en celular */
+    }
+}
 
 /* --- 9. Modal de Detalle --- */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17, 23, 61, 0.8); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 1000; overflow-y: auto; }
@@ -140,3 +210,4 @@ body {
     .modal-detalle-body { grid-template-columns: 1fr !important; }
     .modal-contenido > div:last-child { flex-direction: column; gap: 15px; text-align: center; }
 }
+
