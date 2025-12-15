@@ -327,15 +327,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // RENDERIZADO
     function getNoches(pkg) {
-        if(!pkg['fecha_salida']) return 0;
-        const start = new Date(pkg['fecha_salida'].split('/').reverse().join('-') + 'T00:00:00');
-        let maxDate = new Date(start), hasData = false, servicios = [];
-        try { const raw=pkg['servicios']||pkg['item.servicios']; servicios=typeof raw==='string'?JSON.parse(raw):raw; } catch(e){}
+        // 1. Obtenemos los servicios del paquete
+        let servicios = [];
+        try { 
+            const raw = pkg['servicios'] || pkg['item.servicios']; 
+            servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; 
+        } catch(e) {}
+
         if(!Array.isArray(servicios)) return 0;
+
+        // 2. PRIORIDAD: Si es Paquete Bus o Crucero, usamos el dato directo cargado en el formulario
+        const bus = servicios.find(s => s.tipo === 'bus');
+        if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
+
+        const crucero = servicios.find(s => s.tipo === 'crucero');
+        if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
+
+        // 3. Lógica Standard (Para Aéreos/Hoteles): Cálculo por diferencia de fechas
+        if(!pkg['fecha_salida']) return 0;
+        
+        // Normalizamos la fecha de salida para el cálculo
+        let fechaStr = pkg['fecha_salida'];
+        if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-'); // Si viene DD/MM/YYYY pasamos a YYYY-MM-DD
+        
+        const start = new Date(fechaStr + 'T00:00:00');
+        let maxDate = new Date(start), hasData = false;
+
         servicios.forEach(s => {
             if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
             if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
         });
+
         return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
     }
     function getSummaryIcons(pkg) {
@@ -590,6 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
 });
+
 
 
 
