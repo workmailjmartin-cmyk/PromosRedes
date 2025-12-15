@@ -300,34 +300,44 @@ document.addEventListener('DOMContentLoaded', () => {
             const tarifaMostrar = parseFloat(pkg['tarifa']) || 0;
             const summaryIcons = getSummaryIcons(pkg);
     
+            // Estilo en línea para la burbuja (Color secundario de la agencia)
+            const bubbleStyle = `
+                background-color: #56DDE0; 
+                color: #11173d; 
+                padding: 5px 12px; 
+                border-radius: 20px; 
+                font-weight: 600; 
+                font-size: 0.75em; 
+                display: inline-block;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                margin-top: 8px;
+            `;
+    
             card.innerHTML = `
-                <div class="card-header" style="padding-bottom: 5px;">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
+                <div class="card-header" style="padding-bottom: 0;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; width:100%;">
                         <div style="max-width:75%;">
-                            <h3 style="margin:0; font-size:1.4em; line-height:1.2;">${pkg['destino']}</h3>
+                            <h3 style="margin:0; font-size:1.5em; line-height:1.2; color: #11173d;">${pkg['destino']}</h3>
                             
-                            <div style="margin-top:4px; font-size:0.85em; color:#666; font-weight:500; display:flex; align-items:center; gap:5px;">
-                                <span>📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</span>
-                            </div>
+                            <span style="${bubbleStyle}">${pkg['tipo_promo']}</span>
                         </div>
                         
-                        ${noches > 0 ? `<div style="background:#eef2f5; color:#11173d; padding:4px 8px; border-radius:12px; font-weight:bold; font-size:0.8em; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.05);">🌙 ${noches}</div>` : ''}
+                        ${noches > 0 ? `<div style="background:#eef2f5; color:#11173d; padding:5px 10px; border-radius:12px; font-weight:bold; font-size:0.8em; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.05);">🌙 ${noches}</div>` : ''}
+                    </div>
+    
+                    <div style="margin-top: 12px; margin-bottom: 15px; font-size:0.9em; color:#666; font-weight:500; display:flex; align-items:center; gap:6px;">
+                        <span>📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</span>
                     </div>
                 </div>
     
-                <div class="card-body" style="padding: 10px 20px; display:flex; align-items:center;">
+                <div class="card-body" style="padding: 0 20px 15px 20px; display:flex; align-items:center;">
                     <div style="font-size:0.75em; color:#555; display:flex; flex-wrap:wrap; line-height:1.4;">
                         ${summaryIcons}
                     </div>
                 </div>
     
-                <div class="card-footer" style="display:flex; justify-content: space-between; align-items: center; padding-top:15px;">
-                    <div>
-                        <span class="tag-promo" style="font-size:0.8em; padding: 4px 10px;">${pkg['tipo_promo']}</span>
-                    </div>
-                    <div>
-                        <p class="precio-valor" style="font-size: 1.6em; margin:0;">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar / 2))}</p>
-                    </div>
+                <div class="card-footer" style="padding-top:15px; border-top: 1px solid #f0f0f0; text-align: right;">
+                    <p class="precio-valor" style="font-size: 1.8em; margin:0; color: #ef5a1a;">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar / 2))}</p>
                 </div>`;
             dom.grid.appendChild(card);
         });
@@ -461,6 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
 });
+
 
 
 
