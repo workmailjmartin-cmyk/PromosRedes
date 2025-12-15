@@ -434,3 +434,4 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
 });
+
