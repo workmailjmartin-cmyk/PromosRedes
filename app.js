@@ -144,8 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (tipo === 'aereo') { html += `<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" value="${fechaBase}" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas', 0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'hotel') { html += `<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" value="${fechaBase}" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
-        // CAMBIO 1: Agregado checkbox "Htl-Htl"
-else if (tipo === 'traslado') { html += `<h4>🚌 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Htl-Htl</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
+        else if (tipo === 'traslado') { html += `<h4>🚌 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Htl-Htl</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'seguro') { html += `<h4>🛡️ Seguro</h4><div class="form-group-row"><div class="form-group"><label>Cobertura</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'adicional') { html += `<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         
@@ -272,6 +271,18 @@ else if (tipo === 'traslado') { html += `<h4>🚌 Traslado</h4><div class="check
         });
         return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
     }
+    function getSummaryIcons(pkg) {
+        let servicios = [];
+        try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) {}
+        if (!Array.isArray(servicios) || servicios.length === 0) return '<span style="opacity:0.6">Sin servicios</span>';
+        
+        // Mapeo de tipos a iconos
+        const iconMap = { 'aereo': '✈️ Aéreo', 'hotel': '🏨 Hotel', 'traslado': '🚌 Traslado', 'seguro': '🛡️ Seguro', 'adicional': '➕ Adic.' };
+        // Obtenemos tipos únicos presentes
+        const uniqueTypes = [...new Set(servicios.map(s => iconMap[s.tipo] || s.tipo))];
+        // Los unimos con un punto medio
+        return uniqueTypes.join(' <span style="color:#ccc">•</span> ');
+    }
 
     function renderCards(list) {
         dom.loader.style.display='none'; 
@@ -284,24 +295,30 @@ else if (tipo === 'traslado') { html += `<h4>🚌 Traslado</h4><div class="check
             card.className = 'paquete-card'; 
             card.dataset.packageData = JSON.stringify(pkg);
             
-            // Usamos pkg['tarifa'] porque así lo guardamos ahora
             const tarifaMostrar = parseFloat(pkg['tarifa']) || 0;
-
+            // Usamos la nueva función auxiliar para los iconos
+            const summaryIcons = getSummaryIcons(pkg);
+    
             card.innerHTML = `
                 <div class="card-header">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
                         <div style="max-width:70%;">
-                            <h3 style="margin:0;font-size:1.1em;">${pkg['destino']}</h3>
-                            <span class="tag-promo" style="margin-top:5px;display:inline-block;font-size:0.75em;">${pkg['tipo_promo']}</span>
+                            <h3 style="margin:0;font-size:1.6em;">${pkg['destino']}</h3>
+                            <span class="tag-promo" style="margin-top:8px;display:inline-block;font-size:0.75em;">${pkg['tipo_promo']}</span>
                         </div>
-                        ${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:4px 8px;border-radius:6px;font-weight:bold;font-size:0.85em;white-space:nowrap;margin-left:5px;">🌙 ${noches} Noches</div>` : ''}
+                        ${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:6px 10px;border-radius:20px;font-weight:bold;font-size:0.85em;white-space:nowrap;margin-left:5px;">🌙 ${noches} Noches</div>` : ''}
                     </div>
                 </div>
-                <div class="card-body">
-                    <p style="color:#666;font-size:0.9em;margin-top:10px;"><strong>Salida:</strong> ${formatDateAR(pkg['fecha_salida'])}</p>
+                <div class="card-body" style="padding-bottom: 15px;">
+                    <p style="color:#555;font-size:0.9em;margin-top:15px; margin-bottom:0;">${summaryIcons}</p>
                 </div>
-                <div class="card-footer">
-                    <p class="precio-valor">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar / 2))}</p>
+                <div class="card-footer" style="display:flex; justify-content: space-between; align-items: flex-end;">
+                    <div style="font-size:0.85em; color:#888; font-weight:500;">
+                        📅 Salida: ${formatDateAR(pkg['fecha_salida'])}
+                    </div>
+                    <div>
+                        <p class="precio-valor" style="font-size: 1.6em;">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar / 2))}</p>
+                    </div>
                 </div>`;
             dom.grid.appendChild(card);
         });
@@ -315,7 +332,7 @@ else if (tipo === 'traslado') { html += `<h4>🚌 Traslado</h4><div class="check
             let icono='🔹', titulo='', lineas=[];
             if(s.tipo==='aereo'){ icono='✈️'; titulo='AÉREO'; lineas.push(`<b>Aerolínea:</b> ${s.aerolinea}`); lineas.push(`<b>Fechas:</b> ${formatDateAR(s.fecha_aereo)}${s.fecha_regreso?` | <b>Vuelta:</b> ${formatDateAR(s.fecha_regreso)}`:''}`); lineas.push(`<b>Escalas:</b> ${s.escalas==0?'Directo':s.escalas}`); lineas.push(`<b>Equipaje:</b> ${s.tipo_equipaje.replace(/_/g,' ')} (x${s.cantidad_equipaje||1})`); }
             else if(s.tipo==='hotel'){ icono='🏨'; titulo='HOTEL'; lineas.push(`<b>${s.hotel_nombre}</b> (${s.regimen})`); lineas.push(`<b>Estadía:</b> ${(s.checkin&&s.checkout)?Math.ceil((new Date(s.checkout)-new Date(s.checkin))/86400000):'-'} noches (${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout)})`); }
-            else if(s.tipo==='traslado'){ icono='🚌'; titulo='TRASLADO'; let t=[]; if(s.trf_in)t.push("In"); if(s.trf_out)t.push("Out"); lineas.push(`<b>Tipo:</b> ${s.tipo_trf} (${t.join('+')})`); }
+            else if(s.tipo==='traslado'){ icono='🚌'; titulo='TRASLADO'; let t=[]; if(s.trf_in)t.push("In"); if(s.trf_out)t.push("Out"); if(s.trf_hah)t.push("Htl-Htl"); lineas.push(`<b>Tipo:</b> ${s.tipo_trf} (${t.join(' + ')})`); }
             else if(s.tipo==='seguro'){ icono='🛡️'; titulo='SEGURO'; lineas.push(`<b>Cob:</b> ${s.proveedor}`); }
             else if(s.tipo==='adicional'){ icono='➕'; titulo='ADICIONAL'; lineas.push(`<b>${s.descripcion}</b>`); }
             if(s.obs) lineas.push(`<i>Obs: ${s.obs}</i>`);
@@ -435,5 +452,6 @@ else if (tipo === 'traslado') { html += `<h4>🚌 Traslado</h4><div class="check
     });
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
 });
+
 
 
