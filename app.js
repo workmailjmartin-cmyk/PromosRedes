@@ -16,39 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const SUPER_ADMIN = 'yairlaquis@gmail.com'; 
 
-   ¡Entendido! Vamos a "democratizar" la carga.
-
-El cambio:
-
-Cargar Paquetes: Ahora cualquier usuario que inicie sesión (sea con Google o correo corporativo) verá el botón "Cargar" y podrá subir paquetes. Ya no hace falta tildarles el permiso "Modificar Paquetes".
-
-Gestión de Usuarios: El botón "Usuarios" seguirá oculto y protegido. Solo tú (Super Admin) y a quien tú le des permiso explícito de "Admin" podrán ver esa sección.
-
-Aquí tienes el app.js modificado para liberar la carga a todos.
-
-📜 app.js (Carga Pública para Usuarios Logueados)
-JavaScript
-
-document.addEventListener('DOMContentLoaded', () => {
-
-    // =========================================================
-    // 1. CONFIGURACIÓN
-    // =========================================================
-    
-    const firebaseConfig = {
-        apiKey: "TU_API_KEY", 
-        authDomain: "feliz-viaje-xyz.firebaseapp.com",
-        projectId: "feliz-viaje-xyz",
-        storageBucket: "feliz-viaje-xyz.appspot.com",
-        messagingSenderId: "...",
-        appId: "..."
-    }; // <--- ¡PUNTO Y COMA!
-
-    const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
-    const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/TU_URL_DE_CARGA';
-
-    // SUPER ADMIN (Tú)
-    const SUPER_ADMIN = 'yairlaquis@gmail.com'; 
 
     // =========================================================
     // 2. INICIALIZACIÓN
@@ -356,6 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.grid.addEventListener('click', e => { const c=e.target.closest('.paquete-card'); if(c) openModal(JSON.parse(c.dataset.packageData)); });
     dom.modalClose.onclick=()=>dom.modal.style.display='none'; window.onclick=e=>{if(e.target===dom.modal)dom.modal.style.display='none';};
 });
+
 
 
 
