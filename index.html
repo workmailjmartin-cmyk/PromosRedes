@@ -131,6 +131,44 @@
                     </form>
                 </section>
             </div>
+            <div id="view-gestion" class="view">
+                <div class="section-title">Paquetes Pendientes de Aprobación</div>
+                <div id="grid-gestion" class="grilla-resultados"></div>
+            </div>
+
+            <div id="view-users" class="view">
+                <section class="upload-form-container">
+                    <h3>Gestión de Usuarios</h3>
+                    <form id="user-form" class="upload-form">
+                        <div class="form-group-row">
+                            <div class="form-group">
+                                <label>Email (Google)</label>
+                                <input type="email" id="user-email-input" placeholder="usuario@gmail.com" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Rol</label>
+                                <select id="user-role-input" required>
+                                    <option value="usuario">Usuario (Vendedor)</option>
+                                    <option value="editor">Editor</option>
+                                    <option value="admin">Administrador</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Franquicia</label>
+                            <input type="text" id="user-franchise-input" placeholder="Ej: Franquicia Mendoza" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primario">Guardar Permiso</button>
+                        </div>
+                    </form>
+                    <div style="margin-top:30px;">
+                        <h4>Usuarios Habilitados</h4>
+                        <ul id="users-list" style="list-style:none; padding:0;"></ul>
+                    </div>
+                </section>
+            </div>
+            
         </main>
 
         <div id="modal-detalle" class="modal-overlay">
@@ -151,6 +189,7 @@
     <script src="app.js"></script>
 </body>
 </html>
+
 
 
 
