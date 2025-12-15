@@ -21,7 +21,7 @@
                 <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="G" width="20" style="margin-right:10px;">
                 Iniciar con Google
             </button>
-            <div class="divider"><span>o</span></div>
+            <div class="divider"><span>O ingresa con Correo</span></div>
             <form id="login-email-form">
                 <div class="form-group"><input type="email" id="login-email" placeholder="Usuario" required></div>
                 <div class="form-group" style="margin-top:10px;"><input type="password" id="login-pass" placeholder="Contraseña" required></div>
@@ -76,31 +76,35 @@
                 <section class="upload-form-container">
                     <h3 id="form-title">Cargar Nuevo Paquete</h3>
                     <form id="upload-form">
-                        <input type="hidden" id="edit-package-id">
-                        <div class="form-grid">
-                            <div class="form-group"><label>Destino</label><input type="text" id="upload-destino" required></div>
-                            <div class="form-group"><label>Salida</label><input type="text" id="upload-salida" required></div>
+                        <input type="hidden" id="edit-package-id"> <div class="form-grid">
+                            <div class="form-group"><label>Destino Principal</label><input type="text" id="upload-destino" required placeholder="Ej: Cancún"></div>
+                            <div class="form-group"><label>Lugar de Salida</label><input type="text" id="upload-salida" required placeholder="Ej: Buenos Aires"></div>
                         </div>
+                        
                         <div class="form-grid-3">
-                            <div class="form-group"><label>Fecha</label><input type="date" id="upload-fecha-salida" required></div>
+                            <div class="form-group"><label>Fecha Salida</label><input type="date" id="upload-fecha-salida" required></div>
                             <div class="form-group"><label>Moneda</label><select id="upload-moneda" required><option value="USD">USD</option><option value="ARS">ARS</option></select></div>
-                            <div class="form-group"><label>Promo</label><select id="upload-promo" required><option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option></select></div>
+                            <div class="form-group"><label>Tipo Promo</label><select id="upload-promo" required><option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option></select></div>
                         </div>
+
                         <div class="section-title">Servicios</div>
                         <div id="servicios-container"></div>
+                        
                         <div class="add-service-bar">
-                            <select id="selector-servicio"><option value="" disabled selected>+ Agregar...</option><option value="aereo">✈️ Aéreo</option><option value="hotel">🏨 Hotel</option><option value="traslado">🚌 Traslado</option><option value="seguro">🛡️ Seguro</option><option value="adicional">➕ Adicional</option></select>
+                            <select id="selector-servicio"><option value="" disabled selected>+ Agregar Servicio...</option><option value="aereo">✈️ Aéreo</option><option value="hotel">🏨 Hotel</option><option value="traslado">🚌 Traslado</option><option value="seguro">🛡️ Seguro</option><option value="adicional">➕ Adicional</option></select>
                             <button type="button" id="btn-agregar-servicio" class="btn btn-secundario">Agregar</button>
                         </div>
+
                         <div class="totales-container">
                             <div class="form-grid">
                                 <div class="form-group"><label>Costo Total (Interno)</label><input type="number" id="upload-costo-total" readonly style="background:#e0e0e0;"></div>
-                                <div class="form-group"><label>Tarifa Venta</label><input type="number" id="upload-tarifa-total" required></div>
+                                <div class="form-group"><label>Tarifa Final (Venta)</label><input type="number" id="upload-tarifa-total" required></div>
                             </div>
-                            <div class="form-group" style="margin-top:10px;"><label>Financiación</label><input type="text" id="upload-financiacion"></div>
+                            <div class="form-group" style="margin-top:10px;"><label>Financiación</label><input type="text" id="upload-financiacion" placeholder="Ej: 6 cuotas sin interés..."></div>
                         </div>
+
                         <div class="form-actions">
-                            <button type="submit" id="boton-subir" class="btn btn-primario">Guardar</button>
+                            <button type="submit" id="boton-subir" class="btn btn-primario">Guardar Paquete</button>
                             <button type="button" id="boton-cancelar-edicion" class="btn btn-secundario" style="display:none;">Cancelar</button>
                             <p id="upload-status"></p>
                         </div>
@@ -109,10 +113,10 @@
             </div>
 
             <div id="view-users" class="view">
-                <div class="admin-header"><h3>Usuarios</h3><button id="btn-nuevo-usuario" class="btn btn-primario">+ Usuario</button></div>
+                <div class="admin-header"><h3>Gestión de Usuarios</h3><button id="btn-nuevo-usuario" class="btn btn-primario">+ Usuario</button></div>
                 <div class="table-responsive">
                     <table class="user-table">
-                        <thead><tr><th>Email</th><th>Alias</th><th>Rol</th><th>Acciones</th></tr></thead>
+                        <thead><tr><th>Email</th><th>Alias (Nombre)</th><th>Rol</th><th>Acciones</th></tr></thead>
                         <tbody id="lista-usuarios-body"></tbody>
                     </table>
                 </div>
@@ -120,25 +124,39 @@
         </main>
 
         <div id="modal-detalle" class="modal-overlay">
-            <div class="modal-contenido" id="modal-content-box">
+            <div class="modal-contenido">
+                <div class="modal-detalle-header" id="modal-header-content">
+                    </div>
                 <button id="modal-cerrar" class="modal-cerrar-btn">&times;</button>
                 <div id="modal-body"></div>
             </div>
         </div>
 
+        <div id="modal-confirm" class="modal-overlay" style="z-index: 3000;">
+            <div class="modal-confirm-box">
+                <h3>⚠️ Confirmar Acción</h3>
+                <p id="confirm-text">¿Estás seguro?</p>
+                <div class="confirm-actions">
+                    <button id="btn-confirm-cancel" class="btn btn-secundario">Cancelar</button>
+                    <button id="btn-confirm-ok" class="btn btn-primario" style="background:#ef5a1a; color:white;">Confirmar</button>
+                </div>
+            </div>
+        </div>
+
         <div id="modal-usuario" class="modal-overlay">
             <div class="modal-contenido" style="max-width:500px;">
-                <div class="modal-detalle-header"><h3>Usuario</h3></div>
-                <div class="modal-detalle-body" style="padding:20px;">
+                <div class="modal-detalle-header"><h3>Datos de Usuario</h3></div>
+                <div class="modal-detalle-body" style="padding:30px;">
                     <form id="form-usuario">
                         <div class="form-group"><label>Email</label><input type="email" id="admin-user-email" required></div>
-                        <div class="form-group"><label>Alias</label><input type="text" id="admin-user-alias"></div>
-                        <div class="form-group"><label>Rol</label><select id="admin-user-role"><option value="usuario">Usuario</option><option value="editor">Editor</option><option value="admin">Admin</option></select></div>
+                        <div class="form-group" style="margin-top:15px;"><label>Alias (Nombre que verán todos)</label><input type="text" id="admin-user-alias" placeholder="Ej: Franquicia Centro"></div>
+                        <div class="form-group" style="margin-top:15px;"><label>Rol</label><select id="admin-user-role"><option value="usuario">Usuario (Ver/Cargar)</option><option value="editor">Editor (+ Editar/Borrar)</option><option value="admin">Administrador Total</option></select></div>
                         <div class="form-actions"><button type="submit" class="btn btn-primario">Guardar</button><button type="button" id="btn-cerrar-user-modal" class="btn btn-secundario">Cerrar</button></div>
                     </form>
                 </div>
             </div>
         </div>
+
     </div>
     <script src="app.js"></script>
 </body>
