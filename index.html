@@ -55,22 +55,19 @@
                 <section class="panel-filtros">
                     <div class="filtro-item"><label>Destino</label><input type="text" id="filtro-destino" placeholder="Ej: Punta Cana..."></div>
                     <div class="filtro-item">
-                        <label>Creador</label>
+                        <label>Creador (Alias)</label>
                         <select id="filtro-creador">
                             <option value="">Todos</option>
-                            <option value="Franquicia Tucumán">Tucumán</option>
-                            <option value="Franquicia Mendoza">Mendoza</option>
-                            <option value="Franquicia San Juan">San Juan</option>
-                            <option value="Franquicia Villa Maria">Villa Maria</option>
-                            <option value="Franquicia Pilar">Pilar</option>
-                            <option value="Franquicia La Plata">La Plata</option>
-                            <option value="Franquicia Colonia Caroya">Colonia Caroya</option>
-                            <option value="Franquicia Arenales">Arenales</option>
-                            <option value="Franquicia Oliva">Oliva</option>
-                        </select>
+                            </select>
                     </div>
                     <div class="filtro-item"><label>Promoción</label><select id="filtro-promo"><option value="">Todas</option><option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED</option><option value="ADS">ADS</option></select></div>
-                    <div class="filtro-item"><label>Ordenar</label><select id="filtro-orden"><option value="reciente">Más Recientes</option><option value="menor_precio">Menor Precio</option></select></div>
+                    <div class="filtro-item">
+                        <label>Ordenar</label>
+                        <select id="filtro-orden">
+                            <option value="reciente">Más Recientes</option>
+                            <option value="menor_precio">Menor Precio</option>
+                            <option value="mayor_precio">Mayor Precio</option> </select>
+                    </div>
                     <div class="filtro-acciones"><button id="boton-buscar" class="btn btn-primario">Buscar</button><button id="boton-limpiar" class="btn btn-secundario">Limpiar</button></div>
                 </section>
                 <section id="grilla-paquetes" class="grilla-resultados"><div id="loading-placeholder">Cargando paquetes...</div></section>
@@ -78,9 +75,9 @@
 
             <div id="view-upload" class="view">
                 <section class="upload-form-container">
-                    <h3>Cargar Nuevo Paquete</h3>
+                    <h3 id="form-title">Cargar Nuevo Paquete</h3>
                     <form id="upload-form" class="upload-form">
-                        <div class="form-grid">
+                        <input type="hidden" id="edit-package-id"> <div class="form-grid">
                             <div class="filtro-item"><label>Destino Principal</label><input type="text" id="upload-destino" required placeholder="Ej: Cancún y Riviera Maya"></div>
                             <div class="filtro-item"><label>Lugar de Salida</label><input type="text" id="upload-salida" required placeholder="Ej: Buenos Aires"></div>
                         </div>
@@ -108,6 +105,7 @@
                         
                         <div class="form-actions">
                             <button type="submit" id="boton-subir" class="btn btn-primario" style="width:auto; padding-left: 40px; padding-right: 40px; font-size: 1.1em;">Guardar Paquete</button>
+                            <button type="button" id="boton-cancelar-edicion" class="btn btn-secundario" style="display:none;">Cancelar Edición</button>
                             <p id="upload-status" class="status-message"></p>
                         </div>
                     </form>
@@ -118,7 +116,7 @@
                 <div class="admin-header"><h3>Gestión de Usuarios</h3><button id="btn-nuevo-usuario" class="btn btn-primario" style="width:auto;">+ Nuevo Usuario</button></div>
                 <div class="table-responsive">
                     <table class="user-table">
-                        <thead><tr><th>Email</th><th>Rol</th><th>Acciones</th></tr></thead>
+                        <thead><tr><th>Email</th><th>Alias</th><th>Rol</th><th>Acciones</th></tr></thead>
                         <tbody id="lista-usuarios-body"></tbody>
                     </table>
                 </div>
@@ -129,22 +127,35 @@
             <div class="modal-contenido"><button id="modal-cerrar" class="modal-cerrar-btn">&times;</button><div id="modal-body"></div></div>
         </div>
 
+        <div id="modal-confirm" class="modal-overlay" style="z-index: 3000;">
+            <div class="modal-confirm-box">
+                <div class="confirm-icon">⚠️</div>
+                <h3 id="confirm-title">¿Estás seguro?</h3>
+                <p id="confirm-message">Esta acción no se puede deshacer.</p>
+                <div class="confirm-actions">
+                    <button id="btn-confirm-cancel" class="btn btn-secundario">Cancelar</button>
+                    <button id="btn-confirm-ok" class="btn btn-primario" style="background-color: #ef5a1a;">Confirmar</button>
+                </div>
+            </div>
+        </div>
+
         <div id="modal-usuario" class="modal-overlay">
             <div class="modal-contenido" style="max-width: 500px;">
                 <div class="modal-detalle-header"><h3>Gestión de Usuario</h3></div>
                 <div class="modal-detalle-body" style="padding:30px;">
                     <form id="form-usuario">
-                        <div class="filtro-item"><label>Email del Usuario</label><input type="email" id="admin-user-email" required placeholder="ejemplo@agencia.com"></div>
-                        <div class="filtro-item" style="margin-top:20px;">
-                            <label>Rol Asignado</label>
+                        <div class="filtro-item"><label>Email</label><input type="email" id="admin-user-email" required></div>
+                        <div class="filtro-item" style="margin-top:15px;"><label>Alias (Nombre Público)</label><input type="text" id="admin-user-alias" placeholder="Ej: Franquicia Mendoza"></div>
+                        <div class="filtro-item" style="margin-top:15px;">
+                            <label>Rol</label>
                             <select id="admin-user-role">
-                                <option value="usuario">Usuario (Cargar y Ver)</option>
-                                <option value="editor">Editor (Borrar y Editar)</option>
-                                <option value="admin">Administrador (Gestión Total)</option>
+                                <option value="usuario">Usuario</option>
+                                <option value="editor">Editor</option>
+                                <option value="admin">Administrador</option>
                             </select>
                         </div>
                         <div class="form-actions" style="margin-top:25px;">
-                            <button type="submit" class="btn btn-primario">Guardar Cambios</button>
+                            <button type="submit" class="btn btn-primario">Guardar</button>
                             <button type="button" id="btn-cerrar-user-modal" class="btn btn-secundario">Cancelar</button>
                         </div>
                     </form>
