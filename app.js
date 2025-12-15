@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // 1. CONFIGURACIÓN
+    // --- 1. CONFIGURACIÓN ---
     const firebaseConfig = {
         apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk",
         authDomain: "feliz-viaje-43d02.firebaseapp.com",
@@ -15,71 +15,185 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
-    const allowedEmails = [
-        'yairlaquis@gmail.com'
-    ];
-
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
+    const db = firebase.firestore(); // ACTIVAMOS FIRESTORE
     const provider = new firebase.auth.GoogleAuthProvider();
-    let currentUser = null;
-    let allPackages = [];
 
-    // SELECTORES DOM
+    // ESTADO GLOBAL
+    let currentUser = null;
+    let userData = null; // Datos de Firestore (Rol, Franquicia)
+    let allPackages = [];
+    let isEditingId = null; // ID del paquete que se está editando
+
+    // DOM
     const dom = {
-        viewSearch: document.getElementById('view-search'), 
-        viewUpload: document.getElementById('view-upload'),
-        navSearch: document.getElementById('nav-search'), 
-        navUpload: document.getElementById('nav-upload'),
-        grid: document.getElementById('grilla-paquetes'), 
+        views: {
+            search: document.getElementById('view-search'),
+            upload: document.getElementById('view-upload'),
+            gestion: document.getElementById('view-gestion'),
+            users: document.getElementById('view-users')
+        },
+        nav: {
+            search: document.getElementById('nav-search'),
+            upload: document.getElementById('nav-upload'),
+            gestion: document.getElementById('nav-gestion'),
+            users: document.getElementById('nav-users')
+        },
+        grid: document.getElementById('grilla-paquetes'),
+        gridGestion: document.getElementById('grid-gestion'),
         loader: document.getElementById('loading-placeholder'),
-        uploadForm: document.getElementById('upload-form'), 
+        
+        // Forms
+        uploadForm: document.getElementById('upload-form'),
         uploadStatus: document.getElementById('upload-status'),
-        btnSubir: document.getElementById('boton-subir'), 
-        containerServicios: document.getElementById('servicios-container'),
-        btnAgregarServicio: document.getElementById('btn-agregar-servicio'), 
-        selectorServicio: document.getElementById('selector-servicio'),
-        inputCostoTotal: document.getElementById('upload-costo-total'), 
+        userForm: document.getElementById('user-form'),
+        usersList: document.getElementById('users-list'),
+        
+        // Inputs Upload
+        inputCostoTotal: document.getElementById('upload-costo-total'),
         inputFechaViaje: document.getElementById('upload-fecha-salida'),
-        modal: document.getElementById('modal-detalle'), 
-        modalBody: document.getElementById('modal-body'),
-        modalClose: document.getElementById('modal-cerrar'), 
-        btnLogin: document.getElementById('login-button'),
-        btnLogout: document.getElementById('logout-button'), 
-        userEmail: document.getElementById('user-email'),
-        authError: document.getElementById('auth-error'), 
+        inputDestino: document.getElementById('upload-destino'),
+        
+        // Auth & Modal
         loginContainer: document.getElementById('login-container'),
-        appContainer: document.getElementById('app-container'), 
+        appContainer: document.getElementById('app-container'),
+        btnLogin: document.getElementById('login-button'),
+        btnLogout: document.getElementById('logout-button'),
+        userEmail: document.getElementById('user-email'),
+        modal: document.getElementById('modal-detalle'),
+        modalBody: document.getElementById('modal-body'),
+        modalClose: document.getElementById('modal-cerrar'),
+        
+        // Servicios
+        containerServicios: document.getElementById('servicios-container'),
+        btnAgregarServicio: document.getElementById('btn-agregar-servicio'),
+        selectorServicio: document.getElementById('selector-servicio'),
+        
+        // Filtros
         btnBuscar: document.getElementById('boton-buscar'),
-        btnLimpiar: document.getElementById('boton-limpiar'), 
-        logo: document.querySelector('.logo'),
-        filtroOrden: document.getElementById('filtro-orden')
+        btnLimpiar: document.getElementById('boton-limpiar'),
+        filtroOrden: document.getElementById('filtro-orden'),
+        filtroCreador: document.getElementById('filtro-creador'), // Selector dinámico
+        
+        logo: document.querySelector('.logo')
     };
 
-    if(dom.logo) { 
-        dom.logo.style.cursor = 'pointer'; 
-        dom.logo.addEventListener('click', () => window.location.reload()); 
-    }
+    if(dom.logo) { dom.logo.style.cursor = 'pointer'; dom.logo.addEventListener('click', () => window.location.reload()); }
 
-    // AUTH
+    // --- 2. AUTENTICACIÓN Y ROLES ---
     auth.onAuthStateChanged(async (u) => {
-        if (u && allowedEmails.includes(u.email)) {
-            currentUser = u; 
-            dom.loginContainer.style.display='none'; 
-            dom.appContainer.style.display='block';
-            dom.userEmail.textContent = u.email; 
-            await fetchAndLoadPackages(); 
-            showView('search');
-        } else { 
-            currentUser=null; 
-            if(u) auth.signOut(); 
-            dom.loginContainer.style.display='flex'; 
-            dom.appContainer.style.display='none'; 
+        if (u) {
+            try {
+                // Buscamos permiso en Firestore
+                const doc = await db.collection('usuarios').doc(u.email).get();
+                if (doc.exists) {
+                    currentUser = u;
+                    userData = doc.data(); // { rol: 'admin', franquicia: 'Mendoza', ... }
+                    
+                    dom.loginContainer.style.display='none';
+                    dom.appContainer.style.display='block';
+                    dom.userEmail.textContent = `${userData.franquicia} (${u.email})`;
+                    
+                    configureUIByRole();
+                    await fetchAndLoadPackages();
+                    showView('search');
+                } else {
+                    alert("⛔ Tu usuario no tiene permisos asignados. Contacta a un Administrador.");
+                    auth.signOut();
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Error al verificar permisos (Firestore). Revisa tu conexión o configuración.");
+            }
+        } else {
+            currentUser = null;
+            userData = null;
+            dom.loginContainer.style.display='flex';
+            dom.appContainer.style.display='none';
         }
     });
 
     dom.btnLogin.addEventListener('click', () => auth.signInWithPopup(provider));
     dom.btnLogout.addEventListener('click', () => auth.signOut());
+
+    function configureUIByRole() {
+        const rol = userData.rol;
+        
+        // Reset
+        dom.nav.gestion.style.display = 'none';
+        dom.nav.users.style.display = 'none';
+
+        if (rol === 'editor' || rol === 'admin') {
+            dom.nav.gestion.style.display = 'inline-block';
+        }
+        if (rol === 'admin') {
+            dom.nav.users.style.display = 'inline-block';
+            loadUsersList(); // Cargar lista de usuarios
+        }
+
+        // Restricciones en Formulario de Carga
+        const selectPromo = document.getElementById('upload-promo');
+        selectPromo.innerHTML = '';
+        if (rol === 'usuario') {
+            selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
+        } else {
+            selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
+        }
+    }
+
+    // --- 3. LÓGICA DE USUARIOS (SOLO ADMIN) ---
+    if (dom.userForm) {
+        dom.userForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('user-email-input').value.trim();
+            const rol = document.getElementById('user-role-input').value;
+            const fran = document.getElementById('user-franchise-input').value;
+
+            try {
+                await db.collection('usuarios').doc(email).set({
+                    email: email,
+                    rol: rol,
+                    franquicia: fran,
+                    fecha_creacion: new Date()
+                });
+                window.showAlert('Usuario guardado/actualizado correctamente.', 'success');
+                document.getElementById('user-email-input').value = '';
+                document.getElementById('user-franchise-input').value = '';
+                loadUsersList();
+            } catch (e) {
+                console.error(e);
+                window.showAlert('Error al guardar usuario.', 'error');
+            }
+        });
+    }
+
+    async function loadUsersList() {
+        const list = dom.usersList;
+        list.innerHTML = 'Cargando...';
+        try {
+            const snap = await db.collection('usuarios').get();
+            list.innerHTML = '';
+            snap.forEach(doc => {
+                const u = doc.data();
+                const li = document.createElement('li');
+                li.style.cssText = "padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;";
+                li.innerHTML = `
+                    <span><b>${u.email}</b> - ${u.rol.toUpperCase()} - ${u.franquicia}</span>
+                    <button class="btn btn-secundario" style="padding:2px 8px; font-size:0.8em;" onclick="if(confirm('¿Eliminar permiso?')) deleteUser('${u.email}')">Eliminar</button>
+                `;
+                list.appendChild(li);
+            });
+        } catch (e) {
+            list.innerHTML = 'Error al cargar lista.';
+        }
+    }
+    window.deleteUser = async (email) => {
+        try { await db.collection('usuarios').doc(email).delete(); loadUsersList(); } catch(e){ alert('Error'); }
+    };
+
+
+    // --- 4. CORE DEL SISTEMA (Fetch, Upload, Render) ---
 
     async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
@@ -95,402 +209,366 @@ document.addEventListener('DOMContentLoaded', () => {
         return txt ? JSON.parse(txt) : [];
     }
 
-    const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
-    const formatDateAR = (s) => { 
-        if(!s) return '-'; 
-        const p = s.split('-'); 
-        return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; 
-    };
-
-    // --- NUEVA FUNCIÓN DE ALERTA MODERNA ---
+    // ALERTA MODERNA
     window.showAlert = (message, type = 'error') => {
         return new Promise((resolve) => {
             const overlay = document.getElementById('custom-alert-overlay');
-            if(!overlay) { alert(message); return resolve(); } // Fallback por seguridad
-
+            if(!overlay) { alert(message); return resolve(); }
             const title = document.getElementById('custom-alert-title');
             const msg = document.getElementById('custom-alert-message');
             const icon = document.getElementById('custom-alert-icon');
             const btn = document.getElementById('custom-alert-btn');
-
-            if (type === 'success') {
-                title.innerText = '¡Éxito!';
-                title.style.color = '#4caf50';
-                icon.innerHTML = '✅';
-            } else {
-                title.innerText = 'Atención';
-                title.style.color = '#ef5a1a';
-                icon.innerHTML = '⚠️';
-            }
-
-            msg.innerText = message;
-            overlay.style.display = 'flex';
-
-            btn.onclick = () => {
-                overlay.style.display = 'none';
-                resolve();
-            };
+            if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; }
+            else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; }
+            msg.innerText = message; overlay.style.display = 'flex';
+            btn.onclick = () => { overlay.style.display = 'none'; resolve(); };
         });
     };
 
-    // LÓGICA DE SERVICIOS
+    // --- FORMULARIO DE CARGA / EDICIÓN ---
     dom.btnAgregarServicio.addEventListener('click', () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } });
-    
-    function agregarModuloServicio(tipo) {
+
+    function agregarModuloServicio(tipo, data = null) {
+        // VALIDACIÓN EXCLUSIVIDAD
         const container = dom.containerServicios;
         const existingServices = container.querySelectorAll('.servicio-card');
         const hasExclusive = Array.from(existingServices).some(c => c.dataset.tipo === 'bus' || c.dataset.tipo === 'crucero');
+        if (!data && hasExclusive) return window.showAlert("⛔ No puedes agregar más servicios a un paquete de Bus o Crucero.", "error");
+        if (!data && (tipo === 'bus' || tipo === 'crucero') && existingServices.length > 0) return window.showAlert("⛔ Los paquetes de Bus o Crucero deben ser servicios únicos.", "error");
 
-        // VALIDACIÓN DE EXCLUSIVIDAD
-        if (hasExclusive) {
-            return window.showAlert("⛔ No puedes agregar más servicios a un paquete de Bus o Crucero.", "error");
-        }
-        if ((tipo === 'bus' || tipo === 'crucero') && existingServices.length > 0) {
-            return window.showAlert("⛔ Los paquetes de Bus o Crucero deben ser servicios únicos. Elimina los otros servicios antes de agregar este.", "error");
-        }
-
-        const id = Date.now(); 
+        const id = Date.now() + Math.random(); 
         const div = document.createElement('div');
-        div.className = `servicio-card ${tipo}`; 
-        div.dataset.id = id; 
-        div.dataset.tipo = tipo;
-        const fechaBase = dom.inputFechaViaje.value || '';
+        div.className = `servicio-card ${tipo}`; div.dataset.id = id; div.dataset.tipo = tipo;
         
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
-
-        // --- LÓGICA EXISTENTE ---
-        if (tipo === 'aereo') { html += `<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" value="${fechaBase}" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas', 0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
-        else if (tipo === 'hotel') { html += `<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" value="${fechaBase}" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
+        
+        // --- HTML BUILDER (AQUÍ CAMBIAMOS EL ÍCONO DE TRASLADO) ---
+        if (tipo === 'aereo') { html += `<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas', 0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
+        else if (tipo === 'hotel') { html += `<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
+        
+        // --- CAMBIO: ÍCONO TAXI 🚕 ---
         else if (tipo === 'traslado') { html += `<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Htl-Htl</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
+        
         else if (tipo === 'seguro') { html += `<h4>🛡️ Seguro</h4><div class="form-group-row"><div class="form-group"><label>Cobertura</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'adicional') { html += `<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
-        
-        // --- NUEVOS SERVICIOS ---
-        else if (tipo === 'bus') {
-            html += `<h4>🚌 Paquete Bus</h4>
-            <div class="form-group-row">
-                <div class="form-group"><label>Cant. Noches</label><input type="number" name="bus_noches" required></div>
-                <div class="form-group" style="display:flex; align-items:flex-end; padding-bottom:10px;">
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" name="bus_alojamiento" onchange="document.getElementById('bus-regimen-${id}').style.display = this.checked ? 'block' : 'none'"> Incluye Alojamiento</label>
-                    </div>
-                </div>
-            </div>
-            <div id="bus-regimen-${id}" class="form-group" style="display:none; margin-top:-10px; margin-bottom:15px; background:#f9f9f9; padding:10px; border-radius:8px;">
-                <label>Régimen</label>
-                <select name="bus_regimen">
-                    <option value="Sin Pensión">Sin Pensión</option>
-                    <option value="Desayuno">Desayuno</option>
-                    <option value="Media Pensión">Media Pensión</option>
-                    <option value="Pensión Completa">Pensión Completa</option>
-                </select>
-            </div>
-            <div class="checkbox-group" style="margin-bottom:15px;">
-                <label class="checkbox-label"><input type="checkbox" name="bus_excursiones"> Incluye Excursiones</label>
-                <label class="checkbox-label"><input type="checkbox" name="bus_asistencia"> Asistencia al Viajero</label>
-            </div>
-            <div class="form-group-row">
-                <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
-                <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
-            </div>`;
-        }
-        else if (tipo === 'crucero') {
-            html += `<h4>🚢 Crucero</h4>
-            <div class="form-group-row">
-                <div class="form-group"><label>Naviera</label><input type="text" name="crucero_naviera" required></div>
-                <div class="form-group"><label>Noches</label><input type="number" name="crucero_noches" required></div>
-            </div>
-            <div class="form-group-row">
-                <div class="form-group"><label>Puerto Salida</label><input type="text" name="crucero_puerto_salida" required></div>
-                <div class="form-group"><label>Puertos que Recorre</label><input type="text" name="crucero_recorrido" placeholder="Ej: Santos, Rio, Ilhabela..." required></div>
-            </div>
-            <div class="form-group">
-                <label>Información Adicional</label>
-                <textarea name="crucero_info" rows="2" placeholder="Detalles de cabina, propinas, tasas..."></textarea>
-            </div>
-            <div class="form-group-row">
-                <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
-                <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
-            </div>`;
-        }
+        else if (tipo === 'bus') { html += `<h4>🚌 Paquete Bus</h4><div class="form-group-row"><div class="form-group"><label>Cant. Noches</label><input type="number" name="bus_noches" required></div><div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:10px;"><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="bus_alojamiento" onchange="document.getElementById('bus-regimen-${id}').style.display = this.checked ? 'block' : 'none'"> Incluye Alojamiento</label></div></div></div><div id="bus-regimen-${id}" class="form-group" style="display:none;margin-top:-10px;margin-bottom:15px;background:#f9f9f9;padding:10px;border-radius:8px;"><label>Régimen</label><select name="bus_regimen"><option value="Sin Pensión">Sin Pensión</option><option value="Desayuno">Desayuno</option><option value="Media Pensión">Media Pensión</option><option value="Pensión Completa">Pensión Completa</option></select></div><div class="checkbox-group" style="margin-bottom:15px;"><label class="checkbox-label"><input type="checkbox" name="bus_excursiones"> Incluye Excursiones</label><label class="checkbox-label"><input type="checkbox" name="bus_asistencia"> Asistencia al Viajero</label></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
+        else if (tipo === 'crucero') { html += `<h4>🚢 Crucero</h4><div class="form-group-row"><div class="form-group"><label>Naviera</label><input type="text" name="crucero_naviera" required></div><div class="form-group"><label>Noches</label><input type="number" name="crucero_noches" required></div></div><div class="form-group-row"><div class="form-group"><label>Puerto Salida</label><input type="text" name="crucero_puerto_salida" required></div><div class="form-group"><label>Puertos que Recorre</label><input type="text" name="crucero_recorrido" required></div></div><div class="form-group"><label>Información Adicional</label><textarea name="crucero_info" rows="2"></textarea></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
 
-        div.innerHTML = html; 
+        div.innerHTML = html;
         dom.containerServicios.appendChild(div);
+
+        // Si hay data (EDICIÓN), populamos
+        if (data) {
+            div.querySelectorAll('input, select, textarea').forEach(input => {
+                if (data[input.name] !== undefined) {
+                    if (input.type === 'checkbox') {
+                        input.checked = data[input.name];
+                        if (input.name === 'bus_alojamiento') input.dispatchEvent(new Event('change'));
+                    } else if (input.type === 'hidden') {
+                         const counter = input.parentElement.querySelector('.counter-value');
+                         if(counter) counter.innerText = data[input.name];
+                         input.value = data[input.name];
+                    } else {
+                        input.value = data[input.name];
+                        if (input.name === 'checkin' || input.name === 'checkout') window.calcularNoches(id);
+                    }
+                }
+            });
+        }
     }
 
+    // Funciones auxiliares globales
     window.crearContadorHTML = (n, v) => `<div class="counter-wrapper"><button type="button" class="counter-btn" onclick="this.nextElementSibling.innerText=Math.max(0,parseInt(this.nextElementSibling.innerText)-1)">-</button><span class="counter-value">${v}</span><button type="button" class="counter-btn" onclick="this.previousElementSibling.innerText=parseInt(this.previousElementSibling.innerText)+1">+</button><input type="hidden" name="${n}" value="${v}"></div>`;
-    window.calcularNoches = (id) => { const c=document.querySelector(`.servicio-card[data-id="${id}"]`), i=new Date(c.querySelector('input[name="checkin"]').value), o=new Date(c.querySelector('input[name="checkout"]').value); document.getElementById(`noches-${id}`).value=(i&&o&&o>i)?Math.ceil((o-i)/86400000):'-'; };
+    window.calcularNoches = (id) => { const c=document.querySelector(`.servicio-card[data-id="${id}"]`); if(!c)return; const i=c.querySelector('input[name="checkin"]'), o=c.querySelector('input[name="checkout"]'); if(i&&o&&i.value&&o.value){ const d1=new Date(i.value), d2=new Date(o.value); document.getElementById(`noches-${id}`).value=(d2>d1)?Math.ceil((d2-d1)/86400000):'-'; } };
     window.calcularTotal = () => { let t=0; document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); dom.inputCostoTotal.value=t; };
 
-    // --- FORMULARIO DE CARGA (CORREGIDO) ---
+
     dom.uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        // Status inicial
+        const rol = userData.rol;
+        const promoType = document.getElementById('upload-promo').value;
+        let status = 'approved';
+        if (rol === 'usuario' && promoType === 'FEED') status = 'pending';
+
         const costo = parseFloat(dom.inputCostoTotal.value) || 0;
         const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0;
         const fechaViajeStr = dom.inputFechaViaje.value;
 
-        // VALIDACIONES
+        // Validaciones
         if (tarifa < costo) return window.showAlert(`Error: La tarifa ($${tarifa}) es menor al costo ($${costo}).`, 'error');
         if (!fechaViajeStr) return window.showAlert("Falta fecha de salida.", 'error');
-        
-        const fechaViaje = new Date(fechaViajeStr + 'T00:00:00');
         const cards = document.querySelectorAll('.servicio-card');
         if (cards.length === 0) return window.showAlert("Agrega al menos un servicio.", 'error');
 
-        let fechaRegresoVuelo = null;
-        let errorMsg = null;
+        // Recolección
         let serviciosData = [];
-
-        cards.forEach(c => { 
-            if(c.dataset.tipo==='aereo'){ 
-                const r = c.querySelector('input[name="fecha_regreso"]'); 
-                if(r && r.value){ 
-                    const f = new Date(r.value+'T00:00:00'); 
-                    if(!fechaRegresoVuelo || f > fechaRegresoVuelo) fechaRegresoVuelo = f; 
-                } 
-            } 
-        });
-
-        for(let card of cards){
-            const tipo = card.dataset.tipo;
-            const inputs = card.querySelectorAll('input[type="date"]');
-            
-            for(let i of inputs){ 
-                if(i.value && new Date(i.value+'T00:00:00') < fechaViaje){ 
-                    errorMsg = `Servicio ${tipo}: Fecha anterior a la salida.`; 
-                    break;
-                } 
-            }
-            if(errorMsg) break;
-            
-            if(tipo === 'hotel'){ 
-                const i = card.querySelector('input[name="checkin"]').value;
-                const o = card.querySelector('input[name="checkout"]').value;
-                if(i && o && new Date(o) <= new Date(i)){ 
-                    errorMsg = "HOTEL: Check-out erróneo."; 
-                    break; 
-                } 
-            }
-            
-            if(fechaRegresoVuelo){
-                let fin = null;
-                if(tipo === 'hotel'){ 
-                    const o = card.querySelector('input[name="checkout"]').value; 
-                    if(o) fin = new Date(o+'T00:00:00'); 
-                }
-                if(fin){ 
-                    const lim = new Date(fechaRegresoVuelo);
-                    if(tipo === 'hotel' || tipo === 'seguro') lim.setDate(lim.getDate()+1); 
-                    if(fin > lim){ 
-                        errorMsg = `${tipo} termina después del vuelo.`; 
-                        break; 
-                    } 
-                }
-            }
-
-            const serv = { tipo };
-            card.querySelectorAll('input, select').forEach(i => { 
-                if(i.type === 'checkbox') serv[i.name] = i.checked; 
-                else if(i.type === 'hidden') serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value; 
-                else serv[i.name] = i.value; 
-            }); 
+        for (let card of cards) {
+            const serv = { tipo: card.dataset.tipo };
+            card.querySelectorAll('input, select, textarea').forEach(i => {
+                if (i.type === 'checkbox') serv[i.name] = i.checked;
+                else if (i.type === 'hidden') serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value;
+                else serv[i.name] = i.value;
+            });
             serviciosData.push(serv);
         }
 
-        if(errorMsg) return window.showAlert(errorMsg, 'error');
+        const payload = {
+            destino: document.getElementById('upload-destino').value,
+            salida: document.getElementById('upload-salida').value,
+            fecha_salida: fechaViajeStr,
+            costos_proveedor: costo,
+            tarifa: tarifa,
+            moneda: document.getElementById('upload-moneda').value,
+            tipo_promo: promoType,
+            financiacion: document.getElementById('upload-financiacion').value,
+            servicios: serviciosData,
+            status: status,
+            creador: userData.franquicia, 
+            editor_email: currentUser.email,
+            action_type: isEditingId ? 'edit' : 'create',
+            id_paquete: isEditingId || '' 
+        };
 
-        dom.btnSubir.disabled = true; 
-        dom.uploadStatus.textContent = 'Guardando...';
-
-        try { 
-            await secureFetch(API_URL_UPLOAD, { 
-                destino: document.getElementById('upload-destino').value, 
-                salida: document.getElementById('upload-salida').value, 
-                fecha_salida: fechaViajeStr, 
-                costos_proveedor: costo, 
-                tarifa: tarifa, // CORREGIDO: Se envía como 'tarifa'
-                moneda: document.getElementById('upload-moneda').value, 
-                tipo_promo: document.getElementById('upload-promo').value, 
-                financiacion: document.getElementById('upload-financiacion').value, 
-                servicios: serviciosData 
-            }); 
-            
-            await window.showAlert('¡Paquete guardado con éxito!', 'success'); 
+        dom.uploadStatus.textContent = isEditingId ? 'Actualizando...' : 'Guardando...';
+        
+        try {
+            await secureFetch(API_URL_UPLOAD, payload);
+            await window.showAlert(isEditingId ? '¡Paquete actualizado!' : '¡Paquete guardado!', 'success');
             window.location.reload();
-        } catch(e) { 
-            console.error(e); 
-            dom.uploadStatus.textContent = 'Error al guardar'; 
-            window.showAlert("Error de conexión al guardar.", 'error');
-            dom.btnSubir.disabled = false; 
+        } catch(e) {
+            console.error(e);
+            window.showAlert("Error al conectar.", 'error');
         }
     });
 
-    // RENDERIZADO
-    function getNoches(pkg) {
-        // 1. Obtenemos los servicios del paquete
+    // --- 5. RENDERIZADO Y GESTIÓN (Editar/Borrar) ---
+
+    function getSummaryIcons(pkg) {
+         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) {}
+         if (!Array.isArray(servicios) || servicios.length === 0) return '<span style="opacity:0.6">Sin servicios</span>';
+         
+         // --- CAMBIO: ÍCONO TAXI 🚕 ---
+         const iconMap = { 'aereo': '✈️ Aéreo', 'hotel': '🏨 Hotel', 'traslado': '🚕 Traslado', 'seguro': '🛡️ Seguro', 'adicional': '➕ Adic.', 'bus': '🚌 Bus', 'crucero': '🚢 Crucero' };
+         
+         const uniqueTypes = [...new Set(servicios.map(s => iconMap[s.tipo] || s.tipo))];
+         return uniqueTypes.map(t => `<span style="white-space:nowrap;display:inline-block;margin-right:8px;margin-bottom:4px;background:#f4f7f9;padding:2px 8px;border-radius:4px;">${t}</span>`).join('');
+    }
+
+    function renderCards(list, targetGrid = dom.grid) {
+        targetGrid.innerHTML = '';
+        if (!list || list.length === 0) { targetGrid.innerHTML = '<p>No hay resultados.</p>'; return; }
+
+        list.forEach(pkg => {
+            const card = document.createElement('div');
+            const noches = getNoches(pkg);
+            card.className = 'paquete-card';
+            
+            const tarifaMostrar = parseFloat(pkg['tarifa']) || 0;
+            const summaryIcons = getSummaryIcons(pkg);
+            
+            // Herramientas (Solo Editor/Admin)
+            let toolsHtml = '';
+            if (userData.rol === 'editor' || userData.rol === 'admin') {
+                toolsHtml = `
+                <div style="position:absolute; top:10px; right:10px; z-index:10; display:flex; gap:5px;">
+                    <button class="tool-btn edit" title="Editar">✏️</button>
+                    <button class="tool-btn delete" title="Eliminar">🗑️</button>
+                    ${pkg.status === 'pending' ? '<button class="tool-btn approve" title="Aprobar">✅</button>' : ''}
+                </div>`;
+            }
+
+            const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`;
+
+            card.innerHTML = `
+                ${toolsHtml}
+                <div class="card-clickable">
+                    <div class="card-header" style="padding-bottom:0;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
+                            <div style="max-width:75%; padding-right:30px;">
+                                <h3 style="margin:0;font-size:1.5em;line-height:1.2;color:#11173d;">${pkg['destino']}</h3>
+                            </div>
+                            ${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:5px 10px;border-radius:12px;font-weight:bold;font-size:0.8em;white-space:nowrap;">🌙 ${noches}</div>` : ''}
+                        </div>
+                        <div style="margin-top:8px;margin-bottom:25px;font-size:0.9em;color:#666;font-weight:500;display:flex;align-items:center;gap:6px;">
+                            <span>📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</span>
+                        </div>
+                    </div>
+                    <div class="card-body" style="padding:0 20px 15px 20px;">
+                        <div style="font-size:0.75em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div>
+                         <div style="font-size:0.75em; color:#999; margin-top:5px;">${pkg['creador']}</div>
+                    </div>
+                    <div class="card-footer" style="padding-top:15px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;">
+                        <div><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
+                        <div><p class="precio-valor" style="font-size:1.8em;margin:0;color:#ef5a1a;">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar/2))}</p></div>
+                    </div>
+                </div>`;
+            
+            targetGrid.appendChild(card);
+            
+            // Eventos
+            card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
+            if(toolsHtml) {
+                const btnEdit = card.querySelector('.edit');
+                const btnDel = card.querySelector('.delete');
+                const btnApprove = card.querySelector('.approve');
+                if(btnEdit) btnEdit.onclick = (e) => { e.stopPropagation(); startEditing(pkg); };
+                if(btnDel) btnDel.onclick = (e) => { e.stopPropagation(); deletePackage(pkg); };
+                if(btnApprove) btnApprove.onclick = (e) => { e.stopPropagation(); approvePackage(pkg); };
+            }
+        });
+    }
+
+    async function deletePackage(pkg) {
+        if (!confirm("⚠️ ¿Estás seguro de ELIMINAR este paquete? Esta acción es irreversible.")) return;
+        try {
+            await secureFetch(API_URL_UPLOAD, { action_type: 'delete', id_paquete: pkg.id || pkg['item.id'] || pkg.row_number }); 
+            window.showAlert("Paquete eliminado.", "success");
+            window.location.reload();
+        } catch (e) { window.showAlert("Error al eliminar.", "error"); }
+    }
+
+    async function approvePackage(pkg) {
+         if (!confirm("¿Aprobar publicación en FEED?")) return;
+         try {
+             let payload = JSON.parse(JSON.stringify(pkg)); 
+             payload.status = 'approved';
+             payload.action_type = 'edit';
+             delete payload['row_number']; 
+             await secureFetch(API_URL_UPLOAD, payload);
+             window.showAlert("Paquete Aprobado.", "success");
+             window.location.reload();
+         } catch(e) { window.showAlert("Error al aprobar.", "error"); }
+    }
+
+    function startEditing(pkg) {
+        if (!confirm("Vas a editar este paquete. Se abrirá el formulario con los datos cargados.")) return;
+        isEditingId = pkg.id || pkg['item.id'] || pkg.row_number; 
+        
+        document.getElementById('upload-destino').value = pkg.destino;
+        document.getElementById('upload-salida').value = pkg.salida;
+        let fecha = pkg.fecha_salida;
+        if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-');
+        dom.inputFechaViaje.value = fecha;
+        document.getElementById('upload-moneda').value = pkg.moneda;
+        document.getElementById('upload-promo').value = pkg.tipo_promo;
+        document.getElementById('upload-financiacion').value = pkg.financiacion || '';
+        document.getElementById('upload-tarifa-total').value = pkg.tarifa;
+
+        dom.containerServicios.innerHTML = '';
         let servicios = [];
-        try { 
-            const raw = pkg['servicios'] || pkg['item.servicios']; 
-            servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; 
-        } catch(e) {}
+        try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
+        
+        if (Array.isArray(servicios)) {
+            servicios.forEach(s => agregarModuloServicio(s.tipo, s));
+        }
+        
+        window.calcularTotal();
+        showView('upload');
+        window.scrollTo(0,0);
+        window.showAlert("Modo Edición Activado.", "success");
+    }
 
+
+    // --- 6. LOGICA COMÚN (Noches, Filtros, Modal) ---
+
+    function getNoches(pkg) {
+        let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
-
-        // 2. PRIORIDAD: Si es Paquete Bus o Crucero, usamos el dato directo cargado en el formulario
-        const bus = servicios.find(s => s.tipo === 'bus');
-        if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
-
-        const crucero = servicios.find(s => s.tipo === 'crucero');
-        if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
-
-        // 3. Lógica Standard (Para Aéreos/Hoteles): Cálculo por diferencia de fechas
+        const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
+        const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
         if(!pkg['fecha_salida']) return 0;
-        
-        // Normalizamos la fecha de salida para el cálculo
-        let fechaStr = pkg['fecha_salida'];
-        if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-'); // Si viene DD/MM/YYYY pasamos a YYYY-MM-DD
-        
-        const start = new Date(fechaStr + 'T00:00:00');
-        let maxDate = new Date(start), hasData = false;
-
+        let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
+        const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
         servicios.forEach(s => {
             if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
             if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
         });
-
         return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
     }
-    function getSummaryIcons(pkg) {
-        let servicios = [];
-        try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) {}
-        if (!Array.isArray(servicios) || servicios.length === 0) return '<span style="opacity:0.6">Sin servicios</span>';
-        
-        // AGREGADOS: bus y crucero
-        const iconMap = { 
-            'aereo': '✈️ Aéreo', 
-            'hotel': '🏨 Hotel', 
-            'traslado': '🚕 Traslado', 
-            'seguro': '🛡️ Seguro', 
-            'adicional': '➕ Adic.',
-            'bus': '🚌 Bus',
-            'crucero': '🚢 Crucero'
-        };
-        const uniqueTypes = [...new Set(servicios.map(s => iconMap[s.tipo] || s.tipo))];
-        
-        return uniqueTypes.map(t => 
-            `<span style="white-space:nowrap; display:inline-block; margin-right:8px; margin-bottom:4px; background:#f4f7f9; padding:2px 8px; border-radius:4px;">${t}</span>`
-        ).join('');
+    
+    function populateFranchiseFilter(packages) {
+        const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))];
+        const selector = dom.filtroCreador;
+        const currentVal = selector.value;
+        selector.innerHTML = '<option value="">Todas las Franquicias</option>';
+        creadores.sort().forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c; opt.innerText = c;
+            selector.appendChild(opt);
+        });
+        selector.value = currentVal;
     }
 
-    function renderCards(list) {
-        dom.loader.style.display='none'; 
-        dom.grid.innerHTML=''; 
-        if(!list || list.length === 0){ dom.grid.innerHTML='<p>No hay resultados.</p>'; return; }
-        
-        list.forEach(pkg => {
-            const card = document.createElement('div');
-            const noches = getNoches(pkg); 
-            card.className = 'paquete-card'; 
-            card.dataset.packageData = JSON.stringify(pkg);
-            
-            const tarifaMostrar = parseFloat(pkg['tarifa']) || 0;
-            const summaryIcons = getSummaryIcons(pkg);
-    
-            // Estilo de la burbuja (Cyan/Turquesa)
-            const bubbleStyle = `
-                background-color: #56DDE0; 
-                color: #11173d; 
-                padding: 4px 12px; 
-                border-radius: 20px; 
-                font-weight: 600; 
-                font-size: 0.75em; 
-                display: inline-block;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            `;
-    
-            card.innerHTML = `
-                <div class="card-header" style="padding-bottom: 0;">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; width:100%;">
-                        <div style="max-width:75%;">
-                            <h3 style="margin:0; font-size:1.5em; line-height:1.2; color: #11173d;">${pkg['destino']}</h3>
-                        </div>
-                        
-                        ${noches > 0 ? `<div style="background:#eef2f5; color:#11173d; padding:5px 10px; border-radius:12px; font-weight:bold; font-size:0.8em; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.05);">🌙 ${noches}</div>` : ''}
-                    </div>
-    
-                    <div style="margin-top: 8px; margin-bottom: 25px; font-size:0.9em; color:#666; font-weight:500; display:flex; align-items:center; gap:6px;">
-                        <span>📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</span>
-                    </div>
-                </div>
-    
-                <div class="card-body" style="padding: 0 20px 15px 20px; display:flex; align-items:center;">
-                    <div style="font-size:0.75em; color:#555; display:flex; flex-wrap:wrap; line-height:1.4;">
-                        ${summaryIcons}
-                    </div>
-                </div>
-    
-                <div class="card-footer" style="padding-top:15px; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <span style="${bubbleStyle}">${pkg['tipo_promo']}</span>
-                    </div>
-                    <div>
-                        <p class="precio-valor" style="font-size: 1.8em; margin:0; color: #ef5a1a;">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar / 2))}</p>
-                    </div>
-                </div>`;
-            dom.grid.appendChild(card);
+    function applyFilters() {
+        const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
+        const fCreador = dom.filtroCreador.value;
+        const fPromo = document.getElementById('filtro-promo').value;
+        const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
+
+        let result = allPackages.filter(pkg => {
+            if (pkg.status && pkg.status !== 'approved') return false; 
+            const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
+            const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
+            const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
+            return mDestino && mCreador && mPromo;
         });
+
+        if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa));
+        else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
+        else result.reverse();
+
+        renderCards(result, dom.grid);
+        
+        if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) {
+            const pendientes = allPackages.filter(p => p.status === 'pending');
+            renderCards(pendientes, dom.gridGestion);
+        }
     }
-    
+
+    const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
+    const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
+
+    async function fetchAndLoadPackages() { 
+        try { 
+            const d = await secureFetch(API_URL_SEARCH, {}); 
+            allPackages = d; 
+            populateFranchiseFilter(allPackages); 
+            applyFilters(); 
+        } catch(e){ console.error(e); } 
+    }
+
     function renderServiciosClienteHTML(rawJson) {
-        let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>Sin detalles.</p>'; }
+         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>Sin detalles.</p>'; }
         if(!Array.isArray(servicios)||servicios.length===0) return '<p>Sin detalles.</p>';
         let html='';
         servicios.forEach(s => {
             let icono='🔹', titulo='', lineas=[];
-            
-            // LÓGICA EXISTENTE
             if(s.tipo==='aereo'){ icono='✈️'; titulo='AÉREO'; lineas.push(`<b>Aerolínea:</b> ${s.aerolinea}`); lineas.push(`<b>Fechas:</b> ${formatDateAR(s.fecha_aereo)}${s.fecha_regreso?` | <b>Vuelta:</b> ${formatDateAR(s.fecha_regreso)}`:''}`); lineas.push(`<b>Escalas:</b> ${s.escalas==0?'Directo':s.escalas}`); lineas.push(`<b>Equipaje:</b> ${s.tipo_equipaje.replace(/_/g,' ')} (x${s.cantidad_equipaje||1})`); }
             else if(s.tipo==='hotel'){ icono='🏨'; titulo='HOTEL'; lineas.push(`<b>${s.hotel_nombre}</b> (${s.regimen})`); lineas.push(`<b>Estadía:</b> ${(s.checkin&&s.checkout)?Math.ceil((new Date(s.checkout)-new Date(s.checkin))/86400000):'-'} noches (${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout)})`); }
+            
+            // --- CAMBIO: ÍCONO TAXI 🚕 ---
             else if(s.tipo==='traslado'){ icono='🚕'; titulo='TRASLADO'; let t=[]; if(s.trf_in)t.push("In"); if(s.trf_out)t.push("Out"); if(s.trf_hah)t.push("Htl-Htl"); lineas.push(`<b>Tipo:</b> ${s.tipo_trf} (${t.join(' + ')})`); }
+            
             else if(s.tipo==='seguro'){ icono='🛡️'; titulo='SEGURO'; lineas.push(`<b>Cob:</b> ${s.proveedor}`); }
             else if(s.tipo==='adicional'){ icono='➕'; titulo='ADICIONAL'; lineas.push(`<b>${s.descripcion}</b>`); }
-            
-            // --- NUEVOS TIPOS ---
-            else if (s.tipo === 'bus') {
-                icono = '🚌'; titulo = 'PAQUETE BUS';
-                lineas.push(`<b>Duración:</b> ${s.bus_noches} Noches`);
-                if (s.bus_alojamiento) lineas.push(`<b>Alojamiento:</b> Incluido (${s.bus_regimen})`);
-                else lineas.push(`<b>Alojamiento:</b> No incluido`);
-                let extras = [];
-                if (s.bus_excursiones) extras.push("Excursiones");
-                if (s.bus_asistencia) extras.push("Asistencia");
-                if (extras.length > 0) lineas.push(`<b>Incluye:</b> ${extras.join(' + ')}`);
-            }
-            else if (s.tipo === 'crucero') {
-                icono = '🚢'; titulo = 'CRUCERO';
-                lineas.push(`<b>Naviera:</b> ${s.crucero_naviera}`);
-                lineas.push(`<b>Salida:</b> ${s.crucero_puerto_salida} (${s.crucero_noches} Noches)`);
-                lineas.push(`<b>Recorrido:</b> ${s.crucero_recorrido}`);
-                if(s.crucero_info) lineas.push(`<i>Info: ${s.crucero_info}</i>`);
-            }
-
+            else if (s.tipo === 'bus') { icono = '🚌'; titulo = 'PAQUETE BUS'; lineas.push(`<b>Duración:</b> ${s.bus_noches} Noches`); if (s.bus_alojamiento) lineas.push(`<b>Alojamiento:</b> Incluido (${s.bus_regimen})`); else lineas.push(`<b>Alojamiento:</b> No incluido`); let extras = []; if (s.bus_excursiones) extras.push("Excursiones"); if (s.bus_asistencia) extras.push("Asistencia"); if (extras.length > 0) lineas.push(`<b>Incluye:</b> ${extras.join(' + ')}`); }
+            else if (s.tipo === 'crucero') { icono = '🚢'; titulo = 'CRUCERO'; lineas.push(`<b>Naviera:</b> ${s.crucero_naviera}`); lineas.push(`<b>Salida:</b> ${s.crucero_puerto_salida} (${s.crucero_noches} Noches)`); lineas.push(`<b>Recorrido:</b> ${s.crucero_recorrido}`); if(s.crucero_info) lineas.push(`<i>Info: ${s.crucero_info}</i>`); }
             if(s.obs) lineas.push(`<i>Obs: ${s.obs}</i>`);
             html+=`<div style="margin-bottom:10px;border-left:3px solid #ddd;padding-left:10px;"><div style="color:#11173d;font-weight:bold;">${icono} ${titulo}</div><div style="font-size:0.9em;color:#555;">${lineas.map(l=>`<div>${l}</div>`).join('')}</div></div>`;
         });
         return html;
     }
-
+    
     function renderCostosProveedoresHTML(rawJson) {
-        let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>-</p>'; }
+         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>-</p>'; }
         if(!Array.isArray(servicios)||servicios.length===0) return '<p>-</p>';
         let html='<ul style="list-style:none; padding:0; margin:0;">';
-        servicios.forEach(s => {
-            const tipo = s.tipo ? s.tipo.toUpperCase() : 'SERVICIO';
-            html += `<li style="margin-bottom:5px; font-size:0.9em; border-bottom:1px dashed #eee; padding-bottom:5px;"><b>${tipo}:</b> ${s.proveedor || '-'} <span style="float:right;">$${formatMoney(s.costo || 0)}</span></li>`;
-        });
-        html += '</ul>';
-        return html;
+        servicios.forEach(s => { const tipo = s.tipo ? s.tipo.toUpperCase() : 'SERVICIO'; html += `<li style="margin-bottom:5px; font-size:0.9em; border-bottom:1px dashed #eee; padding-bottom:5px;"><b>${tipo}:</b> ${s.proveedor || '-'} <span style="float:right;">$${formatMoney(s.costo || 0)}</span></li>`; });
+        html += '</ul>'; return html;
     }
+
     function openModal(pkg) {
         const rawServicios = pkg['servicios'] || pkg['item.servicios'];
         const htmlCliente = renderServiciosClienteHTML(rawServicios);
@@ -498,31 +576,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const noches = getNoches(pkg);
         const tarifa = parseFloat(pkg['tarifa']) || 0;
         const tarifaDoble = Math.round(tarifa / 2);
-
-        // 1. Definimos el estilo de la burbuja (Igual que en la tarjeta)
-        const bubbleStyle = `
-            background-color: #56DDE0; 
-            color: #11173d; 
-            padding: 4px 12px; 
-            border-radius: 20px; 
-            font-weight: 600; 
-            font-size: 0.8em; 
-            display: inline-block; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            margin-top: 8px; /* Espacio entre el título y la etiqueta */
-        `;
+        const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 8px;`;
 
         dom.modalBody.innerHTML = `
             <div class="modal-detalle-header" style="display:flex; flex-direction:column; align-items:flex-start; padding: 25px;">
                 <h2 style="margin:0; color:#11173d; font-size: 2em;">${pkg['destino']}</h2>
                 <span style="${bubbleStyle}">${pkg['tipo_promo']}</span>
             </div>
-            
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">
-                <div>
-                    <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>
-                    ${htmlCliente}
-                </div>
+                <div><h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>${htmlCliente}</div>
                 <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;">
                     <div style="margin-bottom:20px;">
                         <h4 style="margin:0 0 10px 0; color:#11173d;">Resumen</h4>
@@ -535,7 +597,6 @@ document.addEventListener('DOMContentLoaded', () => {
                      ${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}
                 </div>
             </div>
-
             <div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px;">
                 <div style="display:flex; gap:30px;">
                     <div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div>
@@ -546,79 +607,31 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
         dom.modal.style.display = 'flex';
     }
-    
 
-    // --- FILTROS Y ORDENAMIENTO (CORREGIDO) ---
-    function applyFilters() {
-        const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
-        const fCreador = document.getElementById('filtro-creador').value;
-        const fPromo = document.getElementById('filtro-promo').value;
-        const fOrden = document.getElementById('filtro-orden') ? document.getElementById('filtro-orden').value : 'reciente';
-        
-        // 1. Crear copia para filtrar
-        let result = allPackages.filter(pkg => {
-            const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
-            const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
-            const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
-            return mDestino && mCreador && mPromo;
-        });
-
-        // 2. Ordenar
-        if (fOrden === 'menor_precio') {
-            result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa));
-        } else if (fOrden === 'mayor_precio') {
-            result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
-        } else {
-            // "Más Recientes" (por defecto)
-            // Asumimos que Google Sheets entrega los datos históricos (antiguos primero)
-            // Invertimos la copia del array.
-            result.reverse(); 
-        }
-
-        renderCards(result);
-    }
-
-    function fetchAndLoadPackages() { fetchPackages(); }
-    
-    async function fetchPackages(f={}) { 
-        try{ 
-            // Obtenemos los paquetes en orden original del Sheet (Antiguo -> Nuevo)
-            const d = await secureFetch(API_URL_SEARCH, f); 
-            allPackages = d; 
-            applyFilters(); 
-        } catch(e){ console.error(e); } 
-    }
-
-    function showView(n) { 
-        dom.viewSearch.classList.toggle('active', n === 'search'); 
-        dom.viewUpload.classList.toggle('active', n === 'upload'); 
-        dom.navSearch.classList.toggle('active', n === 'search'); 
-        dom.navUpload.classList.toggle('active', n === 'upload'); 
+    // Navegación Vistas
+    function showView(n) {
+        Object.values(dom.views).forEach(v => { if(v) v.classList.remove('active'); });
+        Object.values(dom.nav).forEach(b => { if(b) b.classList.remove('active'); });
+        if(dom.views[n]) dom.views[n].classList.add('active');
+        if(dom.nav[n]) dom.nav[n].classList.add('active');
+        isEditingId = null; 
     }
     
-    dom.navSearch.onclick = () => showView('search'); 
-    dom.navUpload.onclick = () => showView('upload');
-    dom.grid.addEventListener('click', e => { const c=e.target.closest('.paquete-card'); if(c) openModal(JSON.parse(c.dataset.packageData)); });
-    dom.modalClose.onclick = () => dom.modal.style.display='none'; 
-    window.onclick = e => { if(e.target === dom.modal) dom.modal.style.display='none'; };
+    dom.nav.search.onclick = () => showView('search');
+    dom.nav.upload.onclick = () => { isEditingId = null; document.getElementById('upload-form').reset(); dom.containerServicios.innerHTML=''; showView('upload'); };
+    dom.nav.gestion.onclick = () => showView('gestion');
+    dom.nav.users.onclick = () => showView('users');
     
+    // Listeners Filtros
     dom.btnBuscar.addEventListener('click', applyFilters);
     dom.btnLimpiar.addEventListener('click', () => { 
         document.getElementById('filtro-destino').value=''; 
-        document.getElementById('filtro-creador').value=''; 
+        dom.filtroCreador.value=''; 
         document.getElementById('filtro-promo').value='';
         if(dom.filtroOrden) dom.filtroOrden.value='reciente';
         applyFilters(); 
     });
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
+    if(dom.filtroCreador) dom.filtroCreador.addEventListener('change', applyFilters);
+
 });
-
-
-
-
-
-
-
-
-
-
