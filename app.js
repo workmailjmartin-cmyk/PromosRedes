@@ -276,12 +276,14 @@ document.addEventListener('DOMContentLoaded', () => {
         try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) {}
         if (!Array.isArray(servicios) || servicios.length === 0) return '<span style="opacity:0.6">Sin servicios</span>';
         
-        // Mapeo de tipos a iconos
         const iconMap = { 'aereo': '✈️ Aéreo', 'hotel': '🏨 Hotel', 'traslado': '🚌 Traslado', 'seguro': '🛡️ Seguro', 'adicional': '➕ Adic.' };
-        // Obtenemos tipos únicos presentes
         const uniqueTypes = [...new Set(servicios.map(s => iconMap[s.tipo] || s.tipo))];
-        // Los unimos con un punto medio
-        return uniqueTypes.join(' <span style="color:#ccc">•</span> ');
+        
+        // CAMBIO: Envolvemos cada item en un span que no permite saltos de línea internos
+        // y usamos un contenedor flex en el renderCards para que se acomoden solos.
+        return uniqueTypes.map(t => 
+            `<span style="white-space:nowrap; display:inline-block; margin-right:8px; margin-bottom:4px; background:#f4f7f9; padding:2px 8px; border-radius:4px;">${t}</span>`
+        ).join('');
     }
 
     function renderCards(list) {
@@ -296,34 +298,41 @@ document.addEventListener('DOMContentLoaded', () => {
             card.dataset.packageData = JSON.stringify(pkg);
             
             const tarifaMostrar = parseFloat(pkg['tarifa']) || 0;
-            // Usamos la nueva función auxiliar para los iconos
             const summaryIcons = getSummaryIcons(pkg);
     
             card.innerHTML = `
-                <div class="card-header">
+                <div class="card-header" style="padding-bottom: 5px;">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
-                        <div style="max-width:70%;">
-                            <h3 style="margin:0;font-size:1.6em;">${pkg['destino']}</h3>
-                            <span class="tag-promo" style="margin-top:8px;display:inline-block;font-size:0.75em;">${pkg['tipo_promo']}</span>
+                        <div style="max-width:75%;">
+                            <h3 style="margin:0; font-size:1.4em; line-height:1.2;">${pkg['destino']}</h3>
+                            
+                            <div style="margin-top:4px; font-size:0.85em; color:#666; font-weight:500; display:flex; align-items:center; gap:5px;">
+                                <span>📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</span>
+                            </div>
                         </div>
-                        ${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:6px 10px;border-radius:20px;font-weight:bold;font-size:0.85em;white-space:nowrap;margin-left:5px;">🌙 ${noches} Noches</div>` : ''}
+                        
+                        ${noches > 0 ? `<div style="background:#eef2f5; color:#11173d; padding:4px 8px; border-radius:12px; font-weight:bold; font-size:0.8em; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.05);">🌙 ${noches}</div>` : ''}
                     </div>
                 </div>
-                <div class="card-body" style="padding-bottom: 15px;">
-                    <p style="color:#555;font-size:0.9em;margin-top:15px; margin-bottom:0;">${summaryIcons}</p>
+    
+                <div class="card-body" style="padding: 10px 20px; display:flex; align-items:center;">
+                    <div style="font-size:0.75em; color:#555; display:flex; flex-wrap:wrap; line-height:1.4;">
+                        ${summaryIcons}
+                    </div>
                 </div>
-                <div class="card-footer" style="display:flex; justify-content: space-between; align-items: flex-end;">
-                    <div style="font-size:0.85em; color:#888; font-weight:500;">
-                        📅 Salida: ${formatDateAR(pkg['fecha_salida'])}
+    
+                <div class="card-footer" style="display:flex; justify-content: space-between; align-items: center; padding-top:15px;">
+                    <div>
+                        <span class="tag-promo" style="font-size:0.8em; padding: 4px 10px;">${pkg['tipo_promo']}</span>
                     </div>
                     <div>
-                        <p class="precio-valor" style="font-size: 1.6em;">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar / 2))}</p>
+                        <p class="precio-valor" style="font-size: 1.6em; margin:0;">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar / 2))}</p>
                     </div>
                 </div>`;
             dom.grid.appendChild(card);
         });
     }
-
+    
     function renderServiciosClienteHTML(rawJson) {
         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>Sin detalles.</p>'; }
         if(!Array.isArray(servicios)||servicios.length===0) return '<p>Sin detalles.</p>';
@@ -452,6 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
 });
+
 
 
 
