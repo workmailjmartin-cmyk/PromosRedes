@@ -88,32 +88,80 @@ firebase.initializeApp(firebaseConfig);
 
     dom.uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const costo=parseFloat(dom.inputCostoTotal.value)||0, tarifa=parseFloat(document.getElementById('upload-tarifa-total').value)||0, fechaViajeStr=dom.inputFechaViaje.value;
-        if(tarifa<costo) return alert(`⛔ ERROR: Tarifa ($${tarifa}) menor al Costo ($${costo}).`);
-        if(!fechaViajeStr) return alert("Falta fecha de salida.");
+        const costo = parseFloat(dom.inputCostoTotal.value) || 0;
+        const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0;
+        const fechaViajeStr = dom.inputFechaViaje.value;
+
+        // VALIDACIONES CON ALERTA MODERNA
+        if (tarifa < costo) return window.showAlert(`El precio de venta ($${tarifa}) no puede ser menor al costo ($${costo}).`, 'error');
+        if (!fechaViajeStr) return window.showAlert("Falta seleccionar la fecha de salida.", 'error');
         
-        const fechaViaje=new Date(fechaViajeStr+'T00:00:00'), cards=document.querySelectorAll('.servicio-card');
-        if(cards.length===0) return alert("Agrega servicios.");
+        const fechaViaje = new Date(fechaViajeStr + 'T00:00:00');
+        const cards = document.querySelectorAll('.servicio-card');
+        
+        if (cards.length === 0) return window.showAlert("Debes agregar al menos un servicio al paquete.", 'error');
 
-        let fechaRegresoVuelo=null, errorMsg=null, serviciosData=[];
-        cards.forEach(c=>{ if(c.dataset.tipo==='aereo'){ const r=c.querySelector('input[name="fecha_regreso"]'); if(r&&r.value){ const f=new Date(r.value+'T00:00:00'); if(!fechaRegresoVuelo||f>fechaRegresoVuelo) fechaRegresoVuelo=f; } } });
+        let fechaRegresoVuelo = null;
+        let errorMsg = null;
+        let serviciosData = [];
 
-        for(let card of cards){
-            const tipo=card.dataset.tipo, inputs=card.querySelectorAll('input[type="date"]');
-            for(let i of inputs){ if(i.value && new Date(i.value+'T00:00:00')<fechaViaje){ errorMsg=`⛔ FECHA INVÁLIDA: Servicio ${tipo} anterior a salida.`; break; } }
-            if(errorMsg) break;
-            if(tipo==='hotel'){ const i=card.querySelector('input[name="checkin"]').value, o=card.querySelector('input[name="checkout"]').value; if(i&&o&&new Date(o)<=new Date(i)){ errorMsg="⛔ HOTEL: Check-out debe ser posterior al Check-in."; break; } }
-            if(fechaRegresoVuelo){
-                let fin=null; if(tipo==='hotel'){ const o=card.querySelector('input[name="checkout"]').value; if(o) fin=new Date(o+'T00:00:00'); }
-                if(fin){ const lim=new Date(fechaRegresoVuelo); if(tipo==='hotel'||tipo==='seguro') lim.setDate(lim.getDate()+1); if(fin>lim){ errorMsg=`⛔ FECHA LÍMITE: ${tipo} termina después del vuelo.`; break; } }
+        // Lógica de fechas (Sin cambios, solo acortado para el ejemplo)
+        cards.forEach(c => { if(c.dataset.tipo==='aereo'){ const r=c.querySelector('input[name="fecha_regreso"]'); if(r&&r.value){ const f=new Date(r.value+'T00:00:00'); if(!fechaRegresoVuelo||f>fechaRegresoVuelo) fechaRegresoVuelo=f; } } });
+
+        for (let card of cards) {
+            const tipo = card.dataset.tipo;
+            const inputs = card.querySelectorAll('input[type="date"]');
+            
+            for (let i of inputs) {
+                if (i.value && new Date(i.value + 'T00:00:00') < fechaViaje) {
+                    errorMsg = `Servicio ${tipo}: La fecha es anterior a la salida del viaje.`;
+                    break;
+                }
             }
-            const serv={tipo}; card.querySelectorAll('input, select').forEach(i=>{ if(i.type==='checkbox') serv[i.name]=i.checked; else if(i.type==='hidden') serv[i.name]=i.parentElement.querySelector('.counter-value')?.innerText||i.value; else serv[i.name]=i.value; }); serviciosData.push(serv);
-        }
-        if(errorMsg) return alert(errorMsg);
+            if (errorMsg) break;
+            
+            // ... (Resto de validaciones de hotel/fechas igual que antes) ...
+            if(tipo==='hotel'){ const i=card.querySelector('input[name="checkin"]').value, o=card.querySelector('input[name="checkout"]').value; if(i&&o&&new Date(o)<=new Date(i)){ errorMsg="HOTEL: Check-out debe ser posterior al Check-in."; break; } }
+            if(fechaRegresoVuelo){ let fin=null; if(tipo==='hotel'){ const o=card.querySelector('input[name="checkout"]').value; if(o) fin=new Date(o+'T00:00:00'); } if(fin){ const lim=new Date(fechaRegresoVuelo); if(tipo==='hotel'||tipo==='seguro') lim.setDate(lim.getDate()+1); if(fin>lim){ errorMsg=`FECHA LÍMITE: ${tipo} termina después del vuelo.`; break; } } }
 
-        dom.btnSubir.disabled=true; dom.uploadStatus.textContent='Guardando...';
-        try { await secureFetch(API_URL_UPLOAD, { destino:document.getElementById('upload-destino').value, salida:document.getElementById('upload-salida').value, fecha_salida:fechaViajeStr, costos_proveedor:costo, tarifa_venta:tarifa, moneda:document.getElementById('upload-moneda').value, tipo_promo:document.getElementById('upload-promo').value, financiacion:document.getElementById('upload-financiacion').value, servicios:serviciosData }); alert('¡Guardado!'); window.location.reload(); }
-        catch(e) { console.error(e); dom.uploadStatus.textContent='Error al guardar'; dom.btnSubir.disabled=false; }
+            // Recolección de datos
+            const serv = { tipo };
+            card.querySelectorAll('input, select').forEach(i => {
+                if (i.type === 'checkbox') serv[i.name] = i.checked;
+                else if (i.type === 'hidden') serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value;
+                else serv[i.name] = i.value;
+            });
+            serviciosData.push(serv);
+        }
+
+        if (errorMsg) return window.showAlert(errorMsg, 'error');
+
+        dom.btnSubir.disabled = true;
+        dom.uploadStatus.textContent = 'Guardando...';
+
+        try {
+            await secureFetch(API_URL_UPLOAD, {
+                destino: document.getElementById('upload-destino').value,
+                salida: document.getElementById('upload-salida').value,
+                fecha_salida: fechaViajeStr,
+                costos_proveedor: costo,
+                tarifa: tarifa, // CORREGIDO: Antes decía 'tarifa_venta', ahora coincide con lo que lee el JS
+                moneda: document.getElementById('upload-moneda').value,
+                tipo_promo: document.getElementById('upload-promo').value,
+                financiacion: document.getElementById('upload-financiacion').value,
+                servicios: serviciosData
+            });
+
+            // ALERTA DE ÉXITO (Espera click para recargar)
+            await window.showAlert('¡El paquete se guardó correctamente!', 'success');
+            window.location.reload();
+
+        } catch (e) {
+            console.error(e);
+            dom.uploadStatus.textContent = 'Error al guardar';
+            window.showAlert('Hubo un error al conectar con el servidor.', 'error');
+            dom.btnSubir.disabled = false;
+        }
     });
 
     // =========================================================
@@ -290,4 +338,5 @@ firebase.initializeApp(firebaseConfig);
     });
 };
 });
+
 
