@@ -17,298 +17,193 @@ document.addEventListener('DOMContentLoaded', () => {
     const SUPER_ADMIN = 'yairlaquis@gmail.com'; 
 
 
-   try {
-        firebase.initializeApp(firebaseConfig);
-    } catch (e) {
-        console.error("Error inicializando Firebase. Revisa tu firebaseConfig.", e);
-        alert("Error de configuración: Revisa la consola (F12).");
-    }
-
+   try { firebase.initializeApp(firebaseConfig); } catch(e){ console.error(e); }
     const auth = firebase.auth();
     const db = firebase.firestore();
     const provider = new firebase.auth.GoogleAuthProvider();
 
     let currentUser = null;
-    let currentPerms = {}; 
+    let currentRole = null;
     let allPackages = [];
 
-    // Referencias DOM
     const dom = {
-        // Vistas
-        viewSearch: document.getElementById('view-search'),
-        viewUpload: document.getElementById('view-upload'),
-        viewUsers: document.getElementById('view-users'),
+        viewSearch: document.getElementById('view-search'), viewUpload: document.getElementById('view-upload'), viewUsers: document.getElementById('view-users'),
+        navSearch: document.getElementById('nav-search'), navUpload: document.getElementById('nav-upload'), navUsers: document.getElementById('nav-users'),
+        logo: document.querySelector('.logo'), userLabel: document.getElementById('user-label'), btnLogout: document.getElementById('logout-button'),
+        loginContainer: document.getElementById('login-container'), appContainer: document.getElementById('app-container'),
+        btnLoginGoogle: document.getElementById('login-google'), loginEmailForm: document.getElementById('login-email-form'), authError: document.getElementById('auth-error'),
+        grid: document.getElementById('grilla-paquetes'), loader: document.getElementById('loading-placeholder'),
+        btnBuscar: document.getElementById('boton-buscar'), btnLimpiar: document.getElementById('boton-limpiar'), filtroOrden: document.getElementById('filtro-orden'),
+        uploadForm: document.getElementById('upload-form'), uploadStatus: document.getElementById('upload-status'), btnSubir: document.getElementById('boton-subir'),
+        containerServicios: document.getElementById('servicios-container'), btnAgregarServicio: document.getElementById('btn-agregar-servicio'), selectorServicio: document.getElementById('selector-servicio'),
+        inputCostoTotal: document.getElementById('upload-costo-total'), inputFechaViaje: document.getElementById('upload-fecha-salida'),
+        modal: document.getElementById('modal-detalle'), modalBody: document.getElementById('modal-body'), modalClose: document.getElementById('modal-cerrar'),
         
-        // Navegación
-        navSearch: document.getElementById('nav-search'),
-        navUpload: document.getElementById('nav-upload'),
-        navUsers: document.getElementById('nav-users'),
-        logo: document.querySelector('.logo'),
-        userLabel: document.getElementById('user-label'),
-        btnLogout: document.getElementById('logout-button'),
-
-        // Login
-        loginContainer: document.getElementById('login-container'),
-        appContainer: document.getElementById('app-container'),
-        btnLoginGoogle: document.getElementById('login-google'), // Asegúrate que en HTML el ID sea este
-        loginEmailForm: document.getElementById('login-email-form'),
-        authError: document.getElementById('auth-error'),
-
-        // Buscador
-        grid: document.getElementById('grilla-paquetes'),
-        loader: document.getElementById('loading-placeholder'),
-        btnBuscar: document.getElementById('boton-buscar'),
-        btnLimpiar: document.getElementById('boton-limpiar'),
-        filtroOrden: document.getElementById('filtro-orden'),
-        
-        // Carga
-        uploadForm: document.getElementById('upload-form'),
-        uploadStatus: document.getElementById('upload-status'),
-        btnSubir: document.getElementById('boton-subir'),
-        containerServicios: document.getElementById('servicios-container'),
-        btnAgregarServicio: document.getElementById('btn-agregar-servicio'),
-        selectorServicio: document.getElementById('selector-servicio'),
-        inputCostoTotal: document.getElementById('upload-costo-total'),
-        inputFechaViaje: document.getElementById('upload-fecha-salida'),
-
-        // Modal
-        modal: document.getElementById('modal-detalle'),
-        modalBody: document.getElementById('modal-body'),
-        modalClose: document.getElementById('modal-cerrar'),
-
-        // Admin Usuarios
-        listaUsuarios: document.getElementById('lista-usuarios-body'),
-        btnNuevoUsuario: document.getElementById('btn-nuevo-usuario'),
-        modalUsuario: document.getElementById('modal-usuario'),
-        formUsuario: document.getElementById('form-usuario'),
-        btnCerrarUserModal: document.getElementById('btn-cerrar-user-modal'),
-        inputAdminEmail: document.getElementById('admin-user-email'),
-        checkPermPaquetes: document.getElementById('perm-paquetes'),
-        checkPermUsuarios: document.getElementById('perm-usuarios')
+        // Admin
+        listaUsuarios: document.getElementById('lista-usuarios-body'), btnNuevoUsuario: document.getElementById('btn-nuevo-usuario'),
+        modalUsuario: document.getElementById('modal-usuario'), formUsuario: document.getElementById('form-usuario'),
+        btnCerrarUserModal: document.getElementById('btn-cerrar-user-modal'), inputAdminEmail: document.getElementById('admin-user-email'),
+        inputAdminRole: document.getElementById('admin-user-role')
     };
 
-    if(dom.logo) { dom.logo.style.cursor = 'pointer'; dom.logo.addEventListener('click', () => window.location.reload()); }
+    if(dom.logo) dom.logo.addEventListener('click', () => window.location.reload());
 
     // =========================================================
-    // 3. AUTENTICACIÓN (LÓGICA SEGURA)
+    // 3. AUTENTICACIÓN ESTRICTA
     // =========================================================
 
     auth.onAuthStateChanged(async (user) => {
         if (user) {
-            // Verificar si el usuario tiene permiso (está en la BD o es Super Admin)
-            const permisos = await obtenerPermisos(user.email);
+            // Verificar si existe en la BD
+            const role = await verificarAcceso(user.email);
             
-            // Si el permiso existe (aunque sea todo false) o es Super Admin, entra.
-            // Si obtenerPermisos devuelve null, es que no está en la BD.
-            if (permisos || user.email === SUPER_ADMIN) {
+            if (role) {
+                // ACCESO CONCEDIDO
                 currentUser = user;
-                currentPerms = permisos || { usuarios: false }; // Si es super admin y no está en BD, asumimos lo básico
+                currentRole = role;
                 
                 dom.loginContainer.style.display = 'none';
                 dom.appContainer.style.display = 'block';
-                dom.userLabel.textContent = user.email;
+                dom.userLabel.textContent = `${user.email} (${currentRole})`;
 
-                setupNavPermissions();
+                setupUIByRole();
                 await fetchAndLoadPackages();
                 showView('search');
             } else {
-                dom.authError.textContent = 'Usuario no autorizado. Contacta al administrador.';
-                dom.authError.style.color = "red";
+                // ACCESO DENEGADO (No está en la lista)
+                alert("Acceso denegado: Tu usuario no está registrado por el administrador.");
                 auth.signOut();
             }
         } else {
             currentUser = null;
-            currentPerms = {};
+            currentRole = null;
             dom.loginContainer.style.display = 'flex';
             dom.appContainer.style.display = 'none';
         }
     });
 
-    async function obtenerPermisos(email) {
-        if (email === SUPER_ADMIN) return { usuarios: true };
+    async function verificarAcceso(email) {
+        if (email === SUPER_ADMIN) return 'admin';
         try {
             const doc = await db.collection('usuarios').doc(email).get();
-            if (doc.exists) return doc.data();
-        } catch (e) { console.error("Error DB:", e); }
-        return null; // Retorna null si no está en la lista blanca
+            if (doc.exists) {
+                // Devolvemos el rol que tenga guardado, o 'usuario' por defecto
+                return doc.data().role || 'usuario';
+            }
+        } catch (e) { console.error("Error verificando acceso:", e); }
+        return null; // Null significa "No autorizado"
     }
 
-    function setupNavPermissions() {
-        // TODOS los que logran entrar pueden cargar
+    function setupUIByRole() {
+        // Nivel 1 (Usuario): Todos pueden cargar
         dom.navUpload.style.display = 'inline-block';
         
-        // SOLO Admins ven el botón de Usuarios
-        const esAdmin = (currentPerms && currentPerms.usuarios) || (currentUser && currentUser.email === SUPER_ADMIN);
-        dom.navUsers.style.display = esAdmin ? 'inline-block' : 'none';
+        // Nivel 3 (Admin): Gestión de usuarios
+        if (currentRole === 'admin') {
+            dom.navUsers.style.display = 'inline-block';
+        } else {
+            dom.navUsers.style.display = 'none';
+        }
     }
 
-    // --- LOGIN GOOGLE ---
-    if(dom.btnLoginGoogle){
-        dom.btnLoginGoogle.addEventListener('click', () => {
-            auth.signInWithPopup(provider).catch(e => {
-                console.error(e);
-                dom.authError.textContent = "Error Google: " + e.message;
-            });
-        });
-    }
-
-    // --- LOGIN EMAIL (AUTO-REGISTRO SI ESTÁ EN LISTA BLANCA) ---
-    if(dom.loginEmailForm){
-        dom.loginEmailForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value.trim().toLowerCase();
-            const pass = document.getElementById('login-pass').value;
-            dom.authError.textContent = "Verificando...";
-            dom.authError.style.color = "blue";
-
-            try {
-                // 1. Verificamos si está en la Lista Blanca ANTES de intentar nada
-                // (Esto requiere que Firestore esté en modo Test o tenga reglas públicas de lectura para usuarios)
-                let esValido = false;
-                if(email === SUPER_ADMIN) esValido = true;
-                else {
-                    const doc = await db.collection('usuarios').doc(email).get();
-                    if(doc.exists) esValido = true;
-                }
-
-                if(!esValido) throw new Error("Este correo no está autorizado.");
-
-                // 2. Intentamos Login Normal
-                try {
-                    await auth.signInWithEmailAndPassword(email, pass);
-                } catch (loginError) {
-                    // 3. Si falla el login, intentamos crear la cuenta (Auto-registro)
-                    // Firebase devuelve diferentes errores según el caso, probamos crear si falla el login
-                    try {
-                        await auth.createUserWithEmailAndPassword(email, pass);
-                        alert("¡Cuenta creada exitosamente! Ingresando...");
-                    } catch (createError) {
-                        // Si no se pudo crear (ej: pass corta), mostramos el error original de login o el de creación
-                        if(loginError.code === 'auth/wrong-password') throw new Error("Contraseña incorrecta.");
-                        else throw createError;
-                    }
-                }
-
-            } catch (error) {
-                dom.authError.style.color = "red";
-                dom.authError.textContent = error.message;
-            }
-        });
-    }
-
-    dom.btnLogout.addEventListener('click', () => auth.signOut());
+    // Login Google
+    if(dom.btnLoginGoogle) dom.btnLoginGoogle.onclick = () => auth.signInWithPopup(provider).catch(e => dom.authError.textContent = e.message);
+    
+    // Login Email (Sin auto-registro)
+    if(dom.loginEmailForm) dom.loginEmailForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const pass = document.getElementById('login-pass').value;
+        dom.authError.textContent = "Verificando...";
+        try {
+            await auth.signInWithEmailAndPassword(email, pass);
+            // El onAuthStateChanged verificará si está en la lista blanca
+        } catch (error) {
+            dom.authError.textContent = "Error: Credenciales inválidas o usuario no existe.";
+        }
+    };
+    dom.btnLogout.onclick = () => auth.signOut();
 
     // =========================================================
-    // 4. GESTIÓN DE USUARIOS (ADMIN)
+    // 4. GESTIÓN DE USUARIOS (SOLO ADMIN)
     // =========================================================
 
     async function cargarTablaUsuarios() {
-        // Doble chequeo de seguridad visual
-        const esAdmin = (currentPerms && currentPerms.usuarios) || (currentUser && currentUser.email === SUPER_ADMIN);
-        if (!esAdmin) return;
-
+        if (currentRole !== 'admin') return;
         dom.listaUsuarios.innerHTML = '<tr><td colspan="3">Cargando...</td></tr>';
         
         try {
             const snapshot = await db.collection('usuarios').get();
             dom.listaUsuarios.innerHTML = '';
             
-            if(snapshot.empty){
-                dom.listaUsuarios.innerHTML = '<tr><td colspan="3">No hay usuarios cargados.</td></tr>';
+            if(snapshot.empty) {
+                dom.listaUsuarios.innerHTML = '<tr><td colspan="3">No hay usuarios registrados.</td></tr>';
                 return;
             }
 
             snapshot.forEach(doc => {
                 const data = doc.data();
                 const email = doc.id;
-                let badges = '<span class="badge-permiso bg-blue">Editor</span> '; // Todos son editores por defecto ahora
-                if (data.usuarios) badges += '<span class="badge-permiso bg-orange">Admin</span> ';
-                
+                let badgeClass = 'bg-blue'; // Usuario
+                if(data.role === 'admin') badgeClass = 'bg-orange';
+                if(data.role === 'editor') badgeClass = 'bg-green';
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${email}</td>
-                    <td>${badges}</td>
+                    <td><span class="badge-permiso ${badgeClass}">${(data.role || 'usuario').toUpperCase()}</span></td>
                     <td>
-                        <button class="btn btn-secundario btn-sm" onclick="window.editarUsuario('${email}', ${data.usuarios})">Editar</button>
-                        <button class="btn btn-secundario btn-sm" style="color:red; border-color:red;" onclick="window.borrarUsuario('${email}')">Borrar</button>
+                        <button class="btn btn-secundario btn-sm" onclick="window.editarUsuario('${email}', '${data.role || 'usuario'}')">Editar</button>
+                        <button class="btn btn-secundario btn-sm" style="color:red;" onclick="window.borrarUsuario('${email}')">Borrar</button>
                     </td>
                 `;
                 dom.listaUsuarios.appendChild(tr);
             });
-        } catch(e) {
-            console.error(e);
-            dom.listaUsuarios.innerHTML = '<tr><td colspan="3">Error cargando usuarios (Revisa permisos DB).</td></tr>';
-        }
+        } catch(e) { console.error(e); }
     }
 
-    dom.formUsuario.addEventListener('submit', async (e) => {
+    dom.formUsuario.onsubmit = async (e) => {
         e.preventDefault();
         const email = dom.inputAdminEmail.value.trim().toLowerCase();
-        // Solo guardamos si es admin o no, porque el permiso de "paquetes" es universal ahora
-        const permisos = { 
-            paquetes: true, // Siempre true
-            usuarios: dom.checkPermUsuarios.checked 
-        };
-
+        const role = dom.inputAdminRole.value;
         if(!email) return;
-
         try {
-            await db.collection('usuarios').doc(email).set(permisos);
-            alert(`Usuario ${email} guardado/actualizado.`);
+            // Guardamos el usuario y su rol en la BD
+            await db.collection('usuarios').doc(email).set({ role: role });
+            alert(`Usuario ${email} autorizado como ${role}.`);
             dom.modalUsuario.style.display = 'none';
             cargarTablaUsuarios();
-        } catch (e) { 
-            alert("Error al guardar: " + e.message); 
-        }
-    });
+        } catch (e) { alert("Error: " + e.message); }
+    };
 
-    // Helpers Globales
-    window.editarUsuario = (email, esAdmin) => {
+    window.editarUsuario = (email, role) => {
         dom.inputAdminEmail.value = email;
-        dom.inputAdminEmail.disabled = true; // No editar el ID (email)
-        dom.checkPermUsuarios.checked = !!esAdmin;
+        dom.inputAdminEmail.disabled = true;
+        dom.inputAdminRole.value = role;
         dom.modalUsuario.style.display = 'flex';
     };
-
     window.borrarUsuario = async (email) => {
-        if(!confirm(`¿Seguro que deseas eliminar el acceso a ${email}?`)) return;
-        try { 
-            await db.collection('usuarios').doc(email).delete(); 
-            cargarTablaUsuarios(); 
-        } catch(e) { alert("Error: " + e.message); }
+        if(!confirm(`¿Eliminar acceso a ${email}?`)) return;
+        try { await db.collection('usuarios').doc(email).delete(); cargarTablaUsuarios(); } catch(e){ alert(e.message); }
     };
 
-    dom.btnNuevoUsuario.addEventListener('click', () => { 
-        dom.formUsuario.reset(); 
-        dom.inputAdminEmail.disabled = false; 
-        dom.modalUsuario.style.display = 'flex'; 
-    });
-    
-    if(dom.btnCerrarUserModal) dom.btnCerrarUserModal.addEventListener('click', () => dom.modalUsuario.style.display = 'none');
+    dom.btnNuevoUsuario.onclick = () => { dom.formUsuario.reset(); dom.inputAdminEmail.disabled=false; dom.modalUsuario.style.display='flex'; };
+    if(dom.btnCerrarUserModal) dom.btnCerrarUserModal.onclick = () => dom.modalUsuario.style.display='none';
 
     // =========================================================
-    // 5. NAVEGACIÓN Y FETCH
+    // 5. NAVEGACIÓN Y UTILIDADES
     // =========================================================
 
     function showView(name) {
-        // Ocultar todo
-        dom.viewSearch.style.display = 'none'; dom.navSearch.classList.remove('active');
-        dom.viewUpload.style.display = 'none'; dom.navUpload.classList.remove('active');
-        dom.viewUsers.style.display = 'none'; dom.navUsers.classList.remove('active');
+        dom.viewSearch.style.display='none'; dom.navSearch.classList.remove('active');
+        dom.viewUpload.style.display='none'; dom.navUpload.classList.remove('active');
+        dom.viewUsers.style.display='none'; dom.navUsers.classList.remove('active');
 
-        if (name === 'search') { 
-            dom.viewSearch.style.display = 'block'; 
-            dom.navSearch.classList.add('active'); 
-        } else if (name === 'upload') { 
-            dom.viewUpload.style.display = 'block'; 
-            dom.navUpload.classList.add('active'); 
-        } else if (name === 'users') { 
-            dom.viewUsers.style.display = 'block'; 
-            dom.navUsers.classList.add('active'); 
-            cargarTablaUsuarios(); 
-        }
+        if(name==='search'){ dom.viewSearch.style.display='block'; dom.navSearch.classList.add('active'); }
+        else if(name==='upload'){ dom.viewUpload.style.display='block'; dom.navUpload.classList.add('active'); }
+        else if(name==='users'){ dom.viewUsers.style.display='block'; dom.navUsers.classList.add('active'); cargarTablaUsuarios(); }
     }
-
+    
     dom.navSearch.onclick = () => showView('search');
     dom.navUpload.onclick = () => showView('upload');
     dom.navUsers.onclick = () => showView('users');
@@ -320,7 +215,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
         const txt = await res.text(); return txt ? JSON.parse(txt) : [];
     }
-
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
 
@@ -328,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6. CARGA DE PAQUETES
     // =========================================================
 
-    dom.btnAgregarServicio.addEventListener('click', () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } });
+    dom.btnAgregarServicio.onclick = () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } };
 
     function agregarModuloServicio(tipo) {
         const id = Date.now(); const div = document.createElement('div'); div.className = `servicio-card ${tipo}`; div.dataset.id = id; div.dataset.tipo = tipo;
@@ -340,62 +234,38 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (tipo === 'traslado') { html += `<h4>🚌 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hotel"> Hotel-Hotel</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'seguro') { html += `<h4>🛡️ Seguro</h4><div class="form-group-row"><div class="form-group"><label>Cobertura</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'adicional') { html += `<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
-        
         div.innerHTML = html; dom.containerServicios.appendChild(div);
     }
-
+    
     window.crearContadorHTML = (n, v) => `<div class="counter-wrapper"><button type="button" class="counter-btn" onclick="this.nextElementSibling.innerText=Math.max(0,parseInt(this.nextElementSibling.innerText)-1)">-</button><span class="counter-value">${v}</span><button type="button" class="counter-btn" onclick="this.previousElementSibling.innerText=parseInt(this.previousElementSibling.innerText)+1">+</button><input type="hidden" name="${n}" value="${v}"></div>`;
     window.calcularNoches = (id) => { const c=document.querySelector(`.servicio-card[data-id="${id}"]`), i=new Date(c.querySelector('input[name="checkin"]').value), o=new Date(c.querySelector('input[name="checkout"]').value); document.getElementById(`noches-${id}`).value=(i&&o&&o>i)?Math.ceil((o-i)/86400000):'-'; };
     window.calcularTotal = () => { let t=0; document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); dom.inputCostoTotal.value=t; };
 
-    // --- VALIDACIÓN Y ENVÍO ---
-    dom.uploadForm.addEventListener('submit', async (e) => {
+    dom.uploadForm.onsubmit = async (e) => {
         e.preventDefault();
         const costo=parseFloat(dom.inputCostoTotal.value)||0, tarifa=parseFloat(document.getElementById('upload-tarifa-total').value)||0, fechaViajeStr=dom.inputFechaViaje.value;
         if(tarifa<costo) return alert(`⛔ ERROR: Tarifa ($${tarifa}) menor al Costo ($${costo}).`);
         if(!fechaViajeStr) return alert("Falta fecha de salida.");
-        
         const fechaViaje=new Date(fechaViajeStr+'T00:00:00'), cards=document.querySelectorAll('.servicio-card');
         if(cards.length===0) return alert("Agrega servicios.");
-
         let fechaRegresoVuelo=null, errorMsg=null, serviciosData=[];
-        
-        // 1. Buscar fecha límite (vuelo regreso)
         cards.forEach(c=>{ if(c.dataset.tipo==='aereo'){ const r=c.querySelector('input[name="fecha_regreso"]'); if(r&&r.value){ const f=new Date(r.value+'T00:00:00'); if(!fechaRegresoVuelo||f>fechaRegresoVuelo) fechaRegresoVuelo=f; } } });
-
-        // 2. Validar cada tarjeta
         for(let card of cards){
             const tipo=card.dataset.tipo, inputs=card.querySelectorAll('input[type="date"]');
-            
-            // A. Servicios antes del viaje
-            for(let i of inputs){ if(i.value && new Date(i.value+'T00:00:00')<fechaViaje){ errorMsg=`⛔ FECHA INVÁLIDA: Servicio ${tipo} anterior a salida del viaje.`; break; } }
+            for(let i of inputs){ if(i.value && new Date(i.value+'T00:00:00')<fechaViaje){ errorMsg=`⛔ FECHA INVÁLIDA: Servicio ${tipo} anterior a salida.`; break; } }
             if(errorMsg) break;
-            
-            // B. Hotel coherencia
             if(tipo==='hotel'){ const i=card.querySelector('input[name="checkin"]').value, o=card.querySelector('input[name="checkout"]').value; if(i&&o&&new Date(o)<=new Date(i)){ errorMsg="⛔ HOTEL: Check-out debe ser posterior al Check-in."; break; } }
-            
-            // C. Fecha límite (Vuelo)
             if(fechaRegresoVuelo){
                 let fin=null; if(tipo==='hotel'){ const o=card.querySelector('input[name="checkout"]').value; if(o) fin=new Date(o+'T00:00:00'); }
                 if(fin){ const lim=new Date(fechaRegresoVuelo); if(tipo==='hotel'||tipo==='seguro') lim.setDate(lim.getDate()+1); if(fin>lim){ errorMsg=`⛔ FECHA LÍMITE: ${tipo} termina después del vuelo.`; break; } }
             }
-            
-            // D. Recolectar datos
             const serv={tipo}; card.querySelectorAll('input, select').forEach(i=>{ if(i.type==='checkbox') serv[i.name]=i.checked; else if(i.type==='hidden') serv[i.name]=i.parentElement.querySelector('.counter-value')?.innerText||i.value; else serv[i.name]=i.value; }); serviciosData.push(serv);
         }
         if(errorMsg) return alert(errorMsg);
-
         dom.btnSubir.disabled=true; dom.uploadStatus.textContent='Guardando...';
-        try { 
-            await secureFetch(API_URL_UPLOAD, { destino:document.getElementById('upload-destino').value, salida:document.getElementById('upload-salida').value, fecha_salida:fechaViajeStr, costos_proveedor:costo, tarifa_venta:tarifa, moneda:document.getElementById('upload-moneda').value, tipo_promo:document.getElementById('upload-promo').value, financiacion:document.getElementById('upload-financiacion').value, servicios:serviciosData });
-            alert('¡Guardado!'); window.location.reload(); 
-        }
+        try { await secureFetch(API_URL_UPLOAD, { destino:document.getElementById('upload-destino').value, salida:document.getElementById('upload-salida').value, fecha_salida:fechaViajeStr, costos_proveedor:costo, tarifa_venta:tarifa, moneda:document.getElementById('upload-moneda').value, tipo_promo:document.getElementById('upload-promo').value, financiacion:document.getElementById('upload-financiacion').value, servicios:serviciosData }); alert('¡Guardado!'); window.location.reload(); }
         catch(e) { console.error(e); dom.uploadStatus.textContent='Error al guardar'; dom.btnSubir.disabled=false; }
-    });
-
-    // =========================================================
-    // 7. RENDERIZADO Y MODAL
-    // =========================================================
+    };
 
     function applyFilters() {
         const fD=document.getElementById('filtro-destino').value.toLowerCase(), fC=document.getElementById('filtro-creador').value, fP=document.getElementById('filtro-promo').value, fO=document.getElementById('filtro-orden')?document.getElementById('filtro-orden').value:'reciente';
@@ -405,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else res.sort((a,b)=>(b['fecha_creacion']||'').split('/').reverse().join('').localeCompare((a['fecha_creacion']||'').split('/').reverse().join('')));
         renderCards(res);
     }
-
+    
     function getNoches(pkg) {
         if(!pkg['fecha_salida']) return 0;
         const start = new Date(pkg['fecha_salida'].split('/').reverse().join('-') + 'T00:00:00');
@@ -420,13 +290,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderCards(list) {
-        dom.loader.style.display='none'; dom.grid.innerHTML=''; if(!list||list.length===0){ dom.grid.innerHTML='<p>No hay resultados.</p>'; return; }
+        dom.loader.style.display='none'; dom.grid.innerHTML=''; 
+        if(!list||list.length===0){ dom.grid.innerHTML='<p>No hay resultados.</p>'; return; }
         list.forEach(pkg => {
-            const card=document.createElement('div'), noches=getNoches(pkg); card.className='paquete-card'; card.dataset.packageData=JSON.stringify(pkg);
-            card.innerHTML=`<div class="card-header"><div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;"><div style="max-width:70%;"><h3 style="margin:0;font-size:1.1em;">${pkg['destino']}</h3><span class="tag-promo" style="margin-top:5px;display:inline-block;font-size:0.75em;">${pkg['tipo_promo']}</span></div>${noches>0?`<div style="background:#eef2f5;color:#11173d;padding:4px 8px;border-radius:6px;font-weight:bold;font-size:0.85em;white-space:nowrap;margin-left:5px;">🌙 ${noches} Noches</div>`:''}</div></div><div class="card-body"><p style="color:#666;font-size:0.9em;margin-top:10px;"><strong>Salida:</strong> ${formatDateAR(pkg['fecha_salida'])}</p></div><div class="card-footer"><p class="precio-valor">${pkg['moneda']} $${formatMoney(Math.round((parseFloat(pkg['tarifa'])||0)/2))}</p></div>`;
+            const card = document.createElement('div');
+            const noches = getNoches(pkg);
+            card.className = 'paquete-card';
+            card.dataset.packageData = JSON.stringify(pkg);
+            
+            // Botón Borrar (Solo para Editor o Admin)
+            let deleteBtnHTML = '';
+            if (currentRole === 'editor' || currentRole === 'admin') {
+                deleteBtnHTML = `<button class="btn-card-action delete" title="Borrar" onclick="event.stopPropagation(); window.borrarPaquete('${pkg.id || 'N/A'}')">🗑️</button>`;
+            }
+
+            card.innerHTML = `
+                <div class="card-header" style="position:relative;">
+                    ${deleteBtnHTML}
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%; padding-right:30px;">
+                        <div style="max-width:70%;">
+                            <h3 style="margin:0;font-size:1.1em;">${pkg['destino']}</h3>
+                            <span class="tag-promo" style="margin-top:5px;display:inline-block;font-size:0.75em;">${pkg['tipo_promo']}</span>
+                        </div>
+                        ${noches>0?`<div style="background:#eef2f5;color:#11173d;padding:4px 8px;border-radius:6px;font-weight:bold;font-size:0.85em;white-space:nowrap;">🌙 ${noches} Noches</div>`:''}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p style="color:#666;font-size:0.9em;margin-top:10px;"><strong>Salida:</strong> ${formatDateAR(pkg['fecha_salida'])}</p>
+                </div>
+                <div class="card-footer">
+                    <p class="precio-valor">${pkg['moneda']} $${formatMoney(Math.round((parseFloat(pkg['tarifa'])||0)/2))}</p>
+                </div>`;
             dom.grid.appendChild(card);
         });
     }
+
+    window.borrarPaquete = (id) => {
+        if(!confirm("¿Borrar este paquete? (Requiere webhook)")) return;
+        alert("Paquete marcado para borrar (Conecta tu webhook de Delete aquí).");
+    };
 
     function renderServiciosClienteHTML(rawJson) {
         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>Sin detalles.</p>'; }
@@ -463,7 +365,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const htmlCostos = renderCostosProveedoresHTML(rawServicios);
         const noches = getNoches(pkg);
         const tarifaDoble = Math.round((parseFloat(pkg['tarifa']) || 0) / 2);
-
         dom.modalBody.innerHTML = `
             <div class="modal-detalle-header"><h2>${pkg['destino']}</h2><span class="tag-promo">${pkg['tipo_promo']}</span></div>
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">
@@ -487,17 +388,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div><small style="opacity:0.7;">Base Doble (x Pax)</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div></div>
                 </div>
                 <div style="text-align:right;"><small style="opacity:0.7;">Cargado por:</small><div style="font-size:0.9em;">${pkg['creador']}</div></div>
-            </div>
-        `;
+            </div>`;
         dom.modal.style.display = 'flex';
     }
-
+    
     function fetchAndLoadPackages() { fetchPackages(); }
     async function fetchPackages(f={}) { try{ const d=await secureFetch(API_URL_SEARCH, f); allPackages=d; applyFilters(); }catch(e){console.error(e);} }
-    dom.btnBuscar.addEventListener('click', applyFilters);
-    dom.btnLimpiar.addEventListener('click', () => { document.getElementById('filtro-destino').value=''; document.getElementById('filtro-creador').value=''; document.getElementById('filtro-promo').value=''; if(dom.filtroOrden)dom.filtroOrden.value='reciente'; applyFilters(); });
-    if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
-    dom.grid.addEventListener('click', e => { const c=e.target.closest('.paquete-card'); if(c) openModal(JSON.parse(c.dataset.packageData)); });
+    dom.btnBuscar.onclick = applyFilters;
+    dom.btnLimpiar.onclick = () => { document.getElementById('filtro-destino').value=''; document.getElementById('filtro-creador').value=''; document.getElementById('filtro-promo').value=''; if(dom.filtroOrden)dom.filtroOrden.value='reciente'; applyFilters(); };
+    if(dom.filtroOrden) dom.filtroOrden.onchange = applyFilters;
+    dom.grid.onclick = e => { 
+        if(e.target.closest('.delete')) return; 
+        const c=e.target.closest('.paquete-card'); 
+        if(c) openModal(JSON.parse(c.dataset.packageData)); 
+    };
     dom.modalClose.onclick=()=>dom.modal.style.display='none'; window.onclick=e=>{if(e.target===dom.modal)dom.modal.style.display='none';};
 });
 
