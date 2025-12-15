@@ -373,7 +373,6 @@ document.addEventListener('DOMContentLoaded', () => {
         html += '</ul>';
         return html;
     }
-
     function openModal(pkg) {
         const rawServicios = pkg['servicios'] || pkg['item.servicios'];
         const htmlCliente = renderServiciosClienteHTML(rawServicios);
@@ -382,10 +381,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const tarifa = parseFloat(pkg['tarifa']) || 0;
         const tarifaDoble = Math.round(tarifa / 2);
 
+        // 1. Definimos el estilo de la burbuja (Igual que en la tarjeta)
+        const bubbleStyle = `
+            background-color: #56DDE0; 
+            color: #11173d; 
+            padding: 4px 12px; 
+            border-radius: 20px; 
+            font-weight: 600; 
+            font-size: 0.8em; 
+            display: inline-block; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-top: 8px; /* Espacio entre el título y la etiqueta */
+        `;
+
         dom.modalBody.innerHTML = `
-            <div class="modal-detalle-header"><h2>${pkg['destino']}</h2><span class="tag-promo">${pkg['tipo_promo']}</span></div>
+            <div class="modal-detalle-header" style="display:flex; flex-direction:column; align-items:flex-start; padding: 25px;">
+                <h2 style="margin:0; color:#11173d; font-size: 2em;">${pkg['destino']}</h2>
+                <span style="${bubbleStyle}">${pkg['tipo_promo']}</span>
+            </div>
+            
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">
-                <div><h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>${htmlCliente}</div>
+                <div>
+                    <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>
+                    ${htmlCliente}
+                </div>
                 <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;">
                     <div style="margin-bottom:20px;">
                         <h4 style="margin:0 0 10px 0; color:#11173d;">Resumen</h4>
@@ -398,6 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      ${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}
                 </div>
             </div>
+
             <div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px;">
                 <div style="display:flex; gap:30px;">
                     <div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div>
@@ -408,6 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
         dom.modal.style.display = 'flex';
     }
+    
 
     // --- FILTROS Y ORDENAMIENTO (CORREGIDO) ---
     function applyFilters() {
@@ -473,6 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
 });
+
 
 
 
