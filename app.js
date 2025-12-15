@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${noches > 0 ? `<div style="background:#eef2f5; color:#11173d; padding:5px 10px; border-radius:12px; font-weight:bold; font-size:0.8em; white-space:nowrap; box-shadow:0 2px 5px rgba(0,0,0,0.05);">🌙 ${noches}</div>` : ''}
                     </div>
     
-                    <div style="margin-top: 8px; margin-bottom: 15px; font-size:0.9em; color:#666; font-weight:500; display:flex; align-items:center; gap:6px;">
+                    <div style="margin-top: 8px; margin-bottom: 25px; font-size:0.9em; color:#666; font-weight:500; display:flex; align-items:center; gap:6px;">
                         <span>📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</span>
                     </div>
                 </div>
@@ -473,6 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
 });
+
 
 
 
