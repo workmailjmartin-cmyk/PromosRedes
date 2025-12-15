@@ -43,30 +43,60 @@ document.addEventListener('DOMContentLoaded', () => {
     if(document.querySelector('.logo')) document.querySelector('.logo').onclick = () => window.location.reload();
 
     // --- 1. AUTENTICACIÓN ---
-    auth.onAuthStateChanged(async (user) => {
+   auth.onAuthStateChanged(async (user) => {
         if (user) {
-            const userData = await verificarAcceso(user.email);
-            if (userData) {
+            // 1. Verificamos si existe en la base de datos o es Super Admin
+            const permisos = await obtenerPermisos(user.email);
+            
+            // SI TIENE PERMISO (Es admin O existe en la base de datos)
+            if (permisos || user.email === SUPER_ADMIN) {
                 currentUser = user;
-                currentRole = userData.role || 'usuario';
-                await cargarAliases();
+                // Si permisos es null (super admin no guardado), creamos un objeto admin por defecto
+                currentPerms = permisos || { role: 'admin' }; 
                 
-                document.getElementById('login-container').style.display='none';
-                document.getElementById('app-container').style.display='block';
-                document.getElementById('user-label').textContent = userAliases[user.email] || user.email;
+                // UI: Entrar a la App
+                dom.loginContainer.style.display = 'none';
+                dom.appContainer.style.display = 'block';
+                dom.userLabel.textContent = user.email;
 
-                setupUI();
-                fetchAndLoadPackages();
+                // UI: Configurar Botones
+                setupNavPermissions();
+
+                // IMPORTANTE: Cargar datos inmediatamente para que el usuario vea algo
+                await fetchAndLoadPackages(); 
                 showView('search');
+
             } else {
-                alert('Usuario no registrado.');
+                // NO TIENE PERMISO
+                alert('Acceso denegado: Tu usuario no está registrado en el sistema.');
                 auth.signOut();
             }
         } else {
-            document.getElementById('login-container').style.display='flex';
-            document.getElementById('app-container').style.display='none';
+            currentUser = null;
+            currentPerms = {};
+            dom.loginContainer.style.display = 'flex';
+            dom.appContainer.style.display = 'none';
         }
     });
+
+    // Función auxiliar ajustada para devolver el rol o null
+    async function obtenerPermisos(email) {
+        if (email === SUPER_ADMIN) return { role: 'admin' }; // God Mode
+        try {
+            const doc = await db.collection('usuarios').doc(email).get();
+            if (doc.exists) return doc.data(); // Devuelve { role: 'usuario'/'editor'/'admin' }
+        } catch (e) { console.error("Error leyendo permisos", e); }
+        return null; // No existe
+    }
+
+    function setupNavPermissions() {
+        // Todos los que entran pueden cargar (según tu pedido)
+        dom.navUpload.style.display = 'inline-block';
+        
+        // Solo Admin ve el botón de usuarios
+        const esAdmin = (currentPerms.role === 'admin') || (currentUser.email === SUPER_ADMIN);
+        dom.navUsers.style.display = esAdmin ? 'inline-block' : 'none';
+    }
 
     async function verificarAcceso(email) {
         if(email===SUPER_ADMIN) return {role:'admin'};
@@ -470,5 +500,6 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.btnNuevoUsuario.onclick=()=>{dom.formUsuario.reset(); dom.modalUsuario.style.display='flex';};
     dom.btnCerrarUserModal.onclick=()=>dom.modalUsuario.style.display='none';
 });
+
 
 
