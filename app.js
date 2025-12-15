@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const provider = new firebase.auth.GoogleAuthProvider();
 
     let currentUser = null;
-    let currentRole = null;
+    let currentRole = 'usuario'; // Rol por defecto
     let allPackages = [];
 
     const dom = {
@@ -49,56 +49,50 @@ document.addEventListener('DOMContentLoaded', () => {
     if(dom.logo) dom.logo.addEventListener('click', () => window.location.reload());
 
     // =========================================================
-    // 3. AUTENTICACIÓN ESTRICTA
+    // 3. AUTENTICACIÓN Y ROLES
     // =========================================================
 
     auth.onAuthStateChanged(async (user) => {
         if (user) {
-            // Verificar si existe en la BD
-            const role = await verificarAcceso(user.email);
+            currentUser = user;
             
-            if (role) {
-                // ACCESO CONCEDIDO
-                currentUser = user;
-                currentRole = role;
-                
-                dom.loginContainer.style.display = 'none';
-                dom.appContainer.style.display = 'block';
-                dom.userLabel.textContent = `${user.email} (${currentRole})`;
+            // 1. Obtener Rol (Si no existe en BD, es 'usuario' normal)
+            currentRole = await obtenerRol(user.email);
+            
+            // 2. Mostrar App
+            dom.loginContainer.style.display = 'none';
+            dom.appContainer.style.display = 'block';
+            dom.userLabel.textContent = `${user.email} (${currentRole})`;
 
-                setupUIByRole();
-                await fetchAndLoadPackages();
-                showView('search');
-            } else {
-                // ACCESO DENEGADO (No está en la lista)
-                alert("Acceso denegado: Tu usuario no está registrado por el administrador.");
-                auth.signOut();
-            }
+            // 3. Configurar Botones
+            setupUIByRole();
+
+            // 4. CARGAR PAQUETES (¡Esto faltaba para los usuarios normales!)
+            await fetchAndLoadPackages();
+            showView('search');
         } else {
             currentUser = null;
-            currentRole = null;
+            currentRole = 'usuario';
             dom.loginContainer.style.display = 'flex';
             dom.appContainer.style.display = 'none';
         }
     });
 
-    async function verificarAcceso(email) {
+    async function obtenerRol(email) {
         if (email === SUPER_ADMIN) return 'admin';
         try {
             const doc = await db.collection('usuarios').doc(email).get();
-            if (doc.exists) {
-                // Devolvemos el rol que tenga guardado, o 'usuario' por defecto
-                return doc.data().role || 'usuario';
-            }
-        } catch (e) { console.error("Error verificando acceso:", e); }
-        return null; // Null significa "No autorizado"
+            // Si está en la BD, devolvemos su rol. Si no, devolvemos 'usuario' por defecto.
+            if (doc.exists) return doc.data().role || 'usuario';
+        } catch (e) { console.error("Error obteniendo rol:", e); }
+        return 'usuario'; 
     }
 
     function setupUIByRole() {
-        // Nivel 1 (Usuario): Todos pueden cargar
+        // Todos pueden cargar (usuario, editor, admin)
         dom.navUpload.style.display = 'inline-block';
         
-        // Nivel 3 (Admin): Gestión de usuarios
+        // Solo Admin ve usuarios
         if (currentRole === 'admin') {
             dom.navUsers.style.display = 'inline-block';
         } else {
@@ -106,20 +100,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Login Google
     if(dom.btnLoginGoogle) dom.btnLoginGoogle.onclick = () => auth.signInWithPopup(provider).catch(e => dom.authError.textContent = e.message);
     
-    // Login Email (Sin auto-registro)
     if(dom.loginEmailForm) dom.loginEmailForm.onsubmit = async (e) => {
         e.preventDefault();
         const email = document.getElementById('login-email').value;
         const pass = document.getElementById('login-pass').value;
-        dom.authError.textContent = "Verificando...";
         try {
             await auth.signInWithEmailAndPassword(email, pass);
-            // El onAuthStateChanged verificará si está en la lista blanca
         } catch (error) {
-            dom.authError.textContent = "Error: Credenciales inválidas o usuario no existe.";
+            // Auto-registro para facilitar acceso
+            if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+                try {
+                    await auth.createUserWithEmailAndPassword(email, pass);
+                    alert("¡Cuenta creada! Bienvenido.");
+                } catch (regError) { dom.authError.textContent = "Error: " + regError.message; }
+            } else {
+                dom.authError.textContent = error.message;
+            }
         }
     };
     dom.btnLogout.onclick = () => auth.signOut();
@@ -137,14 +135,14 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.listaUsuarios.innerHTML = '';
             
             if(snapshot.empty) {
-                dom.listaUsuarios.innerHTML = '<tr><td colspan="3">No hay usuarios registrados.</td></tr>';
+                dom.listaUsuarios.innerHTML = '<tr><td colspan="3">No hay usuarios con rol especial.</td></tr>';
                 return;
             }
 
             snapshot.forEach(doc => {
                 const data = doc.data();
                 const email = doc.id;
-                let badgeClass = 'bg-blue'; // Usuario
+                let badgeClass = 'bg-blue';
                 if(data.role === 'admin') badgeClass = 'bg-orange';
                 if(data.role === 'editor') badgeClass = 'bg-green';
 
@@ -153,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${email}</td>
                     <td><span class="badge-permiso ${badgeClass}">${(data.role || 'usuario').toUpperCase()}</span></td>
                     <td>
-                        <button class="btn btn-secundario btn-sm" onclick="window.editarUsuario('${email}', '${data.role || 'usuario'}')">Editar</button>
+                        <button class="btn btn-secundario btn-sm" onclick="window.editarUsuario('${email}', '${data.role}')">Editar</button>
                         <button class="btn btn-secundario btn-sm" style="color:red;" onclick="window.borrarUsuario('${email}')">Borrar</button>
                     </td>
                 `;
@@ -168,9 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const role = dom.inputAdminRole.value;
         if(!email) return;
         try {
-            // Guardamos el usuario y su rol en la BD
             await db.collection('usuarios').doc(email).set({ role: role });
-            alert(`Usuario ${email} autorizado como ${role}.`);
+            alert(`Usuario ${email} guardado como ${role}.`);
             dom.modalUsuario.style.display = 'none';
             cargarTablaUsuarios();
         } catch (e) { alert("Error: " + e.message); }
@@ -183,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.modalUsuario.style.display = 'flex';
     };
     window.borrarUsuario = async (email) => {
-        if(!confirm(`¿Eliminar acceso a ${email}?`)) return;
+        if(!confirm(`¿Quitar rol especial a ${email}? Pasará a ser usuario normal.`)) return;
         try { await db.collection('usuarios').doc(email).delete(); cargarTablaUsuarios(); } catch(e){ alert(e.message); }
     };
 
@@ -191,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(dom.btnCerrarUserModal) dom.btnCerrarUserModal.onclick = () => dom.modalUsuario.style.display='none';
 
     // =========================================================
-    // 5. NAVEGACIÓN Y UTILIDADES
+    // 5. NAVEGACIÓN Y FETCH
     // =========================================================
 
     function showView(name) {
@@ -244,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.uploadForm.onsubmit = async (e) => {
         e.preventDefault();
         const costo=parseFloat(dom.inputCostoTotal.value)||0, tarifa=parseFloat(document.getElementById('upload-tarifa-total').value)||0, fechaViajeStr=dom.inputFechaViaje.value;
-        if(tarifa<costo) return alert(`⛔ ERROR: Tarifa ($${tarifa}) menor al Costo ($${costo}).`);
+        if(tarifa<costo) return alert(`⛔ ERROR: Tarifa menor al Costo.`);
         if(!fechaViajeStr) return alert("Falta fecha de salida.");
         const fechaViaje=new Date(fechaViajeStr+'T00:00:00'), cards=document.querySelectorAll('.servicio-card');
         if(cards.length===0) return alert("Agrega servicios.");
@@ -252,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         cards.forEach(c=>{ if(c.dataset.tipo==='aereo'){ const r=c.querySelector('input[name="fecha_regreso"]'); if(r&&r.value){ const f=new Date(r.value+'T00:00:00'); if(!fechaRegresoVuelo||f>fechaRegresoVuelo) fechaRegresoVuelo=f; } } });
         for(let card of cards){
             const tipo=card.dataset.tipo, inputs=card.querySelectorAll('input[type="date"]');
-            for(let i of inputs){ if(i.value && new Date(i.value+'T00:00:00')<fechaViaje){ errorMsg=`⛔ FECHA INVÁLIDA: Servicio ${tipo} anterior a salida.`; break; } }
+            for(let i of inputs){ if(i.value && new Date(i.value+'T00:00:00')<fechaViaje){ errorMsg=`⛔ FECHA INVÁLIDA: ${tipo} anterior a salida.`; break; } }
             if(errorMsg) break;
             if(tipo==='hotel'){ const i=card.querySelector('input[name="checkin"]').value, o=card.querySelector('input[name="checkout"]').value; if(i&&o&&new Date(o)<=new Date(i)){ errorMsg="⛔ HOTEL: Check-out debe ser posterior al Check-in."; break; } }
             if(fechaRegresoVuelo){
@@ -263,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if(errorMsg) return alert(errorMsg);
         dom.btnSubir.disabled=true; dom.uploadStatus.textContent='Guardando...';
-        try { await secureFetch(API_URL_UPLOAD, { destino:document.getElementById('upload-destino').value, salida:document.getElementById('upload-salida').value, fecha_salida:fechaViajeStr, costos_proveedor:costo, tarifa_venta:tarifa, moneda:document.getElementById('upload-moneda').value, tipo_promo:document.getElementById('upload-promo').value, financiacion:document.getElementById('upload-financiacion').value, servicios:serviciosData }); alert('¡Guardado!'); window.location.reload(); }
+        try { await secureFetch(API_URL_UPLOAD, { destino:document.getElementById('upload-destino').value, salida:document.getElementById('upload-salida').value, fecha_salida:fechaViajeStr, costos_proveedor:costo, tarifa_venta:tarifa, moneda:document.getElementById('upload-moneda').value, tipo_promo:document.getElementById('upload-promo').value, financiacion:document.getElementById('upload-financiacion').value, servicios:serviciosData, creador: currentUser.email }); alert('¡Guardado!'); window.location.reload(); }
         catch(e) { console.error(e); dom.uploadStatus.textContent='Error al guardar'; dom.btnSubir.disabled=false; }
     };
 
@@ -327,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.borrarPaquete = (id) => {
         if(!confirm("¿Borrar este paquete? (Requiere webhook)")) return;
-        alert("Paquete marcado para borrar (Conecta tu webhook de Delete aquí).");
+        alert("Paquete marcado para borrar.");
     };
 
     function renderServiciosClienteHTML(rawJson) {
