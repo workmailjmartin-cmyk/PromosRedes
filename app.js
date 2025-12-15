@@ -277,12 +277,14 @@ firebase.initializeApp(firebaseConfig);
         } else if (fOrden === 'mayor_precio') {
             result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
         } else {
-            // Default: Más reciente (por fecha_creacion string dd/mm/yyyy)
-            result.sort((a, b) => {
-                const da = a['fecha_creacion'] ? a['fecha_creacion'].split('/').reverse().join('') : '';
-                const db = b['fecha_creacion'] ? b['fecha_creacion'].split('/').reverse().join('') : '';
-                return db.localeCompare(da);
-            });
+            // CORREGIDO: "Más reciente"
+            // Asumimos que la API devuelve los datos en orden de inserción (histórico).
+            // Simplemente invertimos el array para que el último insertado quede primero.
+            // Esto es mucho más seguro que tratar de leer el string de fecha.
+            result.reverse(); 
+        }
+
+        renderCards(result);
         }
 
         renderCards(result);
@@ -338,5 +340,6 @@ firebase.initializeApp(firebaseConfig);
     });
 };
 });
+
 
 
