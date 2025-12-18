@@ -101,12 +101,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     await fetchAndLoadPackages();
                     showView('search');
                 } else {
-                    alert(`⛔ El usuario ${u.email} no tiene permisos asignados. Pide a un Administrador que te agregue.`);
+                    alert(`⛔ El usuario ${u.email} no tiene permisos. Pide a un Administrador que te registre en la sección Usuarios.`);
                     auth.signOut();
                 }
             } catch (e) {
                 console.error(e);
-                alert("Error de conexión con la base de datos de usuarios.");
+                alert("Error de conexión con la base de datos.");
             }
         } else {
             currentUser = null;
@@ -121,8 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function configureUIByRole() {
         const rol = userData.rol;
-        
-        // Reset
+        // Reset menus
         dom.nav.gestion.style.display = 'none';
         dom.nav.users.style.display = 'none';
 
@@ -146,23 +145,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- 3. LÓGICA DE USUARIOS (SOLO ADMIN) ---
+    // --- 3. GESTIÓN DE USUARIOS (SOLO ADMIN) ---
     if (dom.userForm) {
         dom.userForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            // IMPORTANTE: Limpiamos el email de espacios
             const email = document.getElementById('user-email-input').value.trim().toLowerCase();
             const rol = document.getElementById('user-role-input').value;
             const fran = document.getElementById('user-franchise-input').value;
 
             try {
+                // Guardar o Actualizar (set con merge true sobrescribe)
                 await db.collection('usuarios').doc(email).set({
                     email: email,
                     rol: rol,
                     franquicia: fran,
-                    fecha_creacion: new Date()
-                });
-                window.showAlert('Usuario guardado correctamente.', 'success');
+                    fecha_modificacion: new Date()
+                }, { merge: true });
+                
+                window.showAlert('Usuario guardado/modificado correctamente.', 'success');
+                // Limpiar form
                 document.getElementById('user-email-input').value = '';
                 document.getElementById('user-franchise-input').value = '';
                 loadUsersList();
@@ -183,9 +184,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const u = doc.data();
                 const li = document.createElement('li');
                 li.style.cssText = "padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;";
+                
+                // Botones de Editar y Eliminar
                 li.innerHTML = `
-                    <span><b>${u.email}</b> - ${u.rol.toUpperCase()} - ${u.franquicia}</span>
-                    <button class="btn btn-secundario" style="padding:2px 8px; font-size:0.8em;" onclick="if(confirm('¿Eliminar permiso?')) deleteUser('${u.email}')">Eliminar</button>
+                    <span><b>${u.email}</b><br><small>${u.rol.toUpperCase()} - ${u.franquicia}</small></span>
+                    <div style="display:flex; gap:5px;">
+                        <button class="btn btn-secundario" style="padding:4px 10px; font-size:0.8em; background:#3498db; color:white;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">Editar</button>
+                        <button class="btn btn-secundario" style="padding:4px 10px; font-size:0.8em; background:#e74c3c; color:white;" onclick="if(confirm('¿Eliminar usuario?')) deleteUser('${u.email}')">Eliminar</button>
+                    </div>
                 `;
                 list.appendChild(li);
             });
@@ -193,6 +199,16 @@ document.addEventListener('DOMContentLoaded', () => {
             list.innerHTML = 'Error al cargar lista.';
         }
     }
+
+    // Funciones globales para acceder desde el HTML inyectado
+    window.editUser = (email, rol, fran) => {
+        document.getElementById('user-email-input').value = email;
+        document.getElementById('user-role-input').value = rol;
+        document.getElementById('user-franchise-input').value = fran;
+        window.scrollTo(0,0);
+        window.showAlert(`Editando usuario: ${email}. Modifica y dale a Guardar.`, 'info');
+    };
+
     window.deleteUser = async (email) => {
         try { await db.collection('usuarios').doc(email).delete(); loadUsersList(); } catch(e){ alert('Error'); }
     };
@@ -285,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const rol = userData.rol;
         const promoType = document.getElementById('upload-promo').value;
         let status = 'approved';
-        // Si es usuario y es FEED, pasa a pendiente. Si es Solo X Hoy, pasa directo.
+        // Si es usuario y es FEED, pasa a pendiente.
         if (rol === 'usuario' && promoType === 'FEED') status = 'pending';
 
         const costo = parseFloat(dom.inputCostoTotal.value) || 0;
@@ -319,7 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
             financiacion: document.getElementById('upload-financiacion').value,
             servicios: serviciosData,
             status: status,
-            creador: userData.franquicia || 'Desconocido', // Fallback por si acaso
+            creador: userData.franquicia || 'Desconocido', 
             editor_email: currentUser.email,
             action_type: isEditingId ? 'edit' : 'create',
             id_paquete: isEditingId || '' 
@@ -329,8 +345,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             await secureFetch(API_URL_UPLOAD, payload);
-            
-            // MENSAJE PERSONALIZADO SEGÚN ESTADO
             if (status === 'pending') {
                 await window.showAlert('¡Paquete enviado a revisión! Se publicará cuando un Editor lo apruebe.', 'info');
             } else {
@@ -343,11 +357,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- 5. RENDERIZADO Y GESTIÓN ---
+    // --- 5. RENDERIZADO (TARJETAS LIMPIAS) ---
 
     function getSummaryIcons(pkg) {
          let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) {}
-         if (!Array.isArray(servicios) || servicios.length === 0) return '<span style="opacity:0.6">Sin servicios</span>';
+         // CORRECCIÓN VISUAL: Si no hay servicios, devolvemos un texto pero dentro de un span invisible o con estructura para mantener altura
+         if (!Array.isArray(servicios) || servicios.length === 0) return '<span style="opacity:0.6; padding:2px;">Sin servicios</span>';
+         
          const iconMap = { 'aereo': '✈️ Aéreo', 'hotel': '🏨 Hotel', 'traslado': '🚕 Traslado', 'seguro': '🛡️ Seguro', 'adicional': '➕ Adic.', 'bus': '🚌 Bus', 'crucero': '🚢 Crucero' };
          const uniqueTypes = [...new Set(servicios.map(s => iconMap[s.tipo] || s.tipo))];
          return uniqueTypes.map(t => `<span style="white-space:nowrap;display:inline-block;margin-right:8px;margin-bottom:4px;background:#f4f7f9;padding:2px 8px;border-radius:4px;">${t}</span>`).join('');
@@ -364,21 +380,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const tarifaMostrar = parseFloat(pkg['tarifa']) || 0;
             const summaryIcons = getSummaryIcons(pkg);
-            
-            let toolsHtml = '';
-            if (userData.rol === 'editor' || userData.rol === 'admin') {
-                toolsHtml = `
-                <div style="position:absolute; top:10px; right:10px; z-index:10; display:flex; gap:5px;">
-                    <button class="tool-btn edit" title="Editar">✏️</button>
-                    <button class="tool-btn delete" title="Eliminar">🗑️</button>
-                    ${pkg.status === 'pending' ? '<button class="tool-btn approve" title="Aprobar">✅</button>' : ''}
-                </div>`;
-            }
-
             const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`;
 
+            // TARJETA LIMPIA: Sin botones de edición, sin email de creador.
             card.innerHTML = `
-                ${toolsHtml}
                 <div class="card-clickable">
                     <div class="card-header" style="padding-bottom:0;">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
@@ -393,7 +398,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="card-body" style="padding:0 20px 15px 20px;">
                         <div style="font-size:0.75em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div>
-                         <div style="font-size:0.75em; color:#999; margin-top:5px;">${pkg['creador']}</div>
                     </div>
                     <div class="card-footer" style="padding-top:15px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;">
                         <div><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
@@ -402,28 +406,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
             
             targetGrid.appendChild(card);
+            // Click en toda la tarjeta abre el modal
             card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
-            if(toolsHtml) {
-                const btnEdit = card.querySelector('.edit');
-                const btnDel = card.querySelector('.delete');
-                const btnApprove = card.querySelector('.approve');
-                if(btnEdit) btnEdit.onclick = (e) => { e.stopPropagation(); startEditing(pkg); };
-                if(btnDel) btnDel.onclick = (e) => { e.stopPropagation(); deletePackage(pkg); };
-                if(btnApprove) btnApprove.onclick = (e) => { e.stopPropagation(); approvePackage(pkg); };
-            }
         });
     }
 
-    async function deletePackage(pkg) {
+    // --- 6. LOGICA COMÚN ---
+    
+    // FUNCIONES DEL MODAL (Aquí inyectamos los botones de edición)
+    window.deletePackage = async (pkg) => {
         if (!confirm("⚠️ ¿Estás seguro de ELIMINAR este paquete? Esta acción es irreversible.")) return;
         try {
-            await secureFetch(API_URL_UPLOAD, { action_type: 'delete', id_paquete: pkg.id || pkg['item.id'] || pkg.row_number }); 
+            // El ID puede venir de distintos lados dependiendo de la fuente (sheet vs n8n)
+            const id = pkg.id || pkg['item.id'] || pkg.row_number;
+            await secureFetch(API_URL_UPLOAD, { action_type: 'delete', id_paquete: id }); 
             window.showAlert("Paquete eliminado.", "success");
             window.location.reload();
         } catch (e) { window.showAlert("Error al eliminar.", "error"); }
-    }
+    };
 
-    async function approvePackage(pkg) {
+    window.approvePackage = async (pkg) => {
          if (!confirm("¿Aprobar publicación en FEED?")) return;
          try {
              let payload = JSON.parse(JSON.stringify(pkg)); 
@@ -434,10 +436,10 @@ document.addEventListener('DOMContentLoaded', () => {
              window.showAlert("Paquete Aprobado.", "success");
              window.location.reload();
          } catch(e) { window.showAlert("Error al aprobar.", "error"); }
-    }
+    };
 
-    function startEditing(pkg) {
-        if (!confirm("Vas a editar este paquete. Se abrirá el formulario con los datos cargados.")) return;
+    window.startEditing = (pkg) => {
+        if (!confirm("Se abrirá el formulario de edición. Recuerda guardar los cambios al finalizar.")) return;
         isEditingId = pkg.id || pkg['item.id'] || pkg.row_number; 
         
         document.getElementById('upload-destino').value = pkg.destino;
@@ -459,110 +461,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         window.calcularTotal();
+        dom.modal.style.display = 'none'; // Cerramos modal
         showView('upload');
         window.scrollTo(0,0);
-        window.showAlert("Modo Edición Activado.", "success");
-    }
-
-    // --- 6. LOGICA COMÚN ---
-
-    function getNoches(pkg) {
-        let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
-        if(!Array.isArray(servicios)) return 0;
-        const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
-        const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
-        if(!pkg['fecha_salida']) return 0;
-        let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
-        const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
-        servicios.forEach(s => {
-            if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
-            if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
-        });
-        return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
-    }
-    
-    function populateFranchiseFilter(packages) {
-        const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))];
-        const selector = dom.filtroCreador;
-        if(!selector) return;
-        const currentVal = selector.value;
-        selector.innerHTML = '<option value="">Todas las Franquicias</option>';
-        creadores.sort().forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c; opt.innerText = c;
-            selector.appendChild(opt);
-        });
-        selector.value = currentVal;
-    }
-
-    function applyFilters() {
-        const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
-        const fCreador = dom.filtroCreador ? dom.filtroCreador.value : '';
-        const fPromo = document.getElementById('filtro-promo').value;
-        const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
-
-        let result = allPackages.filter(pkg => {
-            // Manejo de Estado: Si no tiene status (viejo) se muestra. Si es pending, se oculta.
-            if (pkg.status && pkg.status === 'pending') return false; 
-            
-            const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
-            const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
-            const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
-            return mDestino && mCreador && mPromo;
-        });
-
-        if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa));
-        else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
-        else result.reverse();
-
-        renderCards(result, dom.grid);
-        
-        if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) {
-            const pendientes = allPackages.filter(p => p.status === 'pending');
-            renderCards(pendientes, dom.gridGestion);
-        }
-    }
-
-    const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
-    const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
-
-    async function fetchAndLoadPackages() { 
-        try { 
-            const d = await secureFetch(API_URL_SEARCH, {}); 
-            allPackages = d; 
-            populateFranchiseFilter(allPackages); 
-            applyFilters(); 
-        } catch(e){ console.error(e); } 
-    }
-
-    function renderServiciosClienteHTML(rawJson) {
-         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>Sin detalles.</p>'; }
-        if(!Array.isArray(servicios)||servicios.length===0) return '<p>Sin detalles.</p>';
-        let html='';
-        servicios.forEach(s => {
-            let icono='🔹', titulo='', lineas=[];
-            if(s.tipo==='aereo'){ icono='✈️'; titulo='AÉREO'; lineas.push(`<b>Aerolínea:</b> ${s.aerolinea}`); lineas.push(`<b>Fechas:</b> ${formatDateAR(s.fecha_aereo)}${s.fecha_regreso?` | <b>Vuelta:</b> ${formatDateAR(s.fecha_regreso)}`:''}`); lineas.push(`<b>Escalas:</b> ${s.escalas==0?'Directo':s.escalas}`); lineas.push(`<b>Equipaje:</b> ${s.tipo_equipaje.replace(/_/g,' ')} (x${s.cantidad_equipaje||1})`); }
-            else if(s.tipo==='hotel'){ icono='🏨'; titulo='HOTEL'; lineas.push(`<b>${s.hotel_nombre}</b> (${s.regimen})`); lineas.push(`<b>Estadía:</b> ${(s.checkin&&s.checkout)?Math.ceil((new Date(s.checkout)-new Date(s.checkin))/86400000):'-'} noches (${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout)})`); }
-            
-            else if(s.tipo==='traslado'){ icono='🚕'; titulo='TRASLADO'; let t=[]; if(s.trf_in)t.push("In"); if(s.trf_out)t.push("Out"); if(s.trf_hah)t.push("Htl-Htl"); lineas.push(`<b>Tipo:</b> ${s.tipo_trf} (${t.join(' + ')})`); }
-            
-            else if(s.tipo==='seguro'){ icono='🛡️'; titulo='SEGURO'; lineas.push(`<b>Cob:</b> ${s.proveedor}`); }
-            else if(s.tipo==='adicional'){ icono='➕'; titulo='ADICIONAL'; lineas.push(`<b>${s.descripcion}</b>`); }
-            else if (s.tipo === 'bus') { icono = '🚌'; titulo = 'PAQUETE BUS'; lineas.push(`<b>Duración:</b> ${s.bus_noches} Noches`); if (s.bus_alojamiento) lineas.push(`<b>Alojamiento:</b> Incluido (${s.bus_regimen})`); else lineas.push(`<b>Alojamiento:</b> No incluido`); let extras = []; if (s.bus_excursiones) extras.push("Excursiones"); if (s.bus_asistencia) extras.push("Asistencia"); if (extras.length > 0) lineas.push(`<b>Incluye:</b> ${extras.join(' + ')}`); }
-            else if (s.tipo === 'crucero') { icono = '🚢'; titulo = 'CRUCERO'; lineas.push(`<b>Naviera:</b> ${s.crucero_naviera}`); lineas.push(`<b>Salida:</b> ${s.crucero_puerto_salida} (${s.crucero_noches} Noches)`); lineas.push(`<b>Recorrido:</b> ${s.crucero_recorrido}`); if(s.crucero_info) lineas.push(`<i>Info: ${s.crucero_info}</i>`); }
-            if(s.obs) lineas.push(`<i>Obs: ${s.obs}</i>`);
-            html+=`<div style="margin-bottom:10px;border-left:3px solid #ddd;padding-left:10px;"><div style="color:#11173d;font-weight:bold;">${icono} ${titulo}</div><div style="font-size:0.9em;color:#555;">${lineas.map(l=>`<div>${l}</div>`).join('')}</div></div>`;
-        });
-        return html;
-    }
-    
-    function renderCostosProveedoresHTML(rawJson) {
-         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>-</p>'; }
-        if(!Array.isArray(servicios)||servicios.length===0) return '<p>-</p>';
-        let html='<ul style="list-style:none; padding:0; margin:0;">';
-        servicios.forEach(s => { const tipo = s.tipo ? s.tipo.toUpperCase() : 'SERVICIO'; html += `<li style="margin-bottom:5px; font-size:0.9em; border-bottom:1px dashed #eee; padding-bottom:5px;"><b>${tipo}:</b> ${s.proveedor || '-'} <span style="float:right;">$${formatMoney(s.costo || 0)}</span></li>`; });
-        html += '</ul>'; return html;
-    }
+        window.showAlert("Modo Edición Activado.", "info");
+    };
 
     function openModal(pkg) {
         const rawServicios = pkg['servicios'] || pkg['item.servicios'];
@@ -573,9 +476,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const tarifaDoble = Math.round(tarifa / 2);
         const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 8px;`;
 
+        // INYECCIÓN DE BOTONES DE EDICIÓN (SOLO SI TIENE PERMISO)
+        let adminTools = '';
+        if (userData.rol === 'editor' || userData.rol === 'admin') {
+            const btnApprove = pkg.status === 'pending' ? `<button class="btn btn-primario" onclick='approvePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : '';
+            adminTools = `
+                <div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">
+                    ${btnApprove}
+                    <button class="btn btn-secundario" onclick='startEditing(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button>
+                    <button class="btn btn-secundario" onclick='deletePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button>
+                </div>
+            `;
+        }
+
         dom.modalBody.innerHTML = `
+            ${adminTools}
             <div class="modal-detalle-header" style="display:flex; flex-direction:column; align-items:flex-start; padding: 25px;">
-                <h2 style="margin:0; color:#11173d; font-size: 2em;">${pkg['destino']}</h2>
+                <h2 style="margin:0; color:#11173d; font-size: 2em; padding-right: 150px;">${pkg['destino']}</h2>
                 <span style="${bubbleStyle}">${pkg['tipo_promo']}</span>
             </div>
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">
@@ -603,6 +520,106 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.modal.style.display = 'flex';
     }
 
+    // --- UTILS & FILTERS ---
+    function getNoches(pkg) {
+        let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
+        if(!Array.isArray(servicios)) return 0;
+        const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
+        const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
+        if(!pkg['fecha_salida']) return 0;
+        let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
+        const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
+        servicios.forEach(s => {
+            if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+            if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+        });
+        return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
+    }
+    
+    function populateFranchiseFilter(packages) {
+        const selector = dom.filtroCreador;
+        if(!selector) return;
+        const currentVal = selector.value;
+        const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))];
+        selector.innerHTML = '<option value="">Todas las Franquicias</option>';
+        creadores.sort().forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c; opt.innerText = c;
+            selector.appendChild(opt);
+        });
+        selector.value = currentVal;
+    }
+
+    function applyFilters() {
+        const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
+        const fCreador = dom.filtroCreador ? dom.filtroCreador.value : '';
+        const fPromo = document.getElementById('filtro-promo').value;
+        const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
+
+        let result = allPackages.filter(pkg => {
+            // CORRECCIÓN VISIBILIDAD:
+            // Si es 'pending', solo se muestra si NO estamos en la búsqueda general (se maneja en gestión)
+            // Ojo: Si el usuario es el dueño, podría querer verlo, pero por ahora mantenemos que pending va a gestión.
+            if (pkg.status && pkg.status === 'pending') return false; 
+            
+            const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
+            const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
+            const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
+            return mDestino && mCreador && mPromo;
+        });
+
+        if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa));
+        else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
+        else result.reverse(); // Más reciente
+
+        renderCards(result, dom.grid);
+        
+        // Carga de gestión
+        if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) {
+            const pendientes = allPackages.filter(p => p.status === 'pending');
+            renderCards(pendientes, dom.gridGestion);
+        }
+    }
+
+    const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
+    const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
+
+    async function fetchAndLoadPackages() { 
+        try { 
+            const d = await secureFetch(API_URL_SEARCH, {}); 
+            allPackages = d; 
+            populateFranchiseFilter(allPackages); 
+            applyFilters(); 
+        } catch(e){ console.error(e); } 
+    }
+
+    function renderServiciosClienteHTML(rawJson) {
+         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>Sin detalles.</p>'; }
+        if(!Array.isArray(servicios)||servicios.length===0) return '<p>Sin detalles.</p>';
+        let html='';
+        servicios.forEach(s => {
+            let icono='🔹', titulo='', lineas=[];
+            if(s.tipo==='aereo'){ icono='✈️'; titulo='AÉREO'; lineas.push(`<b>Aerolínea:</b> ${s.aerolinea}`); lineas.push(`<b>Fechas:</b> ${formatDateAR(s.fecha_aereo)}${s.fecha_regreso?` | <b>Vuelta:</b> ${formatDateAR(s.fecha_regreso)}`:''}`); lineas.push(`<b>Escalas:</b> ${s.escalas==0?'Directo':s.escalas}`); lineas.push(`<b>Equipaje:</b> ${s.tipo_equipaje.replace(/_/g,' ')} (x${s.cantidad_equipaje||1})`); }
+            else if(s.tipo==='hotel'){ icono='🏨'; titulo='HOTEL'; lineas.push(`<b>${s.hotel_nombre}</b> (${s.regimen})`); lineas.push(`<b>Estadía:</b> ${(s.checkin&&s.checkout)?Math.ceil((new Date(s.checkout)-new Date(s.checkin))/86400000):'-'} noches (${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout)})`); }
+            else if(s.tipo==='traslado'){ icono='🚕'; titulo='TRASLADO'; let t=[]; if(s.trf_in)t.push("In"); if(s.trf_out)t.push("Out"); if(s.trf_hah)t.push("Htl-Htl"); lineas.push(`<b>Tipo:</b> ${s.tipo_trf} (${t.join(' + ')})`); }
+            else if(s.tipo==='seguro'){ icono='🛡️'; titulo='SEGURO'; lineas.push(`<b>Cob:</b> ${s.proveedor}`); }
+            else if(s.tipo==='adicional'){ icono='➕'; titulo='ADICIONAL'; lineas.push(`<b>${s.descripcion}</b>`); }
+            else if (s.tipo === 'bus') { icono = '🚌'; titulo = 'PAQUETE BUS'; lineas.push(`<b>Duración:</b> ${s.bus_noches} Noches`); if (s.bus_alojamiento) lineas.push(`<b>Alojamiento:</b> Incluido (${s.bus_regimen})`); else lineas.push(`<b>Alojamiento:</b> No incluido`); let extras = []; if (s.bus_excursiones) extras.push("Excursiones"); if (s.bus_asistencia) extras.push("Asistencia"); if (extras.length > 0) lineas.push(`<b>Incluye:</b> ${extras.join(' + ')}`); }
+            else if (s.tipo === 'crucero') { icono = '🚢'; titulo = 'CRUCERO'; lineas.push(`<b>Naviera:</b> ${s.crucero_naviera}`); lineas.push(`<b>Salida:</b> ${s.crucero_puerto_salida} (${s.crucero_noches} Noches)`); lineas.push(`<b>Recorrido:</b> ${s.crucero_recorrido}`); if(s.crucero_info) lineas.push(`<i>Info: ${s.crucero_info}</i>`); }
+            if(s.obs) lineas.push(`<i>Obs: ${s.obs}</i>`);
+            html+=`<div style="margin-bottom:10px;border-left:3px solid #ddd;padding-left:10px;"><div style="color:#11173d;font-weight:bold;">${icono} ${titulo}</div><div style="font-size:0.9em;color:#555;">${lineas.map(l=>`<div>${l}</div>`).join('')}</div></div>`;
+        });
+        return html;
+    }
+    
+    function renderCostosProveedoresHTML(rawJson) {
+         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>-</p>'; }
+        if(!Array.isArray(servicios)||servicios.length===0) return '<p>-</p>';
+        let html='<ul style="list-style:none; padding:0; margin:0;">';
+        servicios.forEach(s => { const tipo = s.tipo ? s.tipo.toUpperCase() : 'SERVICIO'; html += `<li style="margin-bottom:5px; font-size:0.9em; border-bottom:1px dashed #eee; padding-bottom:5px;"><b>${tipo}:</b> ${s.proveedor || '-'} <span style="float:right;">$${formatMoney(s.costo || 0)}</span></li>`; });
+        html += '</ul>'; return html;
+    }
+    
     // Navegación Vistas
     function showView(n) {
         Object.values(dom.views).forEach(v => { if(v) v.classList.remove('active'); });
@@ -616,6 +633,8 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.nav.upload.onclick = () => { isEditingId = null; document.getElementById('upload-form').reset(); dom.containerServicios.innerHTML=''; showView('upload'); };
     dom.nav.gestion.onclick = () => showView('gestion');
     dom.nav.users.onclick = () => showView('users');
+    dom.modalClose.onclick = () => dom.modal.style.display = 'none';
+    window.onclick = e => { if(e.target === dom.modal) dom.modal.style.display='none'; };
     
     // Listeners Filtros
     dom.btnBuscar.addEventListener('click', applyFilters);
