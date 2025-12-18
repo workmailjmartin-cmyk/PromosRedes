@@ -335,7 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
             financiacion: document.getElementById('upload-financiacion').value,
             servicios: serviciosData,
             status: status,
-            creador: userData.franquicia || 'Desconocido', 
+            creador: userData.franquicia || 'Usuario Web', // FALLBACK IMPORTANTE PARA EVITAR ERRORES
             editor_email: currentUser.email,
             action_type: isEditingId ? 'edit' : 'create',
             id_paquete: isEditingId || '' 
@@ -361,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getSummaryIcons(pkg) {
          let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) {}
-         // CORRECCIÓN VISUAL: Si no hay servicios, devolvemos un texto pero dentro de un span invisible o con estructura para mantener altura
+         // CORRECCIÓN VISUAL: Mantiene altura uniforme
          if (!Array.isArray(servicios) || servicios.length === 0) return '<span style="opacity:0.6; padding:2px;">Sin servicios</span>';
          
          const iconMap = { 'aereo': '✈️ Aéreo', 'hotel': '🏨 Hotel', 'traslado': '🚕 Traslado', 'seguro': '🛡️ Seguro', 'adicional': '➕ Adic.', 'bus': '🚌 Bus', 'crucero': '🚢 Crucero' };
@@ -382,13 +382,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const summaryIcons = getSummaryIcons(pkg);
             const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`;
 
-            // TARJETA LIMPIA: Sin botones de edición, sin email de creador.
+            // Lógica para mostrar etiqueta de "Pendiente" en la tarjeta del dueño
+            let statusTag = '';
+            if (pkg.status === 'pending') {
+                statusTag = `<span style="background-color:#ffeaa7; color:#d35400; padding:2px 8px; border-radius:10px; font-size:0.7em; margin-left:5px;">⏳ En Revisión</span>`;
+            }
+
             card.innerHTML = `
                 <div class="card-clickable">
                     <div class="card-header" style="padding-bottom:0;">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
                             <div style="max-width:75%; padding-right:30px;">
-                                <h3 style="margin:0;font-size:1.5em;line-height:1.2;color:#11173d;">${pkg['destino']}</h3>
+                                <h3 style="margin:0;font-size:1.5em;line-height:1.2;color:#11173d;">${pkg['destino']} ${statusTag}</h3>
                             </div>
                             ${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:5px 10px;border-radius:12px;font-weight:bold;font-size:0.8em;white-space:nowrap;">🌙 ${noches}</div>` : ''}
                         </div>
@@ -406,18 +411,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
             
             targetGrid.appendChild(card);
-            // Click en toda la tarjeta abre el modal
             card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
         });
     }
 
     // --- 6. LOGICA COMÚN ---
     
-    // FUNCIONES DEL MODAL (Aquí inyectamos los botones de edición)
+    // FUNCIONES DEL MODAL
     window.deletePackage = async (pkg) => {
-        if (!confirm("⚠️ ¿Estás seguro de ELIMINAR este paquete? Esta acción es irreversible.")) return;
+        if (!confirm("⚠️ ¿Estás seguro de ELIMINAR este paquete?")) return;
         try {
-            // El ID puede venir de distintos lados dependiendo de la fuente (sheet vs n8n)
             const id = pkg.id || pkg['item.id'] || pkg.row_number;
             await secureFetch(API_URL_UPLOAD, { action_type: 'delete', id_paquete: id }); 
             window.showAlert("Paquete eliminado.", "success");
@@ -439,7 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.startEditing = (pkg) => {
-        if (!confirm("Se abrirá el formulario de edición. Recuerda guardar los cambios al finalizar.")) return;
+        if (!confirm("Se abrirá el formulario de edición.")) return;
         isEditingId = pkg.id || pkg['item.id'] || pkg.row_number; 
         
         document.getElementById('upload-destino').value = pkg.destino;
@@ -461,7 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         window.calcularTotal();
-        dom.modal.style.display = 'none'; // Cerramos modal
+        dom.modal.style.display = 'none'; 
         showView('upload');
         window.scrollTo(0,0);
         window.showAlert("Modo Edición Activado.", "info");
@@ -476,10 +479,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const tarifaDoble = Math.round(tarifa / 2);
         const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 8px;`;
 
-        // INYECCIÓN DE BOTONES DE EDICIÓN (SOLO SI TIENE PERMISO)
+        // INYECCIÓN DE BOTONES DE EDICIÓN
         let adminTools = '';
-        if (userData.rol === 'editor' || userData.rol === 'admin') {
-            const btnApprove = pkg.status === 'pending' ? `<button class="btn btn-primario" onclick='approvePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : '';
+        // CORRECCIÓN: Permitimos al DUEÑO (Vendedor) editar sus paquetes pendientes, o al Admin/Editor editar todo.
+        const isOwner = pkg.editor_email === currentUser.email;
+        const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
+
+        if (canEdit) {
+            // Solo Admin/Editor aprueba
+            const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? 
+                `<button class="btn btn-primario" onclick='approvePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : '';
+            
             adminTools = `
                 <div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">
                     ${btnApprove}
@@ -550,6 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selector.value = currentVal;
     }
 
+    // AQUI ESTÁ LA MAGIA PARA QUE EL USUARIO VEA SUS PENDIENTES
     function applyFilters() {
         const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
         const fCreador = dom.filtroCreador ? dom.filtroCreador.value : '';
@@ -557,11 +568,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
 
         let result = allPackages.filter(pkg => {
-            // CORRECCIÓN VISIBILIDAD:
-            // Si es 'pending', solo se muestra si NO estamos en la búsqueda general (se maneja en gestión)
-            // Ojo: Si el usuario es el dueño, podría querer verlo, pero por ahora mantenemos que pending va a gestión.
-            if (pkg.status && pkg.status === 'pending') return false; 
+            // LÓGICA DE VISIBILIDAD:
+            // 1. Si es Admin/Editor: Ve todo (incluso pendientes si quiere, pero gralmente están en Gestión).
+            //    Pero en la grilla PRINCIPAL solemos ocultar pendientes ajenos para no ensuciar.
+            // 2. Si es Usuario:
+            //    - Ve 'approved' (o sin status).
+            //    - Ve 'pending' SOLO si es suyo (pkg.editor_email == currentUser.email).
             
+            const isOwner = pkg.editor_email === currentUser.email;
+            const isApproved = !pkg.status || pkg.status === 'approved';
+            const isPending = pkg.status === 'pending';
+            
+            // Si está pendiente y NO soy el dueño, lo oculto (Admin lo ve en Gestión, otros no lo ven)
+            if (isPending && !isOwner) return false;
+
             const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
             const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
             const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
@@ -570,11 +590,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa));
         else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
-        else result.reverse(); // Más reciente
+        else result.reverse();
 
         renderCards(result, dom.grid);
         
-        // Carga de gestión
         if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) {
             const pendientes = allPackages.filter(p => p.status === 'pending');
             renderCards(pendientes, dom.gridGestion);
