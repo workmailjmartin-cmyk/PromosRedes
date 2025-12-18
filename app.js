@@ -371,6 +371,35 @@ document.addEventListener('DOMContentLoaded', () => {
          return uniqueTypes.map(t => `<span style="white-space:nowrap;display:inline-block;margin-right:8px;margin-bottom:4px;background:#f4f7f9;padding:2px 8px;border-radius:4px;">${t}</span>`).join('');
     }
 
+    // --- AQUI ESTAN LAS FUNCIONES QUE FALTABAN ---
+    
+    function renderServiciosClienteHTML(rawJson) {
+         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>Sin detalles.</p>'; }
+        if(!Array.isArray(servicios)||servicios.length===0) return '<p>Sin detalles.</p>';
+        let html='';
+        servicios.forEach(s => {
+            let icono='🔹', titulo='', lineas=[];
+            if(s.tipo==='aereo'){ icono='✈️'; titulo='AÉREO'; lineas.push(`<b>Aerolínea:</b> ${s.aerolinea}`); lineas.push(`<b>Fechas:</b> ${formatDateAR(s.fecha_aereo)}${s.fecha_regreso?` | <b>Vuelta:</b> ${formatDateAR(s.fecha_regreso)}`:''}`); lineas.push(`<b>Escalas:</b> ${s.escalas==0?'Directo':s.escalas}`); lineas.push(`<b>Equipaje:</b> ${s.tipo_equipaje.replace(/_/g,' ')} (x${s.cantidad_equipaje||1})`); }
+            else if(s.tipo==='hotel'){ icono='🏨'; titulo='HOTEL'; lineas.push(`<b>${s.hotel_nombre}</b> (${s.regimen})`); lineas.push(`<b>Estadía:</b> ${(s.checkin&&s.checkout)?Math.ceil((new Date(s.checkout)-new Date(s.checkin))/86400000):'-'} noches (${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout)})`); }
+            else if(s.tipo==='traslado'){ icono='🚕'; titulo='TRASLADO'; let t=[]; if(s.trf_in)t.push("In"); if(s.trf_out)t.push("Out"); if(s.trf_hah)t.push("Htl-Htl"); lineas.push(`<b>Tipo:</b> ${s.tipo_trf} (${t.join(' + ')})`); }
+            else if(s.tipo==='seguro'){ icono='🛡️'; titulo='SEGURO'; lineas.push(`<b>Cob:</b> ${s.proveedor}`); }
+            else if(s.tipo==='adicional'){ icono='➕'; titulo='ADICIONAL'; lineas.push(`<b>${s.descripcion}</b>`); }
+            else if (s.tipo === 'bus') { icono = '🚌'; titulo = 'PAQUETE BUS'; lineas.push(`<b>Duración:</b> ${s.bus_noches} Noches`); if (s.bus_alojamiento) lineas.push(`<b>Alojamiento:</b> Incluido (${s.bus_regimen})`); else lineas.push(`<b>Alojamiento:</b> No incluido`); let extras = []; if (s.bus_excursiones) extras.push("Excursiones"); if (s.bus_asistencia) extras.push("Asistencia"); if (extras.length > 0) lineas.push(`<b>Incluye:</b> ${extras.join(' + ')}`); }
+            else if (s.tipo === 'crucero') { icono = '🚢'; titulo = 'CRUCERO'; lineas.push(`<b>Naviera:</b> ${s.crucero_naviera}`); lineas.push(`<b>Salida:</b> ${s.crucero_puerto_salida} (${s.crucero_noches} Noches)`); lineas.push(`<b>Recorrido:</b> ${s.crucero_recorrido}`); if(s.crucero_info) lineas.push(`<i>Info: ${s.crucero_info}</i>`); }
+            if(s.obs) lineas.push(`<i>Obs: ${s.obs}</i>`);
+            html+=`<div style="margin-bottom:10px;border-left:3px solid #ddd;padding-left:10px;"><div style="color:#11173d;font-weight:bold;">${icono} ${titulo}</div><div style="font-size:0.9em;color:#555;">${lineas.map(l=>`<div>${l}</div>`).join('')}</div></div>`;
+        });
+        return html;
+    }
+    
+    function renderCostosProveedoresHTML(rawJson) {
+         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>-</p>'; }
+        if(!Array.isArray(servicios)||servicios.length===0) return '<p>-</p>';
+        let html='<ul style="list-style:none; padding:0; margin:0;">';
+        servicios.forEach(s => { const tipo = s.tipo ? s.tipo.toUpperCase() : 'SERVICIO'; html += `<li style="margin-bottom:5px; font-size:0.9em; border-bottom:1px dashed #eee; padding-bottom:5px;"><b>${tipo}:</b> ${s.proveedor || '-'} <span style="float:right;">$${formatMoney(s.costo || 0)}</span></li>`; });
+        html += '</ul>'; return html;
+    }
+
     function renderCards(list, targetGrid = dom.grid) {
         targetGrid.innerHTML = '';
         if (!list || list.length === 0) { targetGrid.innerHTML = '<p>No hay resultados.</p>'; return; }
@@ -473,9 +502,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function openModal(pkg) {
+        // SEGURIDAD: Verificar que existen las funciones auxiliares antes de llamar
+        if (typeof renderServiciosClienteHTML !== 'function') {
+            console.error("Falta la función renderServiciosClienteHTML");
+            return alert("Error interno: Falta componente de visualización.");
+        }
+
         const rawServicios = pkg['servicios'] || pkg['item.servicios'];
-        const htmlCliente = renderServiciosClienteHTML(rawServicios);
-        const htmlCostos = renderCostosProveedoresHTML(rawServicios);
+        const htmlCliente = renderServiciosClienteHTML(rawServicios); // AQUI FALLABA ANTES
+        const htmlCostos = renderCostosProveedoresHTML(rawServicios); // AQUI FALLABA ANTES
         const noches = getNoches(pkg);
         const tarifa = parseFloat(pkg['tarifa']) || 0;
         const tarifaDoble = Math.round(tarifa / 2);
@@ -565,11 +600,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const fPromo = document.getElementById('filtro-promo').value;
         const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
 
-        // LÓGICA DE DEDUPLICACIÓN
         const idMap = new Map();
         
         allPackages.forEach(pkg => {
-            if (pkg.status === 'deleted') return; // Filtro de borrados
+            if (pkg.status === 'deleted') return; 
 
             const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
             const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
@@ -588,7 +622,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 idMap.set(id, pkg);
             } else {
                 const existing = idMap.get(id);
-                // Si ya existe uno, priorizamos el APROBADO sobre el PENDIENTE
                 if (existing.status === 'pending' && pkg.status === 'approved') {
                     idMap.set(id, pkg);
                 }
