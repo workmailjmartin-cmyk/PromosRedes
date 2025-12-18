@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Agrupamos todas las filas por su ID de paquete
         rawList.forEach(pkg => {
             const id = pkg.id_paquete || pkg.id || pkg['item.id'];
-            if (!id) return; // Ignorar si no tiene ID (basura)
+            if (!id) return; 
 
             if (!historyMap.has(id)) {
                 historyMap.set(id, []);
@@ -114,12 +114,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Procesamos cada grupo
         historyMap.forEach((versions) => {
-            // Tomamos la última versión (la más reciente en el Sheet)
+            // Tomamos la última versión
             const latestVersion = versions[versions.length - 1];
-
-            // Si la última versión dice 'deleted', el paquete está borrado. NO LO AGREGAMOS.
+            // Si la última versión dice 'deleted', el paquete está borrado.
             if (latestVersion.status === 'deleted') return;
-
             processedList.push(latestVersion);
         });
 
@@ -132,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof d === 'string') d = JSON.parse(d);
             allPackages = d; 
             
-            // 1. Limpiamos historial (Aquí se van los borrados)
+            // Limpiamos historial
             uniquePackages = processPackageHistory(allPackages);
             
             populateFranchiseFilter(uniquePackages); 
@@ -359,7 +357,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return true;
         });
 
-        // ORDENAMIENTO RECIENTE (Por Timestamp en ID)
         if (fOrden === 'reciente') {
             result.sort((a, b) => {
                 const getTs = (id) => {
@@ -383,7 +380,6 @@ document.addEventListener('DOMContentLoaded', () => {
         targetGrid.innerHTML = '';
         if (!list || list.length === 0) { targetGrid.innerHTML = '<p>No hay resultados.</p>'; return; }
         list.forEach(pkg => {
-            // CORRECCIÓN TARJETAS VACÍAS: Si no tiene destino, no se dibuja.
             if (!pkg.destino) return; 
 
             const card = document.createElement('div');
@@ -410,6 +406,36 @@ document.addEventListener('DOMContentLoaded', () => {
             targetGrid.appendChild(card);
             card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
         });
+    }
+
+    // --- UTILS QUE FALTABAN ---
+    function getNoches(pkg) {
+        let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
+        if(!Array.isArray(servicios)) return 0;
+        const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
+        const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
+        if(!pkg['fecha_salida']) return 0;
+        let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
+        const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
+        servicios.forEach(s => {
+            if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+            if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+        });
+        return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
+    }
+
+    const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
+    const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
+
+    function getSummaryIcons(pkg) { 
+        let s = []; 
+        try { 
+            s = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; 
+        } catch(e) {} 
+        
+        if (!Array.isArray(s)) return ''; 
+        const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; 
+        return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
     // GESTION MODAL
@@ -481,7 +507,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderServiciosClienteHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h=''; s.forEach(x=>{ let i='🔹',t='',l=[]; if(x.tipo==='aereo'){i='✈️';t='AÉREO';l.push(`<b>${x.aerolinea}</b>`);l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);} else if(x.tipo==='hotel'){i='🏨';t='HOTEL';l.push(`<b>${x.hotel_nombre}</b> (${x.regimen})`);} else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} else if(x.tipo==='seguro'){i='🛡️';t='SEGURO';l.push(`${x.proveedor}`);} else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} else if(x.tipo==='bus'){i='🚌';t='BUS';l.push(`${x.bus_noches} Noches`);} else if(x.tipo==='crucero'){i='🚢';t='CRUCERO';l.push(`${x.crucero_naviera} - ${x.crucero_recorrido}`);} h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`; }); return h; }
     function renderCostosProveedoresHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h='<ul style="padding-left:15px;margin:0;">'; s.forEach(x=>{ h+=`<li>${x.proveedor||x.tipo}: $${x.costo}</li>`; }); return h+'</ul>'; }
-    function getSummaryIcons(pkg) { let s=[]; try{s=typeof pkg.servicios==='string'?JSON.parse(pkg.servicios):pkg.servicios;}catch(e){} if(!Array.isArray(s)) return ''; const m={'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; return [...new Set(s.map(x=>m[x.tipo]||'🔹'))].join(' '); }
     
     // --- VISTAS ---
     function showView(n) { Object.values(dom.views).forEach(v => v.classList.remove('active')); Object.values(dom.nav).forEach(b => b.classList.remove('active')); dom.views[n].classList.add('active'); dom.nav[n].classList.add('active'); isEditingId = null; }
