@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
         measurementId: "G-2PNDZR3ZS1"
     };
 
+    // URLs DE n8n
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
@@ -22,8 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ESTADO GLOBAL
     let currentUser = null;
     let userData = null; 
-    let allPackages = []; // Lista cruda de n8n
-    let uniquePackages = []; // Lista procesada (sin duplicados ni borrados)
+    let allPackages = [];
+    let uniquePackages = []; 
     let isEditingId = null; 
 
     // DOM
@@ -74,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(dom.logo) { dom.logo.style.cursor = 'pointer'; dom.logo.addEventListener('click', () => window.location.reload()); }
 
     // --- 2. UTILIDADES VISUALES ---
+    
     window.showAlert = (message, type = 'error') => {
         return new Promise((resolve) => {
             const overlay = document.getElementById('custom-alert-overlay');
@@ -92,6 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             msg.innerText = message; 
             overlay.style.display = 'flex';
+            
             btn.onclick = () => { overlay.style.display = 'none'; resolve(); };
         });
     };
@@ -116,55 +119,62 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- 3. LÓGICA CORE: PROCESAMIENTO DE HISTORIAL ---
-    // Esta función resuelve duplicados y eliminados
+    // --- 3. LÓGICA DE HISTORIAL (CORREGIDA PARA DATOS VIEJOS) ---
     function processPackageHistory(rawList) {
         if (!Array.isArray(rawList)) return [];
         
         const historyMap = new Map();
+        const legacyList = [];
 
-        // 1. Agrupar por ID
         rawList.forEach(pkg => {
-            // Usamos id_paquete (nuevo) o id (viejo) como clave
-            const id = pkg.id_paquete || pkg.id || pkg['item.id'];
-            if (!id) return; // Ignorar basura sin ID
+            // Buscamos ID. Si es dato viejo, no tendrá id_paquete.
+            const id = pkg.id_paquete || pkg.id;
 
-            if (!historyMap.has(id)) {
-                historyMap.set(id, []);
+            if (id) {
+                // Es un paquete nuevo con sistema de historial
+                if (!historyMap.has(id)) {
+                    historyMap.set(id, []);
+                }
+                historyMap.get(id).push(pkg);
+            } else {
+                // Es un paquete VIEJO (Legacy). Lo guardamos tal cual para no perderlo.
+                // Asumimos que si es viejo, está aprobado (porque antes no había revisión).
+                if (!pkg.status) pkg.status = 'approved'; 
+                legacyList.push(pkg);
             }
-            historyMap.get(id).push(pkg);
         });
 
-        const finalDocs = [];
+        const processedList = [];
 
-        // 2. Determinar la versión ganadora para cada ID
+        // Procesamos los grupos de historial (Nuevos)
         historyMap.forEach((versions, id) => {
-            // Asumimos que n8n devuelve en orden de inserción (los últimos son los más nuevos)
-            // Tomamos el último elemento del array como la "Versión Actual"
+            // Tomamos la última versión (la más reciente en el Sheet)
             const latestVersion = versions[versions.length - 1];
 
-            // 3. Si la última versión es 'deleted', el paquete NO EXISTE MÁS.
-            if (latestVersion.status === 'deleted') {
-                return; // Lo saltamos (Soft Delete efectivo)
-            }
+            // Si la última versión dice deleted, lo ignoramos totalmente
+            if (latestVersion.status === 'deleted') return;
 
-            finalDocs.push(latestVersion);
+            processedList.push(latestVersion);
         });
 
-        return finalDocs;
+        // Unimos los nuevos procesados con los viejos
+        return [...processedList, ...legacyList];
     }
 
     async function fetchAndLoadPackages() { 
         try { 
-            const d = await secureFetch(API_URL_SEARCH, {}); 
+            let d = await secureFetch(API_URL_SEARCH, {}); 
+            // Protección por si n8n devuelve string
+            if (typeof d === 'string') d = JSON.parse(d);
+            
             allPackages = d; 
             
-            // PROCESAMOS EL HISTORIAL AQUÍ UNA VEZ
+            // Procesamos para eliminar duplicados y borrados
             uniquePackages = processPackageHistory(allPackages);
             
             populateFranchiseFilter(uniquePackages); 
             applyFilters(); 
-        } catch(e){ console.error(e); }
+        } catch(e){ console.error("Error cargando paquetes:", e); }
     }
 
     // --- 4. AUTENTICACIÓN ---
@@ -183,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     await fetchAndLoadPackages();
                     showView('search');
                 } else {
-                    await window.showAlert(`⛔ Sin permisos. Contacta a un Admin.`);
+                    await window.showAlert(`⛔ El usuario ${u.email} no tiene permisos. Contacta a un Admin.`);
                     auth.signOut();
                 }
             } catch (e) { await window.showAlert("Error de conexión."); }
@@ -220,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const rol = document.getElementById('user-role-input').value;
             const fran = document.getElementById('user-franchise-input').value;
             try {
-                await db.collection('usuarios').doc(email).set({ email, rol, franquicia: fran }, { merge: true });
+                await db.collection('usuarios').doc(email).set({ email, rol, franquicia: fran, fecha_modificacion: new Date() }, { merge: true });
                 await window.showAlert('Usuario guardado.', 'success');
                 document.getElementById('user-email-input').value = '';
                 document.getElementById('user-franchise-input').value = '';
@@ -329,10 +339,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0;
         const fechaViajeStr = dom.inputFechaViaje.value;
 
-        if (tarifa < costo) return window.showAlert(`Error: Tarifa menor al costo.`, 'error');
-        if (!fechaViajeStr) return window.showAlert("Falta fecha.", 'error');
+        if (tarifa < costo) return window.showAlert(`Error: La tarifa ($${tarifa}) es menor al costo ($${costo}).`, 'error');
+        if (!fechaViajeStr) return window.showAlert("Falta fecha de salida.", 'error');
         const cards = document.querySelectorAll('.servicio-card');
-        if (cards.length === 0) return window.showAlert("Agrega servicios.", 'error');
+        if (cards.length === 0) return window.showAlert("Agrega al menos un servicio.", 'error');
 
         let serviciosData = [];
         for (let card of cards) {
@@ -345,10 +355,12 @@ document.addEventListener('DOMContentLoaded', () => {
             serviciosData.push(serv);
         }
 
+        // GENERACIÓN DE ID ÚNICO (Importante para el historial)
+        // Si no estamos editando, creamos un ID nuevo aleatorio
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
         const payload = {
-            id_paquete: idGenerado, // ID ÚNICO Y CONSTANTE
+            id_paquete: idGenerado, // <-- ESTO ES CLAVE
             destino: document.getElementById('upload-destino').value,
             salida: document.getElementById('upload-salida').value,
             fecha_salida: fechaViajeStr,
@@ -359,8 +371,9 @@ document.addEventListener('DOMContentLoaded', () => {
             financiacion: document.getElementById('upload-financiacion').value,
             servicios: serviciosData,
             status: status,
-            // LOGICA DUEÑO: Si editamos, NO mandamos creador para no romperlo. Si es nuevo, mandamos.
-            creador: isEditingId ? undefined : userData.franquicia || 'Desconocido', 
+            // LOGICA DUEÑO: Si editamos, NO mandamos creador (n8n usará el original si no se envía nada, o mantenemos lógica)
+            // Aquí enviamos explícitamente el creador si es nuevo
+            creador: isEditingId ? undefined : (userData.franquicia || 'Desconocido'), 
             editor_email: currentUser.email,
             action_type: isEditingId ? 'edit' : 'create'
         };
