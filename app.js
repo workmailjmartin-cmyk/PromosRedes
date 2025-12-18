@@ -17,14 +17,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
-    const db = firebase.firestore(); // ACTIVAMOS FIRESTORE
+    const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
 
     // ESTADO GLOBAL
     let currentUser = null;
-    let userData = null; // Datos de Firestore (Rol, Franquicia)
+    let userData = null; 
     let allPackages = [];
-    let isEditingId = null; // ID del paquete que se está editando
+    let isEditingId = null; 
 
     // DOM
     const dom = {
@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnBuscar: document.getElementById('boton-buscar'),
         btnLimpiar: document.getElementById('boton-limpiar'),
         filtroOrden: document.getElementById('filtro-orden'),
-        filtroCreador: document.getElementById('filtro-creador'), // Selector dinámico
+        filtroCreador: document.getElementById('filtro-creador'),
         
         logo: document.querySelector('.logo')
     };
@@ -85,11 +85,13 @@ document.addEventListener('DOMContentLoaded', () => {
     auth.onAuthStateChanged(async (u) => {
         if (u) {
             try {
-                // Buscamos permiso en Firestore
-                const doc = await db.collection('usuarios').doc(u.email).get();
+                // Buscamos permiso en Firestore (Usamos TRIM para evitar errores de espacios)
+                const emailLimpio = u.email.trim().toLowerCase();
+                const doc = await db.collection('usuarios').doc(emailLimpio).get();
+                
                 if (doc.exists) {
                     currentUser = u;
-                    userData = doc.data(); // { rol: 'admin', franquicia: 'Mendoza', ... }
+                    userData = doc.data(); 
                     
                     dom.loginContainer.style.display='none';
                     dom.appContainer.style.display='block';
@@ -99,12 +101,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     await fetchAndLoadPackages();
                     showView('search');
                 } else {
-                    alert("⛔ Tu usuario no tiene permisos asignados. Contacta a un Administrador.");
+                    alert(`⛔ El usuario ${u.email} no tiene permisos asignados. Pide a un Administrador que te agregue.`);
                     auth.signOut();
                 }
             } catch (e) {
                 console.error(e);
-                alert("Error al verificar permisos (Firestore). Revisa tu conexión o configuración.");
+                alert("Error de conexión con la base de datos de usuarios.");
             }
         } else {
             currentUser = null;
@@ -129,16 +131,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (rol === 'admin') {
             dom.nav.users.style.display = 'inline-block';
-            loadUsersList(); // Cargar lista de usuarios
+            loadUsersList(); 
         }
 
         // Restricciones en Formulario de Carga
         const selectPromo = document.getElementById('upload-promo');
-        selectPromo.innerHTML = '';
-        if (rol === 'usuario') {
-            selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
-        } else {
-            selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
+        if(selectPromo) {
+            selectPromo.innerHTML = '';
+            if (rol === 'usuario') {
+                selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
+            } else {
+                selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
+            }
         }
     }
 
@@ -146,7 +150,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dom.userForm) {
         dom.userForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('user-email-input').value.trim();
+            // IMPORTANTE: Limpiamos el email de espacios
+            const email = document.getElementById('user-email-input').value.trim().toLowerCase();
             const rol = document.getElementById('user-role-input').value;
             const fran = document.getElementById('user-franchise-input').value;
 
@@ -157,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     franquicia: fran,
                     fecha_creacion: new Date()
                 });
-                window.showAlert('Usuario guardado/actualizado correctamente.', 'success');
+                window.showAlert('Usuario guardado correctamente.', 'success');
                 document.getElementById('user-email-input').value = '';
                 document.getElementById('user-franchise-input').value = '';
                 loadUsersList();
@@ -192,9 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try { await db.collection('usuarios').doc(email).delete(); loadUsersList(); } catch(e){ alert('Error'); }
     };
 
-
-    // --- 4. CORE DEL SISTEMA (Fetch, Upload, Render) ---
-
+    // --- 4. CORE DEL SISTEMA ---
     async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
         const token = await currentUser.getIdToken(true);
@@ -209,7 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return txt ? JSON.parse(txt) : [];
     }
 
-    // ALERTA MODERNA
     window.showAlert = (message, type = 'error') => {
         return new Promise((resolve) => {
             const overlay = document.getElementById('custom-alert-overlay');
@@ -219,17 +221,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const icon = document.getElementById('custom-alert-icon');
             const btn = document.getElementById('custom-alert-btn');
             if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; }
+            else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; }
             else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; }
             msg.innerText = message; overlay.style.display = 'flex';
             btn.onclick = () => { overlay.style.display = 'none'; resolve(); };
         });
     };
 
-    // --- FORMULARIO DE CARGA / EDICIÓN ---
+    // --- FORMULARIO DE CARGA ---
     dom.btnAgregarServicio.addEventListener('click', () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } });
 
     function agregarModuloServicio(tipo, data = null) {
-        // VALIDACIÓN EXCLUSIVIDAD
         const container = dom.containerServicios;
         const existingServices = container.querySelectorAll('.servicio-card');
         const hasExclusive = Array.from(existingServices).some(c => c.dataset.tipo === 'bus' || c.dataset.tipo === 'crucero');
@@ -242,13 +244,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
-        // --- HTML BUILDER (AQUÍ CAMBIAMOS EL ÍCONO DE TRASLADO) ---
+        // BUILDERS
         if (tipo === 'aereo') { html += `<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas', 0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'hotel') { html += `<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
-        
-        // --- CAMBIO: ÍCONO TAXI 🚕 ---
         else if (tipo === 'traslado') { html += `<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Htl-Htl</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
-        
         else if (tipo === 'seguro') { html += `<h4>🛡️ Seguro</h4><div class="form-group-row"><div class="form-group"><label>Cobertura</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'adicional') { html += `<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'bus') { html += `<h4>🚌 Paquete Bus</h4><div class="form-group-row"><div class="form-group"><label>Cant. Noches</label><input type="number" name="bus_noches" required></div><div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:10px;"><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="bus_alojamiento" onchange="document.getElementById('bus-regimen-${id}').style.display = this.checked ? 'block' : 'none'"> Incluye Alojamiento</label></div></div></div><div id="bus-regimen-${id}" class="form-group" style="display:none;margin-top:-10px;margin-bottom:15px;background:#f9f9f9;padding:10px;border-radius:8px;"><label>Régimen</label><select name="bus_regimen"><option value="Sin Pensión">Sin Pensión</option><option value="Desayuno">Desayuno</option><option value="Media Pensión">Media Pensión</option><option value="Pensión Completa">Pensión Completa</option></select></div><div class="checkbox-group" style="margin-bottom:15px;"><label class="checkbox-label"><input type="checkbox" name="bus_excursiones"> Incluye Excursiones</label><label class="checkbox-label"><input type="checkbox" name="bus_asistencia"> Asistencia al Viajero</label></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
@@ -257,7 +256,6 @@ document.addEventListener('DOMContentLoaded', () => {
         div.innerHTML = html;
         dom.containerServicios.appendChild(div);
 
-        // Si hay data (EDICIÓN), populamos
         if (data) {
             div.querySelectorAll('input, select, textarea').forEach(input => {
                 if (data[input.name] !== undefined) {
@@ -277,32 +275,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Funciones auxiliares globales
     window.crearContadorHTML = (n, v) => `<div class="counter-wrapper"><button type="button" class="counter-btn" onclick="this.nextElementSibling.innerText=Math.max(0,parseInt(this.nextElementSibling.innerText)-1)">-</button><span class="counter-value">${v}</span><button type="button" class="counter-btn" onclick="this.previousElementSibling.innerText=parseInt(this.previousElementSibling.innerText)+1">+</button><input type="hidden" name="${n}" value="${v}"></div>`;
     window.calcularNoches = (id) => { const c=document.querySelector(`.servicio-card[data-id="${id}"]`); if(!c)return; const i=c.querySelector('input[name="checkin"]'), o=c.querySelector('input[name="checkout"]'); if(i&&o&&i.value&&o.value){ const d1=new Date(i.value), d2=new Date(o.value); document.getElementById(`noches-${id}`).value=(d2>d1)?Math.ceil((d2-d1)/86400000):'-'; } };
     window.calcularTotal = () => { let t=0; document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); dom.inputCostoTotal.value=t; };
 
-
     dom.uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // Status inicial
         const rol = userData.rol;
         const promoType = document.getElementById('upload-promo').value;
         let status = 'approved';
+        // Si es usuario y es FEED, pasa a pendiente. Si es Solo X Hoy, pasa directo.
         if (rol === 'usuario' && promoType === 'FEED') status = 'pending';
 
         const costo = parseFloat(dom.inputCostoTotal.value) || 0;
         const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0;
         const fechaViajeStr = dom.inputFechaViaje.value;
 
-        // Validaciones
         if (tarifa < costo) return window.showAlert(`Error: La tarifa ($${tarifa}) es menor al costo ($${costo}).`, 'error');
         if (!fechaViajeStr) return window.showAlert("Falta fecha de salida.", 'error');
         const cards = document.querySelectorAll('.servicio-card');
         if (cards.length === 0) return window.showAlert("Agrega al menos un servicio.", 'error');
 
-        // Recolección
         let serviciosData = [];
         for (let card of cards) {
             const serv = { tipo: card.dataset.tipo };
@@ -325,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
             financiacion: document.getElementById('upload-financiacion').value,
             servicios: serviciosData,
             status: status,
-            creador: userData.franquicia, 
+            creador: userData.franquicia || 'Desconocido', // Fallback por si acaso
             editor_email: currentUser.email,
             action_type: isEditingId ? 'edit' : 'create',
             id_paquete: isEditingId || '' 
@@ -335,23 +329,26 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             await secureFetch(API_URL_UPLOAD, payload);
-            await window.showAlert(isEditingId ? '¡Paquete actualizado!' : '¡Paquete guardado!', 'success');
+            
+            // MENSAJE PERSONALIZADO SEGÚN ESTADO
+            if (status === 'pending') {
+                await window.showAlert('¡Paquete enviado a revisión! Se publicará cuando un Editor lo apruebe.', 'info');
+            } else {
+                await window.showAlert(isEditingId ? '¡Paquete actualizado!' : '¡Paquete guardado!', 'success');
+            }
             window.location.reload();
         } catch(e) {
             console.error(e);
-            window.showAlert("Error al conectar.", 'error');
+            window.showAlert("Error de conexión al guardar.", 'error');
         }
     });
 
-    // --- 5. RENDERIZADO Y GESTIÓN (Editar/Borrar) ---
+    // --- 5. RENDERIZADO Y GESTIÓN ---
 
     function getSummaryIcons(pkg) {
          let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) {}
          if (!Array.isArray(servicios) || servicios.length === 0) return '<span style="opacity:0.6">Sin servicios</span>';
-         
-         // --- CAMBIO: ÍCONO TAXI 🚕 ---
          const iconMap = { 'aereo': '✈️ Aéreo', 'hotel': '🏨 Hotel', 'traslado': '🚕 Traslado', 'seguro': '🛡️ Seguro', 'adicional': '➕ Adic.', 'bus': '🚌 Bus', 'crucero': '🚢 Crucero' };
-         
          const uniqueTypes = [...new Set(servicios.map(s => iconMap[s.tipo] || s.tipo))];
          return uniqueTypes.map(t => `<span style="white-space:nowrap;display:inline-block;margin-right:8px;margin-bottom:4px;background:#f4f7f9;padding:2px 8px;border-radius:4px;">${t}</span>`).join('');
     }
@@ -368,7 +365,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const tarifaMostrar = parseFloat(pkg['tarifa']) || 0;
             const summaryIcons = getSummaryIcons(pkg);
             
-            // Herramientas (Solo Editor/Admin)
             let toolsHtml = '';
             if (userData.rol === 'editor' || userData.rol === 'admin') {
                 toolsHtml = `
@@ -406,8 +402,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
             
             targetGrid.appendChild(card);
-            
-            // Eventos
             card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
             if(toolsHtml) {
                 const btnEdit = card.querySelector('.edit');
@@ -470,8 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.showAlert("Modo Edición Activado.", "success");
     }
 
-
-    // --- 6. LOGICA COMÚN (Noches, Filtros, Modal) ---
+    // --- 6. LOGICA COMÚN ---
 
     function getNoches(pkg) {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
@@ -491,6 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function populateFranchiseFilter(packages) {
         const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))];
         const selector = dom.filtroCreador;
+        if(!selector) return;
         const currentVal = selector.value;
         selector.innerHTML = '<option value="">Todas las Franquicias</option>';
         creadores.sort().forEach(c => {
@@ -503,12 +497,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function applyFilters() {
         const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
-        const fCreador = dom.filtroCreador.value;
+        const fCreador = dom.filtroCreador ? dom.filtroCreador.value : '';
         const fPromo = document.getElementById('filtro-promo').value;
         const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
 
         let result = allPackages.filter(pkg => {
-            if (pkg.status && pkg.status !== 'approved') return false; 
+            // Manejo de Estado: Si no tiene status (viejo) se muestra. Si es pending, se oculta.
+            if (pkg.status && pkg.status === 'pending') return false; 
+            
             const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
             const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
             const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
@@ -548,7 +544,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if(s.tipo==='aereo'){ icono='✈️'; titulo='AÉREO'; lineas.push(`<b>Aerolínea:</b> ${s.aerolinea}`); lineas.push(`<b>Fechas:</b> ${formatDateAR(s.fecha_aereo)}${s.fecha_regreso?` | <b>Vuelta:</b> ${formatDateAR(s.fecha_regreso)}`:''}`); lineas.push(`<b>Escalas:</b> ${s.escalas==0?'Directo':s.escalas}`); lineas.push(`<b>Equipaje:</b> ${s.tipo_equipaje.replace(/_/g,' ')} (x${s.cantidad_equipaje||1})`); }
             else if(s.tipo==='hotel'){ icono='🏨'; titulo='HOTEL'; lineas.push(`<b>${s.hotel_nombre}</b> (${s.regimen})`); lineas.push(`<b>Estadía:</b> ${(s.checkin&&s.checkout)?Math.ceil((new Date(s.checkout)-new Date(s.checkin))/86400000):'-'} noches (${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout)})`); }
             
-            // --- CAMBIO: ÍCONO TAXI 🚕 ---
             else if(s.tipo==='traslado'){ icono='🚕'; titulo='TRASLADO'; let t=[]; if(s.trf_in)t.push("In"); if(s.trf_out)t.push("Out"); if(s.trf_hah)t.push("Htl-Htl"); lineas.push(`<b>Tipo:</b> ${s.tipo_trf} (${t.join(' + ')})`); }
             
             else if(s.tipo==='seguro'){ icono='🛡️'; titulo='SEGURO'; lineas.push(`<b>Cob:</b> ${s.proveedor}`); }
@@ -626,7 +621,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.btnBuscar.addEventListener('click', applyFilters);
     dom.btnLimpiar.addEventListener('click', () => { 
         document.getElementById('filtro-destino').value=''; 
-        dom.filtroCreador.value=''; 
+        if(dom.filtroCreador) dom.filtroCreador.value=''; 
         document.getElementById('filtro-promo').value='';
         if(dom.filtroOrden) dom.filtroOrden.value='reciente';
         applyFilters(); 
