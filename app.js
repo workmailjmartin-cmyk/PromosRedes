@@ -22,7 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ESTADO GLOBAL
     let currentUser = null;
     let userData = null; 
-    let allPackages = [];
+    let allPackages = []; // Lista cruda de n8n
+    let uniquePackages = []; // Lista procesada (sin duplicados ni borrados)
     let isEditingId = null; 
 
     // DOM
@@ -72,8 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if(dom.logo) { dom.logo.style.cursor = 'pointer'; dom.logo.addEventListener('click', () => window.location.reload()); }
 
-    // --- 2. UTILIDADES VISUALES (Alertas) ---
-    
+    // --- 2. UTILIDADES VISUALES ---
     window.showAlert = (message, type = 'error') => {
         return new Promise((resolve) => {
             const overlay = document.getElementById('custom-alert-overlay');
@@ -92,7 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             msg.innerText = message; 
             overlay.style.display = 'flex';
-            
             btn.onclick = () => { overlay.style.display = 'none'; resolve(); };
         });
     };
@@ -117,32 +116,77 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- 3. AUTENTICACIÓN ---
+    // --- 3. LÓGICA CORE: PROCESAMIENTO DE HISTORIAL ---
+    // Esta función resuelve duplicados y eliminados
+    function processPackageHistory(rawList) {
+        if (!Array.isArray(rawList)) return [];
+        
+        const historyMap = new Map();
+
+        // 1. Agrupar por ID
+        rawList.forEach(pkg => {
+            // Usamos id_paquete (nuevo) o id (viejo) como clave
+            const id = pkg.id_paquete || pkg.id || pkg['item.id'];
+            if (!id) return; // Ignorar basura sin ID
+
+            if (!historyMap.has(id)) {
+                historyMap.set(id, []);
+            }
+            historyMap.get(id).push(pkg);
+        });
+
+        const finalDocs = [];
+
+        // 2. Determinar la versión ganadora para cada ID
+        historyMap.forEach((versions, id) => {
+            // Asumimos que n8n devuelve en orden de inserción (los últimos son los más nuevos)
+            // Tomamos el último elemento del array como la "Versión Actual"
+            const latestVersion = versions[versions.length - 1];
+
+            // 3. Si la última versión es 'deleted', el paquete NO EXISTE MÁS.
+            if (latestVersion.status === 'deleted') {
+                return; // Lo saltamos (Soft Delete efectivo)
+            }
+
+            finalDocs.push(latestVersion);
+        });
+
+        return finalDocs;
+    }
+
+    async function fetchAndLoadPackages() { 
+        try { 
+            const d = await secureFetch(API_URL_SEARCH, {}); 
+            allPackages = d; 
+            
+            // PROCESAMOS EL HISTORIAL AQUÍ UNA VEZ
+            uniquePackages = processPackageHistory(allPackages);
+            
+            populateFranchiseFilter(uniquePackages); 
+            applyFilters(); 
+        } catch(e){ console.error(e); }
+    }
+
+    // --- 4. AUTENTICACIÓN ---
     auth.onAuthStateChanged(async (u) => {
         if (u) {
             try {
                 const emailLimpio = u.email.trim().toLowerCase();
                 const doc = await db.collection('usuarios').doc(emailLimpio).get();
-                
                 if (doc.exists) {
                     currentUser = u;
                     userData = doc.data(); 
-                    
                     dom.loginContainer.style.display='none';
                     dom.appContainer.style.display='block';
                     dom.userEmail.textContent = `${userData.franquicia} (${u.email})`;
-                    
                     configureUIByRole();
                     await fetchAndLoadPackages();
                     showView('search');
                 } else {
-                    await window.showAlert(`⛔ El usuario ${u.email} no tiene permisos. Contacta a un Administrador.`);
+                    await window.showAlert(`⛔ Sin permisos. Contacta a un Admin.`);
                     auth.signOut();
                 }
-            } catch (e) {
-                console.error(e);
-                await window.showAlert("Error de conexión con la base de datos.");
-            }
+            } catch (e) { await window.showAlert("Error de conexión."); }
         } else {
             currentUser = null;
             userData = null;
@@ -156,45 +200,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function configureUIByRole() {
         const rol = userData.rol;
-        dom.nav.gestion.style.display = 'none';
-        dom.nav.users.style.display = 'none';
-
-        if (rol === 'editor' || rol === 'admin') dom.nav.gestion.style.display = 'inline-block';
-        if (rol === 'admin') {
-            dom.nav.users.style.display = 'inline-block';
-            loadUsersList(); 
-        }
+        dom.nav.gestion.style.display = (rol === 'editor' || rol === 'admin') ? 'inline-block' : 'none';
+        dom.nav.users.style.display = (rol === 'admin') ? 'inline-block' : 'none';
+        if (rol === 'admin') loadUsersList(); 
 
         const selectPromo = document.getElementById('upload-promo');
         if(selectPromo) {
             selectPromo.innerHTML = '';
-            if (rol === 'usuario') {
-                selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
-            } else {
-                selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
-            }
+            if (rol === 'usuario') selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
+            else selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
         }
     }
 
-    // --- 4. GESTIÓN DE USUARIOS ---
+    // --- 5. GESTIÓN DE USUARIOS ---
     if (dom.userForm) {
         dom.userForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('user-email-input').value.trim().toLowerCase();
             const rol = document.getElementById('user-role-input').value;
             const fran = document.getElementById('user-franchise-input').value;
-
             try {
-                await db.collection('usuarios').doc(email).set({
-                    email: email, rol: rol, franquicia: fran, fecha_modificacion: new Date()
-                }, { merge: true });
-                await window.showAlert('Usuario guardado correctamente.', 'success');
+                await db.collection('usuarios').doc(email).set({ email, rol, franquicia: fran }, { merge: true });
+                await window.showAlert('Usuario guardado.', 'success');
                 document.getElementById('user-email-input').value = '';
                 document.getElementById('user-franchise-input').value = '';
                 loadUsersList();
-            } catch (e) {
-                await window.showAlert('Error al guardar usuario.', 'error');
-            }
+            } catch (e) { await window.showAlert('Error.', 'error'); }
         });
     }
 
@@ -208,24 +239,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 const u = doc.data();
                 const li = document.createElement('li');
                 li.style.cssText = "padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;";
-                li.innerHTML = `
-                    <span><b>${u.email}</b><br><small>${u.rol.toUpperCase()} - ${u.franquicia}</small></span>
+                li.innerHTML = `<span><b>${u.email}</b><br><small>${u.rol.toUpperCase()} - ${u.franquicia}</small></span>
                     <div style="display:flex; gap:5px;">
-                        <button class="btn btn-secundario" style="padding:4px 10px; font-size:0.8em; background:#3498db; color:white;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">Editar</button>
-                        <button class="btn btn-secundario" style="padding:4px 10px; font-size:0.8em; background:#e74c3c; color:white;" onclick="confirmDeleteUser('${u.email}')">Eliminar</button>
-                    </div>
-                `;
+                        <button class="btn btn-secundario" style="padding:4px 10px;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">✏️</button>
+                        <button class="btn btn-secundario" style="padding:4px 10px;" onclick="confirmDeleteUser('${u.email}')">🗑️</button>
+                    </div>`;
                 list.appendChild(li);
             });
-        } catch (e) { list.innerHTML = 'Error al cargar lista.'; }
+        } catch (e) { list.innerHTML = 'Error.'; }
     }
 
-    window.editUser = (email, rol, fran) => {
-        document.getElementById('user-email-input').value = email;
-        document.getElementById('user-role-input').value = rol;
-        document.getElementById('user-franchise-input').value = fran;
+    window.editUser = (e, r, f) => {
+        document.getElementById('user-email-input').value = e;
+        document.getElementById('user-role-input').value = r;
+        document.getElementById('user-franchise-input').value = f;
         window.scrollTo(0,0);
-        window.showAlert(`Editando usuario: ${email}.`, 'info');
+        window.showAlert(`Editando: ${e}`, 'info');
     };
 
     window.confirmDeleteUser = async (email) => {
@@ -234,39 +263,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- 5. CORE & API ---
     async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
         const token = await currentUser.getIdToken(true);
         const res = await fetch(url, { 
-            method:'POST', 
-            headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, 
-            body:JSON.stringify(body), 
-            cache:'no-store' 
+            method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, 
+            body:JSON.stringify(body), cache:'no-store' 
         });
-        if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+        if (!res.ok) throw new Error(`API Error`);
         return await res.json();
     }
 
-    // --- FORMULARIO DE CARGA ---
+    // --- 6. CARGA DE PAQUETES ---
     dom.btnAgregarServicio.addEventListener('click', () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } });
 
     function agregarModuloServicio(tipo, data = null) {
-        const container = dom.containerServicios;
-        const existingServices = container.querySelectorAll('.servicio-card');
-        const hasExclusive = Array.from(existingServices).some(c => c.dataset.tipo === 'bus' || c.dataset.tipo === 'crucero');
-        
-        if (!data) {
-             if (hasExclusive) return window.showAlert("⛔ No puedes agregar más servicios a un paquete de Bus o Crucero.", "error");
-             if ((tipo === 'bus' || tipo === 'crucero') && existingServices.length > 0) return window.showAlert("⛔ Los paquetes de Bus o Crucero deben ser servicios únicos.", "error");
-        }
-
         const id = Date.now() + Math.random(); 
         const div = document.createElement('div');
         div.className = `servicio-card ${tipo}`; div.dataset.id = id; div.dataset.tipo = tipo;
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
-        // --- BUILDERS ---
         if (tipo === 'aereo') { html += `<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas', 0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'hotel') { html += `<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'traslado') { html += `<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Htl-Htl</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
@@ -313,10 +329,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0;
         const fechaViajeStr = dom.inputFechaViaje.value;
 
-        if (tarifa < costo) { return window.showAlert(`Error: La tarifa ($${tarifa}) es menor al costo ($${costo}).`, 'error'); }
-        if (!fechaViajeStr) { return window.showAlert("Falta fecha de salida.", 'error'); }
+        if (tarifa < costo) return window.showAlert(`Error: Tarifa menor al costo.`, 'error');
+        if (!fechaViajeStr) return window.showAlert("Falta fecha.", 'error');
         const cards = document.querySelectorAll('.servicio-card');
-        if (cards.length === 0) { return window.showAlert("Agrega al menos un servicio.", 'error'); }
+        if (cards.length === 0) return window.showAlert("Agrega servicios.", 'error');
 
         let serviciosData = [];
         for (let card of cards) {
@@ -329,7 +345,10 @@ document.addEventListener('DOMContentLoaded', () => {
             serviciosData.push(serv);
         }
 
+        const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
         const payload = {
+            id_paquete: idGenerado, // ID ÚNICO Y CONSTANTE
             destino: document.getElementById('upload-destino').value,
             salida: document.getElementById('upload-salida').value,
             fecha_salida: fechaViajeStr,
@@ -340,64 +359,55 @@ document.addEventListener('DOMContentLoaded', () => {
             financiacion: document.getElementById('upload-financiacion').value,
             servicios: serviciosData,
             status: status,
-            creador: isEditingId ? null : userData.franquicia || 'Desconocido', 
+            // LOGICA DUEÑO: Si editamos, NO mandamos creador para no romperlo. Si es nuevo, mandamos.
+            creador: isEditingId ? undefined : userData.franquicia || 'Desconocido', 
             editor_email: currentUser.email,
-            action_type: isEditingId ? 'edit' : 'create',
-            id_paquete: isEditingId || '' 
+            action_type: isEditingId ? 'edit' : 'create'
         };
 
         try {
             await secureFetch(API_URL_UPLOAD, payload);
-            if (status === 'pending') {
-                await window.showAlert('¡Paquete enviado a revisión!', 'info');
-            } else {
-                await window.showAlert('¡Paquete guardado!', 'success');
-            }
+            await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success');
             window.location.reload();
         } catch(e) {
-            console.error(e);
-            window.showAlert("Error de conexión al guardar.", 'error');
+            window.showAlert("Error al guardar.", 'error');
         }
     });
 
-    // --- 6. RENDERIZADO Y LÓGICA DE FILTROS ---
+    // --- 7. RENDERIZADO Y FILTROS ---
 
-    function getSummaryIcons(pkg) {
-         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) {}
-         if (!Array.isArray(servicios) || servicios.length === 0) return '<span style="opacity:0.6; padding:2px;">Sin servicios</span>';
-         
-         const iconMap = { 'aereo': '✈️ Aéreo', 'hotel': '🏨 Hotel', 'traslado': '🚕 Traslado', 'seguro': '🛡️ Seguro', 'adicional': '➕ Adic.', 'bus': '🚌 Bus', 'crucero': '🚢 Crucero' };
-         const uniqueTypes = [...new Set(servicios.map(s => iconMap[s.tipo] || s.tipo))];
-         return uniqueTypes.map(t => `<span style="white-space:nowrap;display:inline-block;margin-right:8px;margin-bottom:4px;background:#f4f7f9;padding:2px 8px;border-radius:4px;">${t}</span>`).join('');
-    }
+    function applyFilters() {
+        const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
+        const fCreador = dom.filtroCreador ? dom.filtroCreador.value : '';
+        const fPromo = document.getElementById('filtro-promo').value;
+        const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
 
-    // --- AQUI ESTAN LAS FUNCIONES QUE FALTABAN ---
-    
-    function renderServiciosClienteHTML(rawJson) {
-         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>Sin detalles.</p>'; }
-        if(!Array.isArray(servicios)||servicios.length===0) return '<p>Sin detalles.</p>';
-        let html='';
-        servicios.forEach(s => {
-            let icono='🔹', titulo='', lineas=[];
-            if(s.tipo==='aereo'){ icono='✈️'; titulo='AÉREO'; lineas.push(`<b>Aerolínea:</b> ${s.aerolinea}`); lineas.push(`<b>Fechas:</b> ${formatDateAR(s.fecha_aereo)}${s.fecha_regreso?` | <b>Vuelta:</b> ${formatDateAR(s.fecha_regreso)}`:''}`); lineas.push(`<b>Escalas:</b> ${s.escalas==0?'Directo':s.escalas}`); lineas.push(`<b>Equipaje:</b> ${s.tipo_equipaje.replace(/_/g,' ')} (x${s.cantidad_equipaje||1})`); }
-            else if(s.tipo==='hotel'){ icono='🏨'; titulo='HOTEL'; lineas.push(`<b>${s.hotel_nombre}</b> (${s.regimen})`); lineas.push(`<b>Estadía:</b> ${(s.checkin&&s.checkout)?Math.ceil((new Date(s.checkout)-new Date(s.checkin))/86400000):'-'} noches (${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout)})`); }
-            else if(s.tipo==='traslado'){ icono='🚕'; titulo='TRASLADO'; let t=[]; if(s.trf_in)t.push("In"); if(s.trf_out)t.push("Out"); if(s.trf_hah)t.push("Htl-Htl"); lineas.push(`<b>Tipo:</b> ${s.tipo_trf} (${t.join(' + ')})`); }
-            else if(s.tipo==='seguro'){ icono='🛡️'; titulo='SEGURO'; lineas.push(`<b>Cob:</b> ${s.proveedor}`); }
-            else if(s.tipo==='adicional'){ icono='➕'; titulo='ADICIONAL'; lineas.push(`<b>${s.descripcion}</b>`); }
-            else if (s.tipo === 'bus') { icono = '🚌'; titulo = 'PAQUETE BUS'; lineas.push(`<b>Duración:</b> ${s.bus_noches} Noches`); if (s.bus_alojamiento) lineas.push(`<b>Alojamiento:</b> Incluido (${s.bus_regimen})`); else lineas.push(`<b>Alojamiento:</b> No incluido`); let extras = []; if (s.bus_excursiones) extras.push("Excursiones"); if (s.bus_asistencia) extras.push("Asistencia"); if (extras.length > 0) lineas.push(`<b>Incluye:</b> ${extras.join(' + ')}`); }
-            else if (s.tipo === 'crucero') { icono = '🚢'; titulo = 'CRUCERO'; lineas.push(`<b>Naviera:</b> ${s.crucero_naviera}`); lineas.push(`<b>Salida:</b> ${s.crucero_puerto_salida} (${s.crucero_noches} Noches)`); lineas.push(`<b>Recorrido:</b> ${s.crucero_recorrido}`); if(s.crucero_info) lineas.push(`<i>Info: ${s.crucero_info}</i>`); }
-            if(s.obs) lineas.push(`<i>Obs: ${s.obs}</i>`);
-            html+=`<div style="margin-bottom:10px;border-left:3px solid #ddd;padding-left:10px;"><div style="color:#11173d;font-weight:bold;">${icono} ${titulo}</div><div style="font-size:0.9em;color:#555;">${lineas.map(l=>`<div>${l}</div>`).join('')}</div></div>`;
+        // Usamos la lista YA PROCESADA (uniquePackages) que no tiene duplicados ni borrados
+        let result = uniquePackages.filter(pkg => {
+            const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
+            const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
+            const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
+            
+            if (!mDestino || !mCreador || !mPromo) return false;
+
+            // Ocultar PENDIENTES ajenos
+            const isOwner = pkg.editor_email === currentUser.email;
+            const isPending = pkg.status === 'pending';
+            if (isPending && !isOwner && userData.rol !== 'admin' && userData.rol !== 'editor') return false;
+
+            return true;
         });
-        return html;
-    }
-    
-    function renderCostosProveedoresHTML(rawJson) {
-         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>-</p>'; }
-        if(!Array.isArray(servicios)||servicios.length===0) return '<p>-</p>';
-        let html='<ul style="list-style:none; padding:0; margin:0;">';
-        servicios.forEach(s => { const tipo = s.tipo ? s.tipo.toUpperCase() : 'SERVICIO'; html += `<li style="margin-bottom:5px; font-size:0.9em; border-bottom:1px dashed #eee; padding-bottom:5px;"><b>${tipo}:</b> ${s.proveedor || '-'} <span style="float:right;">$${formatMoney(s.costo || 0)}</span></li>`; });
-        html += '</ul>'; return html;
+
+        if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa));
+        else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
+        else result.reverse();
+
+        renderCards(result, dom.grid);
+        
+        if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) {
+            const pendientes = uniquePackages.filter(p => p.status === 'pending');
+            renderCards(pendientes, dom.gridGestion);
+        }
     }
 
     function renderCards(list, targetGrid = dom.grid) {
@@ -446,7 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.deletePackage = async (pkg) => {
         if (!await window.showConfirm("⚠️ ¿Eliminar este paquete?")) return;
         try {
-            const id = pkg.id || pkg['item.id'] || pkg.row_number;
+            const id = pkg.id_paquete || pkg.id || pkg['item.id']; // Usamos el ID robusto
             await secureFetch(API_URL_UPLOAD, { action_type: 'delete', id_paquete: id, status: 'deleted' }); 
             await window.showAlert("Paquete eliminado.", "success");
             window.location.reload();
@@ -461,7 +471,9 @@ document.addEventListener('DOMContentLoaded', () => {
              let payload = JSON.parse(JSON.stringify(pkg)); 
              payload.status = 'approved';
              payload.action_type = 'edit';
-             delete payload.creador; 
+             // SOLUCION DUEÑO: Nos aseguramos de enviar el creador original explícitamente
+             payload.creador = pkg.creador; 
+             
              delete payload['row_number']; 
              await secureFetch(API_URL_UPLOAD, payload);
              await window.showAlert("Paquete Aprobado.", "success");
@@ -474,7 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.startEditing = async (pkg) => {
         if (!await window.showConfirm("Se abrirá el formulario de edición.")) return;
         
-        isEditingId = pkg.id || pkg['item.id'] || pkg.row_number; 
+        isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; 
         
         document.getElementById('upload-destino').value = pkg.destino;
         document.getElementById('upload-salida').value = pkg.salida;
@@ -502,15 +514,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function openModal(pkg) {
-        // SEGURIDAD: Verificar que existen las funciones auxiliares antes de llamar
-        if (typeof renderServiciosClienteHTML !== 'function') {
-            console.error("Falta la función renderServiciosClienteHTML");
-            return alert("Error interno: Falta componente de visualización.");
-        }
+        if (typeof renderServiciosClienteHTML !== 'function') return alert("Error interno.");
 
         const rawServicios = pkg['servicios'] || pkg['item.servicios'];
-        const htmlCliente = renderServiciosClienteHTML(rawServicios); // AQUI FALLABA ANTES
-        const htmlCostos = renderCostosProveedoresHTML(rawServicios); // AQUI FALLABA ANTES
+        const htmlCliente = renderServiciosClienteHTML(rawServicios);
+        const htmlCostos = renderCostosProveedoresHTML(rawServicios);
         const noches = getNoches(pkg);
         const tarifa = parseFloat(pkg['tarifa']) || 0;
         const tarifaDoble = Math.round(tarifa / 2);
@@ -564,7 +572,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.modal.style.display = 'flex';
     }
 
-    // --- UTILS & FILTERS ---
     function getNoches(pkg) {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
@@ -594,67 +601,45 @@ document.addEventListener('DOMContentLoaded', () => {
         selector.value = currentVal;
     }
 
-    function applyFilters() {
-        const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
-        const fCreador = dom.filtroCreador ? dom.filtroCreador.value : '';
-        const fPromo = document.getElementById('filtro-promo').value;
-        const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
-
-        const idMap = new Map();
-        
-        allPackages.forEach(pkg => {
-            if (pkg.status === 'deleted') return; 
-
-            const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
-            const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
-            const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
-            
-            if (!mDestino || !mCreador || !mPromo) return;
-
-            const isOwner = pkg.editor_email === currentUser.email;
-            const isPending = pkg.status === 'pending';
-            
-            if (isPending && !isOwner && userData.rol !== 'admin' && userData.rol !== 'editor') return;
-
-            const id = pkg.id || pkg['item.id'] || pkg.row_number;
-            
-            if (!idMap.has(id)) {
-                idMap.set(id, pkg);
-            } else {
-                const existing = idMap.get(id);
-                if (existing.status === 'pending' && pkg.status === 'approved') {
-                    idMap.set(id, pkg);
-                }
-            }
-        });
-
-        let result = Array.from(idMap.values());
-
-        if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa));
-        else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
-        else result.reverse();
-
-        renderCards(result, dom.grid);
-        
-        if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) {
-            const pendientes = allPackages.filter(p => p.status === 'pending');
-            renderCards(pendientes, dom.gridGestion);
-        }
-    }
-
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
+    
+    function getSummaryIcons(pkg) {
+         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) {}
+         if (!Array.isArray(servicios) || servicios.length === 0) return '<span style="opacity:0.6; padding:2px;">Sin servicios</span>';
+         const iconMap = { 'aereo': '✈️ Aéreo', 'hotel': '🏨 Hotel', 'traslado': '🚕 Traslado', 'seguro': '🛡️ Seguro', 'adicional': '➕ Adic.', 'bus': '🚌 Bus', 'crucero': '🚢 Crucero' };
+         const uniqueTypes = [...new Set(servicios.map(s => iconMap[s.tipo] || s.tipo))];
+         return uniqueTypes.map(t => `<span style="white-space:nowrap;display:inline-block;margin-right:8px;margin-bottom:4px;background:#f4f7f9;padding:2px 8px;border-radius:4px;">${t}</span>`).join('');
+    }
 
-    async function fetchAndLoadPackages() { 
-        try { 
-            const d = await secureFetch(API_URL_SEARCH, {}); 
-            allPackages = d; 
-            populateFranchiseFilter(allPackages); 
-            applyFilters(); 
-        } catch(e){ console.error(e); }
+    function renderServiciosClienteHTML(rawJson) {
+         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>Sin detalles.</p>'; }
+        if(!Array.isArray(servicios)||servicios.length===0) return '<p>Sin detalles.</p>';
+        let html='';
+        servicios.forEach(s => {
+            let icono='🔹', titulo='', lineas=[];
+            if(s.tipo==='aereo'){ icono='✈️'; titulo='AÉREO'; lineas.push(`<b>Aerolínea:</b> ${s.aerolinea}`); lineas.push(`<b>Fechas:</b> ${formatDateAR(s.fecha_aereo)}${s.fecha_regreso?` | <b>Vuelta:</b> ${formatDateAR(s.fecha_regreso)}`:''}`); lineas.push(`<b>Escalas:</b> ${s.escalas==0?'Directo':s.escalas}`); lineas.push(`<b>Equipaje:</b> ${s.tipo_equipaje.replace(/_/g,' ')} (x${s.cantidad_equipaje||1})`); }
+            else if(s.tipo==='hotel'){ icono='🏨'; titulo='HOTEL'; lineas.push(`<b>${s.hotel_nombre}</b> (${s.regimen})`); lineas.push(`<b>Estadía:</b> ${(s.checkin&&s.checkout)?Math.ceil((new Date(s.checkout)-new Date(s.checkin))/86400000):'-'} noches (${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout)})`); }
+            else if(s.tipo==='traslado'){ icono='🚕'; titulo='TRASLADO'; let t=[]; if(s.trf_in)t.push("In"); if(s.trf_out)t.push("Out"); if(s.trf_hah)t.push("Htl-Htl"); lineas.push(`<b>Tipo:</b> ${s.tipo_trf} (${t.join(' + ')})`); }
+            else if(s.tipo==='seguro'){ icono='🛡️'; titulo='SEGURO'; lineas.push(`<b>Cob:</b> ${s.proveedor}`); }
+            else if(s.tipo==='adicional'){ icono='➕'; titulo='ADICIONAL'; lineas.push(`<b>${s.descripcion}</b>`); }
+            else if (s.tipo === 'bus') { icono = '🚌'; titulo = 'PAQUETE BUS'; lineas.push(`<b>Duración:</b> ${s.bus_noches} Noches`); if (s.bus_alojamiento) lineas.push(`<b>Alojamiento:</b> Incluido (${s.bus_regimen})`); else lineas.push(`<b>Alojamiento:</b> No incluido`); let extras = []; if (s.bus_excursiones) extras.push("Excursiones"); if (s.bus_asistencia) extras.push("Asistencia"); if (extras.length > 0) lineas.push(`<b>Incluye:</b> ${extras.join(' + ')}`); }
+            else if (s.tipo === 'crucero') { icono = '🚢'; titulo = 'CRUCERO'; lineas.push(`<b>Naviera:</b> ${s.crucero_naviera}`); lineas.push(`<b>Salida:</b> ${s.crucero_puerto_salida} (${s.crucero_noches} Noches)`); lineas.push(`<b>Recorrido:</b> ${s.crucero_recorrido}`); if(s.crucero_info) lineas.push(`<i>Info: ${s.crucero_info}</i>`); }
+            if(s.obs) lineas.push(`<i>Obs: ${s.obs}</i>`);
+            html+=`<div style="margin-bottom:10px;border-left:3px solid #ddd;padding-left:10px;"><div style="color:#11173d;font-weight:bold;">${icono} ${titulo}</div><div style="font-size:0.9em;color:#555;">${lineas.map(l=>`<div>${l}</div>`).join('')}</div></div>`;
+        });
+        return html;
     }
     
-    // Navegación Vistas
+    function renderCostosProveedoresHTML(rawJson) {
+         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>-</p>'; }
+        if(!Array.isArray(servicios)||servicios.length===0) return '<p>-</p>';
+        let html='<ul style="list-style:none; padding:0; margin:0;">';
+        servicios.forEach(s => { const tipo = s.tipo ? s.tipo.toUpperCase() : 'SERVICIO'; html += `<li style="margin-bottom:5px; font-size:0.9em; border-bottom:1px dashed #eee; padding-bottom:5px;"><b>${tipo}:</b> ${s.proveedor || '-'} <span style="float:right;">$${formatMoney(s.costo || 0)}</span></li>`; });
+        html += '</ul>'; return html;
+    }
+    
+    // Navegación
     function showView(n) {
         Object.values(dom.views).forEach(v => { if(v) v.classList.remove('active'); });
         Object.values(dom.nav).forEach(b => { if(b) b.classList.remove('active'); });
