@@ -534,3 +534,54 @@ body {
         text-align: center;
     }
 }
+
+/* --- LOADER ANIMADO --- */
+.loader-container {
+    position: relative;
+    width: 100px;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+}
+
+.smile-curve {
+    width: 80px;
+    height: 40px;
+    border: 4px solid #ef5a1a; /* Naranja */
+    border-top: 0;
+    border-radius: 0 0 50px 50px;
+    box-sizing: border-box;
+}
+
+.plane-rotator {
+    position: absolute;
+    width: 100px;
+    height: 100px; /* Radio de giro */
+    bottom: 20px; /* Ajuste para que coincida con la curva */
+    animation: fly 2s linear infinite;
+    transform-origin: center bottom;
+}
+
+.plane-icon {
+    position: absolute;
+    font-size: 24px;
+    bottom: 0;
+    left: 0;
+    transform: rotate(90deg); /* Ajuste inicial del icono */
+    color: #ef5a1a;
+}
+
+@keyframes fly {
+    0% { transform: rotate(-45deg); opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: rotate(45deg); opacity: 0; }
+}
+
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
