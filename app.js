@@ -26,30 +26,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let uniquePackages = []; 
     let isEditingId = null; 
 
-    // DOM (Referencias a elementos HTML)
+    // DOM
     const dom = {
-        views: {
-            search: document.getElementById('view-search'),
-            upload: document.getElementById('view-upload'),
-            gestion: document.getElementById('view-gestion'),
-            users: document.getElementById('view-users')
-        },
-        nav: {
-            search: document.getElementById('nav-search'),
-            upload: document.getElementById('nav-upload'),
-            gestion: document.getElementById('nav-gestion'),
-            users: document.getElementById('nav-users')
-        },
+        views: { search: document.getElementById('view-search'), upload: document.getElementById('view-upload'), gestion: document.getElementById('view-gestion'), users: document.getElementById('view-users') },
+        nav: { search: document.getElementById('nav-search'), upload: document.getElementById('nav-upload'), gestion: document.getElementById('nav-gestion'), users: document.getElementById('nav-users') },
         grid: document.getElementById('grilla-paquetes'),
         gridGestion: document.getElementById('grid-gestion'),
-        
         uploadForm: document.getElementById('upload-form'),
-        uploadStatus: document.getElementById('upload-status'),
         userForm: document.getElementById('user-form'),
         usersList: document.getElementById('users-list'),
         inputCostoTotal: document.getElementById('upload-costo-total'),
         inputFechaViaje: document.getElementById('upload-fecha-salida'),
-        
         loginContainer: document.getElementById('login-container'),
         appContainer: document.getElementById('app-container'),
         btnLogin: document.getElementById('login-button'),
@@ -58,23 +45,19 @@ document.addEventListener('DOMContentLoaded', () => {
         modal: document.getElementById('modal-detalle'),
         modalBody: document.getElementById('modal-body'),
         modalClose: document.getElementById('modal-cerrar'),
-        
         containerServicios: document.getElementById('servicios-container'),
         btnAgregarServicio: document.getElementById('btn-agregar-servicio'),
         selectorServicio: document.getElementById('selector-servicio'),
-        
         btnBuscar: document.getElementById('boton-buscar'),
         btnLimpiar: document.getElementById('boton-limpiar'),
         filtroOrden: document.getElementById('filtro-orden'),
         filtroCreador: document.getElementById('filtro-creador'),
-        
         logo: document.querySelector('.logo')
     };
 
-    if(dom.logo) { dom.logo.style.cursor = 'pointer'; dom.logo.addEventListener('click', () => window.location.reload()); }
+    if(dom.logo) dom.logo.addEventListener('click', () => window.location.reload());
 
-    // --- 2. UTILIDADES VISUALES (Alertas) ---
-    
+    // --- 2. UTILIDADES VISUALES ---
     window.showAlert = (message, type = 'error') => {
         return new Promise((resolve) => {
             const overlay = document.getElementById('custom-alert-overlay');
@@ -84,16 +67,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const icon = document.getElementById('custom-alert-icon');
             const btn = document.getElementById('custom-alert-btn');
             const btnCancel = document.getElementById('custom-alert-cancel');
-            
-            if(btnCancel) btnCancel.style.display = 'none'; // Alerta simple no tiene cancelar
-
+            if(btnCancel) btnCancel.style.display = 'none';
             if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; }
             else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; }
             else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; }
-            
-            msg.innerText = message; 
-            overlay.style.display = 'flex';
-            
+            msg.innerText = message; overlay.style.display = 'flex';
             btn.onclick = () => { overlay.style.display = 'none'; resolve(); };
         });
     };
@@ -106,13 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const icon = document.getElementById('custom-alert-icon');
             const btnOk = document.getElementById('custom-alert-btn');
             const btnCancel = document.getElementById('custom-alert-cancel');
-
             title.innerText = 'Confirmación'; title.style.color = '#11173d'; icon.innerHTML = '❓';
             msg.innerText = message;
-            
             if(btnCancel) btnCancel.style.display = 'inline-block';
             overlay.style.display = 'flex';
-
             btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); };
             if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); };
         });
@@ -126,7 +101,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Agrupamos todas las filas por su ID de paquete
         rawList.forEach(pkg => {
-            // pkg.id (viejo) o pkg.id_paquete (nuevo)
             const id = pkg.id_paquete || pkg.id || pkg['item.id'];
             if (!id) return; // Ignorar si no tiene ID (basura)
 
@@ -140,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Procesamos cada grupo
         historyMap.forEach((versions) => {
-            // Tomamos la última versión (la más reciente en el Sheet, asumiendo orden de llegada)
+            // Tomamos la última versión (la más reciente en el Sheet)
             const latestVersion = versions[versions.length - 1];
 
             // Si la última versión dice 'deleted', el paquete está borrado. NO LO AGREGAMOS.
@@ -155,19 +129,15 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchAndLoadPackages() { 
         try { 
             let d = await secureFetch(API_URL_SEARCH, {}); 
-            // Protección por si n8n devuelve texto en lugar de JSON
             if (typeof d === 'string') d = JSON.parse(d);
-            
             allPackages = d; 
             
-            // 1. Limpiamos historial (Aquí se van los borrados y los duplicados)
+            // 1. Limpiamos historial (Aquí se van los borrados)
             uniquePackages = processPackageHistory(allPackages);
             
             populateFranchiseFilter(uniquePackages); 
             applyFilters(); 
-        } catch(e){ 
-            console.error(e); 
-        }
+        } catch(e){ console.error(e); }
     }
 
     // --- 4. AUTENTICACIÓN ---
@@ -179,27 +149,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (doc.exists) {
                     currentUser = u;
                     userData = doc.data(); 
-                    
                     dom.loginContainer.style.display='none';
                     dom.appContainer.style.display='block';
                     dom.userEmail.textContent = `${userData.franquicia} (${u.email})`;
-                    
                     configureUIByRole();
                     await fetchAndLoadPackages();
                     showView('search');
                 } else {
-                    await window.showAlert(`⛔ El usuario ${u.email} no tiene permisos. Contacta a un Admin.`);
+                    await window.showAlert(`⛔ Sin permisos.`);
                     auth.signOut();
                 }
-            } catch (e) { 
-                console.error(e);
-                await window.showAlert("Error de conexión con la base de datos."); 
-            }
+            } catch (e) { await window.showAlert("Error de conexión."); }
         } else {
-            currentUser = null;
-            userData = null;
-            dom.loginContainer.style.display='flex';
-            dom.appContainer.style.display='none';
+            currentUser = null; userData = null;
+            dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none';
         }
     });
 
@@ -208,23 +171,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function configureUIByRole() {
         const rol = userData.rol;
-        dom.nav.gestion.style.display = 'none';
-        dom.nav.users.style.display = 'none';
-
-        if (rol === 'editor' || rol === 'admin') dom.nav.gestion.style.display = 'inline-block';
-        if (rol === 'admin') {
-            dom.nav.users.style.display = 'inline-block';
-            loadUsersList(); 
-        }
-
+        dom.nav.gestion.style.display = (rol === 'editor' || rol === 'admin') ? 'inline-block' : 'none';
+        dom.nav.users.style.display = (rol === 'admin') ? 'inline-block' : 'none';
+        if (rol === 'admin') loadUsersList(); 
         const selectPromo = document.getElementById('upload-promo');
         if(selectPromo) {
             selectPromo.innerHTML = '';
-            if (rol === 'usuario') {
-                selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
-            } else {
-                selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
-            }
+            if (rol === 'usuario') selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
+            else selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
         }
     }
 
@@ -235,14 +189,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const email = document.getElementById('user-email-input').value.trim().toLowerCase();
             const rol = document.getElementById('user-role-input').value;
             const fran = document.getElementById('user-franchise-input').value;
-
             try {
                 await db.collection('usuarios').doc(email).set({ email, rol, franquicia: fran, fecha_modificacion: new Date() }, { merge: true });
                 await window.showAlert('Usuario guardado.', 'success');
                 document.getElementById('user-email-input').value = '';
                 document.getElementById('user-franchise-input').value = '';
                 loadUsersList();
-            } catch (e) { await window.showAlert('Error al guardar usuario.', 'error'); }
+            } catch (e) { await window.showAlert('Error.', 'error'); }
         });
     }
 
@@ -257,10 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const li = document.createElement('li');
                 li.style.cssText = "padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;";
                 li.innerHTML = `<span><b>${u.email}</b><br><small>${u.rol.toUpperCase()} - ${u.franquicia}</small></span>
-                    <div style="display:flex; gap:5px;">
-                        <button class="btn btn-secundario" style="padding:4px 10px;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">✏️</button>
-                        <button class="btn btn-secundario" style="padding:4px 10px;" onclick="confirmDeleteUser('${u.email}')">🗑️</button>
-                    </div>`;
+                    <div style="display:flex; gap:5px;"><button class="btn btn-secundario" style="padding:4px 10px;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">✏️</button><button class="btn btn-secundario" style="padding:4px 10px;" onclick="confirmDeleteUser('${u.email}')">🗑️</button></div>`;
                 list.appendChild(li);
             });
         } catch (e) { list.innerHTML = 'Error.'; }
@@ -273,18 +223,13 @@ document.addEventListener('DOMContentLoaded', () => {
         window.scrollTo(0,0);
         window.showAlert(`Editando: ${e}`, 'info');
     };
-
-    window.confirmDeleteUser = async (e) => { 
-        if(await window.showConfirm("¿Eliminar usuario?")) {
-            try { await db.collection('usuarios').doc(e).delete(); loadUsersList(); } catch(x){alert('Error');} 
-        }
-    };
+    window.confirmDeleteUser = async (e) => { if(await window.showConfirm("¿Eliminar?")) try { await db.collection('usuarios').doc(e).delete(); loadUsersList(); } catch(x){alert('Error');} };
 
     async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
         const token = await currentUser.getIdToken(true);
         const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body:JSON.stringify(body), cache:'no-store' });
-        if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+        if (!res.ok) throw new Error(`API Error`);
         return await res.json();
     }
 
@@ -304,7 +249,6 @@ document.addEventListener('DOMContentLoaded', () => {
         div.className = `servicio-card ${tipo}`; div.dataset.id = id; div.dataset.tipo = tipo;
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
-        // BUILDERS
         if(tipo==='aereo'){html+=`<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas',0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='hotel'){html+=`<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='traslado'){html+=`<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Htl-Htl</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
@@ -357,9 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
             serviciosData.push(serv);
         }
 
-        // Generamos ID único basado en timestamp (para que funcione el orden reciente)
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        
         const payload = {
             id_paquete: idGenerado,
             destino: document.getElementById('upload-destino').value,
@@ -385,7 +327,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- 7. FILTROS Y RENDERIZADO ---
-    
     function populateFranchiseFilter(packages) {
         const selector = dom.filtroCreador;
         if(!selector) return;
@@ -423,7 +364,6 @@ document.addEventListener('DOMContentLoaded', () => {
             result.sort((a, b) => {
                 const getTs = (id) => {
                     if(!id || !id.startsWith('pkg_')) return 0;
-                    // Extraemos los milisegundos del ID: pkg_17123456789_xyz
                     return parseInt(id.split('_')[1]) || 0;
                 };
                 return getTs(b.id_paquete) - getTs(a.id_paquete);
@@ -442,9 +382,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCards(list, targetGrid = dom.grid) {
         targetGrid.innerHTML = '';
         if (!list || list.length === 0) { targetGrid.innerHTML = '<p>No hay resultados.</p>'; return; }
-        
         list.forEach(pkg => {
-            // Si el paquete no tiene destino (borrado o vacío), no lo dibujamos
+            // CORRECCIÓN TARJETAS VACÍAS: Si no tiene destino, no se dibuja.
             if (!pkg.destino) return; 
 
             const card = document.createElement('div');
@@ -473,7 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- ACCIONES DE GESTIÓN (Borrar, Aprobar) ---
+    // GESTION MODAL
     window.deletePackage = async (pkg) => {
         if (!await window.showConfirm("⚠️ ¿Eliminar este paquete?")) return;
         try {
@@ -540,76 +479,11 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.modal.style.display = 'flex';
     }
 
-    // --- 8. FUNCIONES DE DIBUJADO (EXPANDIDAS PARA LECTURA) ---
-
-    function renderServiciosClienteHTML(rawJson) { 
-        let s = []; 
-        try { 
-            s = typeof rawJson === 'string' ? JSON.parse(rawJson) : rawJson;
-        } catch(e) { 
-            return '<p>-</p>'; 
-        } 
-        
-        if (!Array.isArray(s) || s.length === 0) return '<p>-</p>'; 
-        
-        let html = ''; 
-        s.forEach(x => { 
-            let i = '🔹', t = '', l = []; 
-            if (x.tipo === 'aereo') { 
-                i = '✈️'; t = 'AÉREO'; 
-                l.push(`<b>${x.aerolinea}</b>`); 
-                l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso ? ` - ${formatDateAR(x.fecha_regreso)}` : ''}`); 
-            } else if (x.tipo === 'hotel') { 
-                i = '🏨'; t = 'HOTEL'; 
-                l.push(`<b>${x.hotel_nombre}</b> (${x.regimen})`); 
-            } else if (x.tipo === 'traslado') { 
-                i = '🚕'; t = 'TRASLADO'; 
-                l.push(`${x.tipo_trf}`); 
-            } else if (x.tipo === 'seguro') { 
-                i = '🛡️'; t = 'SEGURO'; 
-                l.push(`${x.proveedor}`); 
-            } else if (x.tipo === 'adicional') { 
-                i = '➕'; t = 'ADICIONAL'; 
-                l.push(`${x.descripcion}`); 
-            } else if (x.tipo === 'bus') { 
-                i = '🚌'; t = 'BUS'; 
-                l.push(`${x.bus_noches} Noches`); 
-            } else if (x.tipo === 'crucero') { 
-                i = '🚢'; t = 'CRUCERO'; 
-                l.push(`${x.crucero_naviera} - ${x.crucero_recorrido}`); 
-            } 
-            html += `<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`; 
-        }); 
-        return html; 
-    }
-
-    function renderCostosProveedoresHTML(rawJson) { 
-        let s = []; 
-        try { 
-            s = typeof rawJson === 'string' ? JSON.parse(rawJson) : rawJson; 
-        } catch(e) { return '<p>-</p>'; } 
-        
-        if (!Array.isArray(s) || s.length === 0) return '<p>-</p>'; 
-        
-        let h = '<ul style="padding-left:15px;margin:0;">'; 
-        s.forEach(x => { 
-            h += `<li>${x.proveedor || x.tipo}: $${x.costo}</li>`; 
-        }); 
-        return h + '</ul>'; 
-    }
-
-    function getSummaryIcons(pkg) { 
-        let s = []; 
-        try { 
-            s = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; 
-        } catch(e) {} 
-        
-        if (!Array.isArray(s)) return ''; 
-        const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; 
-        return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
-    }
+    function renderServiciosClienteHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h=''; s.forEach(x=>{ let i='🔹',t='',l=[]; if(x.tipo==='aereo'){i='✈️';t='AÉREO';l.push(`<b>${x.aerolinea}</b>`);l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);} else if(x.tipo==='hotel'){i='🏨';t='HOTEL';l.push(`<b>${x.hotel_nombre}</b> (${x.regimen})`);} else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} else if(x.tipo==='seguro'){i='🛡️';t='SEGURO';l.push(`${x.proveedor}`);} else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} else if(x.tipo==='bus'){i='🚌';t='BUS';l.push(`${x.bus_noches} Noches`);} else if(x.tipo==='crucero'){i='🚢';t='CRUCERO';l.push(`${x.crucero_naviera} - ${x.crucero_recorrido}`);} h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`; }); return h; }
+    function renderCostosProveedoresHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h='<ul style="padding-left:15px;margin:0;">'; s.forEach(x=>{ h+=`<li>${x.proveedor||x.tipo}: $${x.costo}</li>`; }); return h+'</ul>'; }
+    function getSummaryIcons(pkg) { let s=[]; try{s=typeof pkg.servicios==='string'?JSON.parse(pkg.servicios):pkg.servicios;}catch(e){} if(!Array.isArray(s)) return ''; const m={'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; return [...new Set(s.map(x=>m[x.tipo]||'🔹'))].join(' '); }
     
-    // --- 9. NAVEGACIÓN ---
+    // --- VISTAS ---
     function showView(n) { Object.values(dom.views).forEach(v => v.classList.remove('active')); Object.values(dom.nav).forEach(b => b.classList.remove('active')); dom.views[n].classList.add('active'); dom.nav[n].classList.add('active'); isEditingId = null; }
     dom.nav.search.onclick = () => showView('search');
     dom.nav.upload.onclick = () => { isEditingId = null; document.getElementById('upload-form').reset(); dom.containerServicios.innerHTML=''; showView('upload'); };
