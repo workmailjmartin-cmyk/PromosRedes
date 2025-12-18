@@ -227,6 +227,7 @@ body {
     color: var(--color-base);
     font-size: 1.4em;
 }
+/* Tag promo dentro de la card (legacy, ahora usamos burbujas dinámicas) */
 .card-header .tag-promo {
     background-color: var(--color-secundario);
     color: var(--color-base);
@@ -236,25 +237,24 @@ body {
     font-weight: 600;
     display: inline-block;
 }
+
+/* CORRECCIÓN: Tarjetas uniformes */
 .card-body {
     padding: 0 20px 20px 20px;
     color: #555;
     font-size: 0.95em;
     flex-grow: 1; /* Empuja el footer hacia abajo */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end; /* Alinea contenido al fondo si sobra espacio */
+    min-height: 60px; /* Altura mínima para alineación */
 }
-.card-body .fecha-salida {
-    font-weight: 600;
-}
+
 .card-footer {
     background: #fafafa;
     border-top: 1px solid #eee;
     padding: 20px;
     text-align: right;
-}
-.card-footer .precio-label {
-    font-size: 0.9em;
-    color: var(--color-texto-suave);
-    margin: 0;
 }
 .card-footer .precio-valor {
     font-size: 1.8em;
@@ -319,12 +319,8 @@ body {
 .status-message {
     font-weight: 500;
 }
-.status-message.success {
-    color: #5CB85C;
-}
-.status-message.error {
-    color: #D9534F;
-}
+.status-message.success { color: #5CB85C; }
+.status-message.error { color: #D9534F; }
 
 /* --- 9. Modal de Detalle --- */
 .modal-overlay {
@@ -333,7 +329,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(17, 23, 61, 0.8); /* Azul base con transparencia */
+    background: rgba(17, 23, 61, 0.8);
     backdrop-filter: blur(5px);
     display: none;
     align-items: center;
@@ -344,39 +340,55 @@ body {
 .modal-contenido {
     background: var(--color-tarjeta);
     width: 90%;
-    max-width: 800px;
+    max-width: 900px; /* Ancho ajustado */
     border-radius: var(--borde-radio);
     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     position: relative;
     margin: 5% auto;
     animation: fadeIn 0.3s ease;
+    padding: 0 !important;
+    overflow: hidden;
 }
 @keyframes fadeIn {
     from { opacity: 0; transform: scale(0.95); }
     to { opacity: 1; transform: scale(1); }
 }
+
+/* CORRECCIÓN: Botón Cerrar (X) mejorado y con z-index alto */
 .modal-cerrar-btn {
     position: absolute;
-    top: 15px;
-    right: 20px;
-    background: none;
+    top: 10px;
+    right: 10px;
+    background: rgba(255,255,255,0.8);
     border: none;
-    font-size: 2.5em;
-    color: #aaa;
+    font-size: 2em;
+    color: #555;
     cursor: pointer;
+    z-index: 3000 !important; /* Prioridad máxima */
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
 }
 .modal-cerrar-btn:hover {
+    background: #eee;
     color: var(--color-acento);
 }
+
 .modal-detalle-header {
-    padding: 30px 40px;
-    background-color: var(--color-base);
-    color: var(--color-tarjeta);
-    border-radius: var(--borde-radio) var(--borde-radio) 0 0;
+    padding: 20px;
+    background: #f4f7f9;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 .modal-detalle-header h2 {
     margin: 0;
-    font-size: 2em;
+    color: var(--color-base);
 }
 .modal-detalle-body {
     padding: 30px 40px;
@@ -384,59 +396,37 @@ body {
     grid-template-columns: 1fr 1fr;
     gap: 25px;
 }
-.detalle-item {
-    padding-bottom: 15px;
-    border-bottom: 1px solid #eee;
-}
-.detalle-item label {
-    display: block;
-    font-size: 0.9em;
-    font-weight: 600;
-    color: var(--color-texto-suave);
-    text-transform: uppercase;
-}
-.detalle-item p {
-    margin: 5px 0 0 0;
-    font-size: 1.1em;
-    font-weight: 500;
-}
-.detalle-item-full { /* Para descripción */
-    grid-column: 1 / -1;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 15px;
-}
-.detalle-item-full label {
-    display: block;
-    font-size: 0.9em;
-    font-weight: 600;
-    color: var(--color-texto-suave);
-    text-transform: uppercase;
-}
-.detalle-item-full p {
-    white-space: pre-wrap; /* Respeta saltos de línea */
-    margin: 5px 0 0 0;
-    font-size: 1.1em;
-    font-weight: 500;
-}
-.detalle-precios {
-    grid-column: 1 / -1;
+/* Estilos para botones de herramientas dentro del modal */
+.modal-tools {
     display: flex;
-    gap: 20px;
-    background: var(--color-fondo);
-    padding: 20px;
-    border-radius: var(--borde-radio);
+    gap: 10px;
+    margin-top: 10px;
 }
-.detalle-precios .detalle-item {
-    border: none;
-    padding: 0;
-}
-.detalle-precios .tarifa-final p {
-    font-size: 2em;
-    font-weight: 700;
-    color: var(--color-acento);
 
+/* --- 10. ALERTA MODERNA (Custom Alert) --- */
+.custom-alert-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(17, 23, 61, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 2000;
+    display: flex; justify-content: center; align-items: center;
+    animation: fadeIn 0.2s ease-out;
 }
-/* --- Estilos para Carga Avanzada --- */
+.custom-alert-box {
+    background: #fff; padding: 30px; border-radius: 16px;
+    width: 90%; max-width: 400px; text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    transform: scale(0.9);
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes popIn { to { transform: scale(1); } }
+.alert-icon { font-size: 3em; margin-bottom: 15px; }
+.custom-alert-box h3 { margin: 0 0 10px 0; color: var(--color-base); }
+.custom-alert-box p { color: #555; margin-bottom: 25px; font-size: 1.05em; }
+.custom-alert-box .btn { width: 100%; max-width: 200px; }
+
+/* --- 11. Estilos para Servicios (Formulario) --- */
 .section-title {
     font-size: 1.1em;
     font-weight: 700;
@@ -456,17 +446,20 @@ body {
     border-left: 5px solid var(--color-secundario);
 }
 
+/* Colores por tipo de servicio */
 .servicio-card.aereo { border-left-color: #3498db; }
 .servicio-card.hotel { border-left-color: #9b59b6; }
 .servicio-card.traslado { border-left-color: #f1c40f; }
 .servicio-card.seguro { border-left-color: #2ecc71; }
+/* Nuevos tipos */
+.servicio-card.bus { border-left-color: #e67e22; }
+.servicio-card.crucero { border-left-color: #34495e; }
+.servicio-card.adicional { border-left-color: #95a5a6; }
 
 .btn-eliminar-servicio {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    background: none;
-    border: none;
+    top: 10px; right: 10px;
+    background: none; border: none;
     color: #e74c3c;
     font-weight: bold;
     cursor: pointer;
@@ -474,8 +467,7 @@ body {
 }
 
 .add-service-bar {
-    display: flex;
-    gap: 10px;
+    display: flex; gap: 10px;
     margin-bottom: 20px;
     background: #f4f7f9;
     padding: 15px;
@@ -483,47 +475,34 @@ body {
     align-items: center;
 }
 
-/* Contadores (+ -) */
+/* Contadores */
 .counter-wrapper {
-    display: flex;
-    align-items: center;
+    display: flex; align-items: center;
     border: 1px solid #ddd;
     border-radius: 8px;
     overflow: hidden;
     width: fit-content;
 }
 .counter-btn {
-    background: #eee;
-    border: none;
-    padding: 10px 15px;
-    cursor: pointer;
+    background: #eee; border: none;
+    padding: 10px 15px; cursor: pointer;
     font-weight: bold;
 }
 .counter-btn:hover { background: #ddd; }
 .counter-value {
-    padding: 0 15px;
-    min-width: 30px;
-    text-align: center;
-    font-weight: 600;
+    padding: 0 15px; min-width: 30px;
+    text-align: center; font-weight: 600;
 }
 
 /* Checkbox estilizados */
 .checkbox-group {
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    margin-top: 5px;
+    display: flex; gap: 15px; flex-wrap: wrap; margin-top: 5px;
 }
 .checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    cursor: pointer;
-    font-size: 0.9em;
-    background: #fff;
-    padding: 8px 12px;
-    border: 1px solid #ddd;
-    border-radius: 20px;
+    display: flex; align-items: center; gap: 5px;
+    cursor: pointer; font-size: 0.9em;
+    background: #fff; padding: 8px 12px;
+    border: 1px solid #ddd; border-radius: 20px;
 }
 .checkbox-label:has(input:checked) {
     background: var(--color-secundario);
@@ -538,105 +517,20 @@ body {
     border-radius: 8px;
     margin-top: 20px;
 }
-.modal-contenido {
-    padding: 0 !important; /* Quitamos padding general para que el pie toque los bordes */
-    max-width: 900px; /* Un poco más ancho para las dos columnas */
-    overflow: hidden; /* Para que el border-radius del pie se vea bien */
-}
 
-.modal-detalle-header {
-    padding: 20px;
-    background: #f4f7f9;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.modal-detalle-header h2 {
-    margin: 0;
-    color: var(--color-base);
-}
-
-/* El cuerpo del modal ahora usa Grid internamente en el JS, 
-   así que quitamos estilos viejos si los hubiera */
-.modal-detalle-body {
-    display: block; 
-    padding: 0;
-}
-
-/* Ajuste para pantallas pequeñas (celulares) */
+/* Ajuste Responsivo */
 @media (max-width: 768px) {
     .modal-detalle-body > div[style*="display: grid"] {
-        grid-template-columns: 1fr !important; /* Pasa a 1 sola columna */
+        grid-template-columns: 1fr !important;
         gap: 10px !important;
     }
-    
-    /* El pie se apila en móviles */
     .modal-contenido > div:last-child {
-        flex-direction: column;
-        gap: 15px;
-        text-align: center;
+        flex-direction: column; gap: 15px; text-align: center;
     }
     .modal-contenido > div:last-child > div:first-child {
-        flex-direction: column;
-        gap: 15px;
+        flex-direction: column; gap: 15px;
     }
     .modal-contenido > div:last-child > div:last-child {
         text-align: center;
     }
-
 }
-/* --- 10. ALERTA MODERNA (Custom Alert) --- */
-.custom-alert-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(17, 23, 61, 0.6); /* Fondo oscuro semitransparente */
-    backdrop-filter: blur(4px);
-    z-index: 2000; /* Por encima de todo */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    animation: fadeIn 0.2s ease-out;
-}
-
-.custom-alert-box {
-    background: #fff;
-    padding: 30px;
-    border-radius: 16px;
-    width: 90%;
-    max-width: 400px;
-    text-align: center;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-    transform: scale(0.9);
-    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-}
-
-@keyframes popIn {
-    to { transform: scale(1); }
-}
-
-.alert-icon {
-    font-size: 3em;
-    margin-bottom: 15px;
-}
-
-.custom-alert-box h3 {
-    margin: 0 0 10px 0;
-    color: var(--color-base);
-}
-
-.custom-alert-box p {
-    color: #555;
-    margin-bottom: 25px;
-    font-size: 1.05em;
-}
-
-.custom-alert-box .btn {
-    width: 100%;
-    max-width: 200px;
-}
-
