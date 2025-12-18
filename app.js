@@ -42,10 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
         grid: document.getElementById('grilla-paquetes'),
         gridGestion: document.getElementById('grid-gestion'),
         
-        // Loader Personalizado
-        loaderOverlay: document.getElementById('loader-overlay'),
-        
-        // Forms & Inputs
         uploadForm: document.getElementById('upload-form'),
         uploadStatus: document.getElementById('upload-status'),
         userForm: document.getElementById('user-form'),
@@ -53,7 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
         inputCostoTotal: document.getElementById('upload-costo-total'),
         inputFechaViaje: document.getElementById('upload-fecha-salida'),
         
-        // Auth & Modal
         loginContainer: document.getElementById('login-container'),
         appContainer: document.getElementById('app-container'),
         btnLogin: document.getElementById('login-button'),
@@ -63,12 +58,10 @@ document.addEventListener('DOMContentLoaded', () => {
         modalBody: document.getElementById('modal-body'),
         modalClose: document.getElementById('modal-cerrar'),
         
-        // Servicios
         containerServicios: document.getElementById('servicios-container'),
         btnAgregarServicio: document.getElementById('btn-agregar-servicio'),
         selectorServicio: document.getElementById('selector-servicio'),
         
-        // Filtros
         btnBuscar: document.getElementById('boton-buscar'),
         btnLimpiar: document.getElementById('boton-limpiar'),
         filtroOrden: document.getElementById('filtro-orden'),
@@ -79,12 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if(dom.logo) { dom.logo.style.cursor = 'pointer'; dom.logo.addEventListener('click', () => window.location.reload()); }
 
-    // --- 2. UTILIDADES VISUALES (Loader & Alertas) ---
+    // --- 2. UTILIDADES VISUALES (Alertas) ---
     
-    const showLoader = (show = true) => {
-        if(dom.loaderOverlay) dom.loaderOverlay.style.display = show ? 'flex' : 'none';
-    };
-
     window.showAlert = (message, type = 'error') => {
         return new Promise((resolve) => {
             const overlay = document.getElementById('custom-alert-overlay');
@@ -93,9 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const msg = document.getElementById('custom-alert-message');
             const icon = document.getElementById('custom-alert-icon');
             const btn = document.getElementById('custom-alert-btn');
-            
-            // Ocultar botón de cancelar por si acaso (es alert, no confirm)
             const btnCancel = document.getElementById('custom-alert-cancel');
+            
             if(btnCancel) btnCancel.style.display = 'none';
 
             if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; }
@@ -105,7 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
             msg.innerText = message; 
             overlay.style.display = 'flex';
             
-            // Limpiar eventos anteriores y asignar nuevo
             btn.onclick = () => { overlay.style.display = 'none'; resolve(); };
         });
     };
@@ -132,7 +119,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 3. AUTENTICACIÓN ---
     auth.onAuthStateChanged(async (u) => {
-        showLoader(true);
         if (u) {
             try {
                 const emailLimpio = u.email.trim().toLowerCase();
@@ -163,7 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.loginContainer.style.display='flex';
             dom.appContainer.style.display='none';
         }
-        showLoader(false);
     });
 
     dom.btnLogin.addEventListener('click', () => auth.signInWithPopup(provider));
@@ -195,7 +180,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dom.userForm) {
         dom.userForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            showLoader(true);
             const email = document.getElementById('user-email-input').value.trim().toLowerCase();
             const rol = document.getElementById('user-role-input').value;
             const fran = document.getElementById('user-franchise-input').value;
@@ -211,7 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) {
                 await window.showAlert('Error al guardar usuario.', 'error');
             }
-            showLoader(false);
         });
     }
 
@@ -247,9 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.confirmDeleteUser = async (email) => {
         if(await window.showConfirm("¿Eliminar usuario?")) {
-            showLoader(true);
             try { await db.collection('usuarios').doc(email).delete(); loadUsersList(); } catch(e){ alert('Error'); }
-            showLoader(false);
         }
     };
 
@@ -271,7 +252,6 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.btnAgregarServicio.addEventListener('click', () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } });
 
     function agregarModuloServicio(tipo, data = null) {
-        // (Lógica de servicios idéntica a la anterior, resumida por espacio)
         const container = dom.containerServicios;
         const existingServices = container.querySelectorAll('.servicio-card');
         const hasExclusive = Array.from(existingServices).some(c => c.dataset.tipo === 'bus' || c.dataset.tipo === 'crucero');
@@ -286,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
         div.className = `servicio-card ${tipo}`; div.dataset.id = id; div.dataset.tipo = tipo;
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
-        // --- BUILDERS (Mismo código de siempre) ---
+        // --- BUILDERS ---
         if (tipo === 'aereo') { html += `<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas', 0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'hotel') { html += `<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
         else if (tipo === 'traslado') { html += `<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Htl-Htl</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`; }
@@ -323,7 +303,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     dom.uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        showLoader(true);
         
         const rol = userData.rol;
         const promoType = document.getElementById('upload-promo').value;
@@ -334,10 +313,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0;
         const fechaViajeStr = dom.inputFechaViaje.value;
 
-        if (tarifa < costo) { showLoader(false); return window.showAlert(`Error: La tarifa ($${tarifa}) es menor al costo ($${costo}).`, 'error'); }
-        if (!fechaViajeStr) { showLoader(false); return window.showAlert("Falta fecha de salida.", 'error'); }
+        if (tarifa < costo) { return window.showAlert(`Error: La tarifa ($${tarifa}) es menor al costo ($${costo}).`, 'error'); }
+        if (!fechaViajeStr) { return window.showAlert("Falta fecha de salida.", 'error'); }
         const cards = document.querySelectorAll('.servicio-card');
-        if (cards.length === 0) { showLoader(false); return window.showAlert("Agrega al menos un servicio.", 'error'); }
+        if (cards.length === 0) { return window.showAlert("Agrega al menos un servicio.", 'error'); }
 
         let serviciosData = [];
         for (let card of cards) {
@@ -361,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
             financiacion: document.getElementById('upload-financiacion').value,
             servicios: serviciosData,
             status: status,
-            creador: isEditingId ? null : userData.franquicia || 'Desconocido', // Si edita, no toca creador
+            creador: isEditingId ? null : userData.franquicia || 'Desconocido', 
             editor_email: currentUser.email,
             action_type: isEditingId ? 'edit' : 'create',
             id_paquete: isEditingId || '' 
@@ -377,7 +356,6 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.reload();
         } catch(e) {
             console.error(e);
-            showLoader(false);
             window.showAlert("Error de conexión al guardar.", 'error');
         }
     });
@@ -406,7 +384,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`;
 
             let statusTag = '';
-            // Si es pendiente, mostramos tag solo en Gestión o si es propio en grilla
             if (pkg.status === 'pending') statusTag = `<span style="background-color:#ffeaa7; color:#d35400; padding:2px 8px; border-radius:10px; font-size:0.7em; margin-left:5px;">⏳ En Revisión</span>`;
 
             card.innerHTML = `
@@ -438,44 +415,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ACCIONES DE GESTIÓN (Borrar, Aprobar)
     window.deletePackage = async (pkg) => {
-        if (!await window.showConfirm("⚠️ ¿Eliminar este paquete? Desaparecerá de la plataforma.")) return;
-        showLoader(true);
+        if (!await window.showConfirm("⚠️ ¿Eliminar este paquete?")) return;
         try {
             const id = pkg.id || pkg['item.id'] || pkg.row_number;
-            // SOFT DELETE: Enviamos status 'deleted'
             await secureFetch(API_URL_UPLOAD, { action_type: 'delete', id_paquete: id, status: 'deleted' }); 
             await window.showAlert("Paquete eliminado.", "success");
             window.location.reload();
         } catch (e) { 
-            showLoader(false);
             window.showAlert("Error al eliminar.", "error"); 
         }
     };
 
     window.approvePackage = async (pkg) => {
          if (!await window.showConfirm("¿Aprobar publicación en FEED?")) return;
-         showLoader(true);
          try {
              let payload = JSON.parse(JSON.stringify(pkg)); 
              payload.status = 'approved';
              payload.action_type = 'edit';
-             // IMPORTANTE: NO enviamos 'creador' para que no se sobrescriba con el del admin
              delete payload.creador; 
-             // Limpiamos basura de sheet
              delete payload['row_number']; 
-             
              await secureFetch(API_URL_UPLOAD, payload);
              await window.showAlert("Paquete Aprobado.", "success");
              window.location.reload();
          } catch(e) { 
-             showLoader(false);
              window.showAlert("Error al aprobar.", "error"); 
          }
     };
 
     window.startEditing = async (pkg) => {
         if (!await window.showConfirm("Se abrirá el formulario de edición.")) return;
-        showLoader(true); // Breve loader para transición
         
         isEditingId = pkg.id || pkg['item.id'] || pkg.row_number; 
         
@@ -501,7 +469,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.modal.style.display = 'none'; 
         showView('upload');
         window.scrollTo(0,0);
-        showLoader(false);
         window.showAlert("Modo Edición Activado.", "info");
     };
 
@@ -514,7 +481,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const tarifaDoble = Math.round(tarifa / 2);
         const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 8px;`;
 
-        // HERRAMIENTAS DE EDICIÓN
         let adminTools = '';
         const isOwner = pkg.editor_email === currentUser.email;
         const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
@@ -599,26 +565,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const fPromo = document.getElementById('filtro-promo').value;
         const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
 
-        let result = allPackages.filter(pkg => {
-            // 1. Ocultar ELIMINADOS
-            if (pkg.status === 'deleted') return false;
-
-            const isOwner = pkg.editor_email === currentUser.email;
-            const isPending = pkg.status === 'pending';
-            
-            // 2. Ocultar PENDIENTES ajenos (Admin ve todo en Gestión, Usuario ve los suyos)
-            if (isPending && !isOwner) return false;
-            
-            // 3. LOGICA ANTI-DUPLICADOS (Fix Rumania)
-            // Si soy el dueño y el paquete está pendiente, verifico si ya existe una versión approved del mismo 'id'
-            // NOTA: Esto requiere que n8n devuelva IDs consistentes.
-            // Si no, la lógica más simple es: Si está en la vista "Buscar", mostrar todo lo que cumpla filtros.
+        // LÓGICA DE DEDUPLICACIÓN
+        const idMap = new Map();
+        
+        allPackages.forEach(pkg => {
+            if (pkg.status === 'deleted') return; // Filtro de borrados
 
             const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
             const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
             const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
-            return mDestino && mCreador && mPromo;
+            
+            if (!mDestino || !mCreador || !mPromo) return;
+
+            const isOwner = pkg.editor_email === currentUser.email;
+            const isPending = pkg.status === 'pending';
+            
+            if (isPending && !isOwner && userData.rol !== 'admin' && userData.rol !== 'editor') return;
+
+            const id = pkg.id || pkg['item.id'] || pkg.row_number;
+            
+            if (!idMap.has(id)) {
+                idMap.set(id, pkg);
+            } else {
+                const existing = idMap.get(id);
+                // Si ya existe uno, priorizamos el APROBADO sobre el PENDIENTE
+                if (existing.status === 'pending' && pkg.status === 'approved') {
+                    idMap.set(id, pkg);
+                }
+            }
         });
+
+        let result = Array.from(idMap.values());
 
         if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa));
         else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
@@ -635,42 +612,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
 
-    function renderServiciosClienteHTML(rawJson) {
-         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>Sin detalles.</p>'; }
-        if(!Array.isArray(servicios)||servicios.length===0) return '<p>Sin detalles.</p>';
-        let html='';
-        servicios.forEach(s => {
-            let icono='🔹', titulo='', lineas=[];
-            if(s.tipo==='aereo'){ icono='✈️'; titulo='AÉREO'; lineas.push(`<b>Aerolínea:</b> ${s.aerolinea}`); lineas.push(`<b>Fechas:</b> ${formatDateAR(s.fecha_aereo)}${s.fecha_regreso?` | <b>Vuelta:</b> ${formatDateAR(s.fecha_regreso)}`:''}`); lineas.push(`<b>Escalas:</b> ${s.escalas==0?'Directo':s.escalas}`); lineas.push(`<b>Equipaje:</b> ${s.tipo_equipaje.replace(/_/g,' ')} (x${s.cantidad_equipaje||1})`); }
-            else if(s.tipo==='hotel'){ icono='🏨'; titulo='HOTEL'; lineas.push(`<b>${s.hotel_nombre}</b> (${s.regimen})`); lineas.push(`<b>Estadía:</b> ${(s.checkin&&s.checkout)?Math.ceil((new Date(s.checkout)-new Date(s.checkin))/86400000):'-'} noches (${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout)})`); }
-            else if(s.tipo==='traslado'){ icono='🚕'; titulo='TRASLADO'; let t=[]; if(s.trf_in)t.push("In"); if(s.trf_out)t.push("Out"); if(s.trf_hah)t.push("Htl-Htl"); lineas.push(`<b>Tipo:</b> ${s.tipo_trf} (${t.join(' + ')})`); }
-            else if(s.tipo==='seguro'){ icono='🛡️'; titulo='SEGURO'; lineas.push(`<b>Cob:</b> ${s.proveedor}`); }
-            else if(s.tipo==='adicional'){ icono='➕'; titulo='ADICIONAL'; lineas.push(`<b>${s.descripcion}</b>`); }
-            else if (s.tipo === 'bus') { icono = '🚌'; titulo = 'PAQUETE BUS'; lineas.push(`<b>Duración:</b> ${s.bus_noches} Noches`); if (s.bus_alojamiento) lineas.push(`<b>Alojamiento:</b> Incluido (${s.bus_regimen})`); else lineas.push(`<b>Alojamiento:</b> No incluido`); let extras = []; if (s.bus_excursiones) extras.push("Excursiones"); if (s.bus_asistencia) extras.push("Asistencia"); if (extras.length > 0) lineas.push(`<b>Incluye:</b> ${extras.join(' + ')}`); }
-            else if (s.tipo === 'crucero') { icono = '🚢'; titulo = 'CRUCERO'; lineas.push(`<b>Naviera:</b> ${s.crucero_naviera}`); lineas.push(`<b>Salida:</b> ${s.crucero_puerto_salida} (${s.crucero_noches} Noches)`); lineas.push(`<b>Recorrido:</b> ${s.crucero_recorrido}`); if(s.crucero_info) lineas.push(`<i>Info: ${s.crucero_info}</i>`); }
-            if(s.obs) lineas.push(`<i>Obs: ${s.obs}</i>`);
-            html+=`<div style="margin-bottom:10px;border-left:3px solid #ddd;padding-left:10px;"><div style="color:#11173d;font-weight:bold;">${icono} ${titulo}</div><div style="font-size:0.9em;color:#555;">${lineas.map(l=>`<div>${l}</div>`).join('')}</div></div>`;
-        });
-        return html;
-    }
-    
-    function renderCostosProveedoresHTML(rawJson) {
-         let servicios=[]; try{ servicios=typeof rawJson==='string'?JSON.parse(rawJson):rawJson; }catch(e){ return '<p>-</p>'; }
-        if(!Array.isArray(servicios)||servicios.length===0) return '<p>-</p>';
-        let html='<ul style="list-style:none; padding:0; margin:0;">';
-        servicios.forEach(s => { const tipo = s.tipo ? s.tipo.toUpperCase() : 'SERVICIO'; html += `<li style="margin-bottom:5px; font-size:0.9em; border-bottom:1px dashed #eee; padding-bottom:5px;"><b>${tipo}:</b> ${s.proveedor || '-'} <span style="float:right;">$${formatMoney(s.costo || 0)}</span></li>`; });
-        html += '</ul>'; return html;
-    }
-
     async function fetchAndLoadPackages() { 
-        showLoader(true);
         try { 
             const d = await secureFetch(API_URL_SEARCH, {}); 
             allPackages = d; 
             populateFranchiseFilter(allPackages); 
             applyFilters(); 
         } catch(e){ console.error(e); }
-        showLoader(false);
     }
     
     // Navegación Vistas
