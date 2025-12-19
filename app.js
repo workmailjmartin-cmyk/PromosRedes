@@ -1,16 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- 1. CONFIGURACIÓN ---
-    const firebaseConfig = {
-        apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk",
-        authDomain: "feliz-viaje-43d02.firebaseapp.com",
-        projectId: "feliz-viaje-43d02",
-        storageBucket: "feliz-viaje-43d02.firebasestorage.app",
-        messagingSenderId: "931689659600",
-        appId: "1:931689659600:web:66dbce023705936f26b2d5",
-        measurementId: "G-2PNDZR3ZS1"
-    };
-
+    const firebaseConfig = { apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk", authDomain: "feliz-viaje-43d02.firebaseapp.com", projectId: "feliz-viaje-43d02", storageBucket: "feliz-viaje-43d02.firebasestorage.app", messagingSenderId: "931689659600", appId: "1:931689659600:web:66dbce023705936f26b2d5", measurementId: "G-2PNDZR3ZS1" };
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
@@ -19,54 +9,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
 
-    // ESTADO
-    let currentUser = null;
-    let userData = null; 
-    let allPackages = [];
-    let uniquePackages = []; 
-    let isEditingId = null; 
-    let originalCreator = ''; 
+    let currentUser = null, userData = null, allPackages = [], uniquePackages = [], isEditingId = null, originalCreator = ''; 
 
-    // DOM
     const dom = {
         views: { search: document.getElementById('view-search'), upload: document.getElementById('view-upload'), gestion: document.getElementById('view-gestion'), users: document.getElementById('view-users') },
         nav: { search: document.getElementById('nav-search'), upload: document.getElementById('nav-upload'), gestion: document.getElementById('nav-gestion'), users: document.getElementById('nav-users') },
-        grid: document.getElementById('grilla-paquetes'),
-        gridGestion: document.getElementById('grid-gestion'),
-        uploadForm: document.getElementById('upload-form'),
-        userForm: document.getElementById('user-form'),
-        usersList: document.getElementById('users-list'),
-        inputCostoTotal: document.getElementById('upload-costo-total'),
-        inputFechaViaje: document.getElementById('upload-fecha-salida'),
-        loginContainer: document.getElementById('login-container'),
-        appContainer: document.getElementById('app-container'),
-        btnLogin: document.getElementById('login-button'),
-        btnLogout: document.getElementById('logout-button'),
-        userEmail: document.getElementById('user-email'),
-        modal: document.getElementById('modal-detalle'),
-        modalBody: document.getElementById('modal-body'),
-        modalClose: document.getElementById('modal-cerrar'),
-        containerServicios: document.getElementById('servicios-container'),
-        btnAgregarServicio: document.getElementById('btn-agregar-servicio'),
-        selectorServicio: document.getElementById('selector-servicio'),
-        btnBuscar: document.getElementById('boton-buscar'),
-        btnLimpiar: document.getElementById('boton-limpiar'),
-        filtroOrden: document.getElementById('filtro-orden'),
-        filtroCreador: document.getElementById('filtro-creador'),
-        logoImg: document.getElementById('app-logo'),
-        loader: document.getElementById('loader-overlay') // REFERENCIA AL LOADER
+        grid: document.getElementById('grilla-paquetes'), gridGestion: document.getElementById('grid-gestion'),
+        uploadForm: document.getElementById('upload-form'), userForm: document.getElementById('user-form'), usersList: document.getElementById('users-list'),
+        inputCostoTotal: document.getElementById('upload-costo-total'), inputFechaViaje: document.getElementById('upload-fecha-salida'),
+        loginContainer: document.getElementById('login-container'), appContainer: document.getElementById('app-container'),
+        btnLogin: document.getElementById('login-button'), btnLogout: document.getElementById('logout-button'), userEmail: document.getElementById('user-email'),
+        modal: document.getElementById('modal-detalle'), modalBody: document.getElementById('modal-body'), modalClose: document.getElementById('modal-cerrar'),
+        containerServicios: document.getElementById('servicios-container'), btnAgregarServicio: document.getElementById('btn-agregar-servicio'), selectorServicio: document.getElementById('selector-servicio'),
+        btnBuscar: document.getElementById('boton-buscar'), btnLimpiar: document.getElementById('boton-limpiar'),
+        filtroOrden: document.getElementById('filtro-orden'), filtroCreador: document.getElementById('filtro-creador'),
+        logoImg: document.getElementById('app-logo'), loader: document.getElementById('loader-overlay')
     };
 
-    // --- FUNCIONES HELPER (DEFINIDAS ANTES DE USARSE) ---
-    // Esto arregla el error "ReferenceError"
-    
-    const showLoader = (show) => {
-        if(dom.loader) dom.loader.style.display = show ? 'flex' : 'none';
-    };
-
+    // UTILS
+    const showLoader = (show) => { if(dom.loader) dom.loader.style.display = show ? 'flex' : 'none'; };
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
-
+    
+    // --- IMPORTANTE: Definir estas funciones ANTES de usarlas en renderCards/openModal ---
     function getNoches(pkg) {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
@@ -115,116 +80,43 @@ document.addEventListener('DOMContentLoaded', () => {
         return h+'</ul>'; 
     }
 
-    // --- EVENTOS DE INTERFAZ ---
-    if(dom.logoImg) {
-        dom.logoImg.style.cursor = 'pointer';
-        dom.logoImg.addEventListener('click', () => {
-            showLoader(true);
-            window.location.reload();
-        });
-    }
-
     // --- ALERTAS ---
-    window.showAlert = (message, type = 'error') => {
-        return new Promise((resolve) => {
-            showLoader(false); // Ocultar loader si estaba activo
-            const overlay = document.getElementById('custom-alert-overlay');
-            if(!overlay) { alert(message); return resolve(); }
-            const title = document.getElementById('custom-alert-title');
-            const msg = document.getElementById('custom-alert-message');
-            const icon = document.getElementById('custom-alert-icon');
-            const btn = document.getElementById('custom-alert-btn');
-            const btnCancel = document.getElementById('custom-alert-cancel');
-            if(btnCancel) btnCancel.style.display = 'none';
-            if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; }
-            else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; }
-            else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; }
-            msg.innerText = message; overlay.style.display = 'flex';
-            btn.onclick = () => { overlay.style.display = 'none'; resolve(); };
-        });
-    };
+    window.showAlert = (message, type = 'error') => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btn = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); if(btnCancel) btnCancel.style.display = 'none'; if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; } else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; } else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; } msg.innerText = message; overlay.style.display = 'flex'; btn.onclick = () => { overlay.style.display = 'none'; resolve(); }; }); };
+    window.showConfirm = (message) => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btnOk = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); title.innerText = 'Confirmación'; title.style.color = '#11173d'; icon.innerHTML = '❓'; msg.innerText = message; if(btnCancel) btnCancel.style.display = 'inline-block'; overlay.style.display = 'flex'; btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); }; if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); }; }); };
 
-    window.showConfirm = (message) => {
-        return new Promise((resolve) => {
-            showLoader(false);
-            const overlay = document.getElementById('custom-alert-overlay');
-            const title = document.getElementById('custom-alert-title');
-            const msg = document.getElementById('custom-alert-message');
-            const icon = document.getElementById('custom-alert-icon');
-            const btnOk = document.getElementById('custom-alert-btn');
-            const btnCancel = document.getElementById('custom-alert-cancel');
-            title.innerText = 'Confirmación'; title.style.color = '#11173d'; icon.innerHTML = '❓';
-            msg.innerText = message;
-            if(btnCancel) btnCancel.style.display = 'inline-block';
-            overlay.style.display = 'flex';
-            btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); };
-            if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); };
-        });
-    };
+    // --- CORE LOGIC ---
+    if(dom.logoImg) dom.logoImg.addEventListener('click', () => { showLoader(true); window.location.reload(); });
 
-    // --- FECHAS ---
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     const minGlobalDate = now.toISOString().split('T')[0];
-    
     if(dom.inputFechaViaje) {
         dom.inputFechaViaje.min = minGlobalDate; 
         dom.inputFechaViaje.addEventListener('change', (e) => {
             const fechaSalida = e.target.value;
-            if(fechaSalida < minGlobalDate) {
-                window.showAlert("⚠️ La fecha de salida no puede ser en el pasado.", "error");
-                dom.inputFechaViaje.value = "";
-                return;
-            }
+            if(fechaSalida && fechaSalida < minGlobalDate) { window.showAlert("⚠️ La fecha de salida no puede ser en el pasado."); dom.inputFechaViaje.value = ""; return; }
             if(fechaSalida) actualizarMinimosFechas(fechaSalida);
         });
     }
-
     function actualizarMinimosFechas(minDate) {
         const dateInputs = dom.containerServicios.querySelectorAll('input[type="date"]');
-        dateInputs.forEach(input => {
-            input.min = minDate;
-            if(input.value && input.value < minDate){
-                input.value = '';
-                input.style.borderColor = '#ef5a1a';
-                setTimeout(() => input.style.borderColor = '#ddd', 2000);
-            }
-        });
+        dateInputs.forEach(input => { input.min = minDate; if(input.value && input.value < minDate){ input.value = ''; input.style.borderColor = '#ef5a1a'; setTimeout(() => input.style.borderColor = '#ddd', 2000); } });
     }
 
-    // --- LOGICA DE DATOS ---
     function processPackageHistory(rawList) {
         if (!Array.isArray(rawList)) return [];
         const historyMap = new Map();
-        rawList.forEach(pkg => {
-            const id = pkg.id_paquete || pkg.id || pkg['item.id'];
-            if (!id) return; 
-            if (!historyMap.has(id)) historyMap.set(id, []);
-            historyMap.get(id).push(pkg);
-        });
+        rawList.forEach(pkg => { const id = pkg.id_paquete || pkg.id || pkg['item.id']; if (!id) return; if (!historyMap.has(id)) historyMap.set(id, []); historyMap.get(id).push(pkg); });
         const processedList = [];
-        historyMap.forEach((versions) => {
-            const latestVersion = versions[versions.length - 1];
-            if (latestVersion.status === 'deleted') return;
-            processedList.push(latestVersion);
-        });
+        historyMap.forEach((versions) => { const latestVersion = versions[versions.length - 1]; if (latestVersion.status === 'deleted') return; processedList.push(latestVersion); });
         return processedList;
     }
 
     async function fetchAndLoadPackages() { 
         showLoader(true);
-        try { 
-            let d = await secureFetch(API_URL_SEARCH, {}); 
-            if (typeof d === 'string') d = JSON.parse(d);
-            allPackages = d; 
-            uniquePackages = processPackageHistory(allPackages);
-            populateFranchiseFilter(uniquePackages); 
-            applyFilters(); 
-        } catch(e){ console.error(e); }
+        try { let d = await secureFetch(API_URL_SEARCH, {}); if (typeof d === 'string') d = JSON.parse(d); allPackages = d; uniquePackages = processPackageHistory(allPackages); populateFranchiseFilter(uniquePackages); applyFilters(); } catch(e){ console.error(e); }
         showLoader(false);
     }
 
-    // --- AUTH ---
     auth.onAuthStateChanged(async (u) => {
         showLoader(true);
         if (u) {
@@ -232,38 +124,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const emailLimpio = u.email.trim().toLowerCase();
                 const doc = await db.collection('usuarios').doc(emailLimpio).get();
                 if (doc.exists) {
-                    currentUser = u;
-                    userData = doc.data(); 
-                    dom.loginContainer.style.display='none';
-                    dom.appContainer.style.display='block';
-                    
-                    // Mostrar Nombre Franquicia o Email
+                    currentUser = u; userData = doc.data(); 
+                    dom.loginContainer.style.display='none'; dom.appContainer.style.display='block';
                     const nombreMostrar = userData.franquicia || u.email;
                     if(dom.userEmail) dom.userEmail.innerHTML = `<b>${nombreMostrar}</b><br><small>${userData.rol.toUpperCase()}</small>`;
-                    
-                    configureUIByRole();
-                    await fetchAndLoadPackages();
-                    showView('search');
-                } else {
-                    await window.showAlert(`⛔ Sin permisos.`);
-                    auth.signOut();
-                }
+                    configureUIByRole(); await fetchAndLoadPackages(); showView('search');
+                } else { await window.showAlert(`⛔ Sin permisos.`); auth.signOut(); }
             } catch (e) { await window.showAlert("Error de conexión."); }
-        } else {
-            currentUser = null; userData = null;
-            dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none';
-        }
+        } else { currentUser = null; userData = null; dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none'; }
         showLoader(false);
     });
 
-    dom.btnLogin.addEventListener('click', () => {
-        showLoader(true);
-        auth.signInWithPopup(provider).catch(() => showLoader(false));
-    });
-    dom.btnLogout.addEventListener('click', () => {
-        showLoader(true);
-        auth.signOut().then(() => window.location.reload());
-    });
+    dom.btnLogin.addEventListener('click', () => { showLoader(true); auth.signInWithPopup(provider).catch(() => showLoader(false)); });
+    dom.btnLogout.addEventListener('click', () => { showLoader(true); auth.signOut().then(() => window.location.reload()); });
 
     function configureUIByRole() {
         const rol = userData.rol;
@@ -278,72 +151,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- USERS ---
     if (dom.userForm) {
         dom.userForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            showLoader(true);
+            e.preventDefault(); showLoader(true);
             const email = document.getElementById('user-email-input').value.trim().toLowerCase();
             const rol = document.getElementById('user-role-input').value;
             const fran = document.getElementById('user-franchise-input').value;
-            try {
-                await db.collection('usuarios').doc(email).set({ email, rol, franquicia: fran, fecha_modificacion: new Date() }, { merge: true });
-                await window.showAlert('Usuario guardado.', 'success');
-                document.getElementById('user-email-input').value = '';
-                document.getElementById('user-franchise-input').value = '';
-                loadUsersList();
-            } catch (e) { await window.showAlert('Error.', 'error'); }
+            try { await db.collection('usuarios').doc(email).set({ email, rol, franquicia: fran, fecha_modificacion: new Date() }, { merge: true }); await window.showAlert('Usuario guardado.', 'success'); document.getElementById('user-email-input').value = ''; document.getElementById('user-franchise-input').value = ''; loadUsersList(); } catch (e) { await window.showAlert('Error.', 'error'); }
             showLoader(false);
         });
     }
 
     async function loadUsersList() {
-        const list = dom.usersList;
-        list.innerHTML = 'Cargando...';
+        const list = dom.usersList; list.innerHTML = 'Cargando...';
         try {
-            const snap = await db.collection('usuarios').get();
-            list.innerHTML = '';
-            snap.forEach(doc => {
-                const u = doc.data();
-                const li = document.createElement('li');
-                li.style.cssText = "padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;";
-                li.innerHTML = `<span><b>${u.email}</b><br><small>${u.rol.toUpperCase()} - ${u.franquicia}</small></span>
-                    <div style="display:flex; gap:5px;"><button class="btn btn-secundario" style="padding:4px 10px;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">✏️</button><button class="btn btn-secundario" style="padding:4px 10px;" onclick="confirmDeleteUser('${u.email}')">🗑️</button></div>`;
-                list.appendChild(li);
-            });
+            const snap = await db.collection('usuarios').get(); list.innerHTML = '';
+            snap.forEach(doc => { const u = doc.data(); const li = document.createElement('div'); li.className = 'user-item'; li.innerHTML = `<span><b>${u.email}</b><br><small>${u.rol.toUpperCase()} - ${u.franquicia}</small></span><div style="display:flex; gap:5px;"><button class="btn btn-secundario" style="padding:4px 10px;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">✏️</button><button class="btn btn-secundario" style="padding:4px 10px;" onclick="confirmDeleteUser('${u.email}')">🗑️</button></div>`; list.appendChild(li); });
         } catch (e) { list.innerHTML = 'Error.'; }
     }
 
-    window.editUser = (e, r, f) => {
-        document.getElementById('user-email-input').value = e;
-        document.getElementById('user-role-input').value = r;
-        document.getElementById('user-franchise-input').value = f;
-        window.scrollTo(0,0);
-        window.showAlert(`Editando: ${e}`, 'info');
-    };
+    window.editUser = (e, r, f) => { document.getElementById('user-email-input').value = e; document.getElementById('user-role-input').value = r; document.getElementById('user-franchise-input').value = f; window.scrollTo(0,0); window.showAlert(`Editando: ${e}`, 'info'); };
     window.confirmDeleteUser = async (e) => { if(await window.showConfirm("¿Eliminar?")) try { showLoader(true); await db.collection('usuarios').doc(e).delete(); loadUsersList(); showLoader(false); } catch(x){alert('Error');} };
 
-    async function secureFetch(url, body) {
-        if (!currentUser) throw new Error('No auth');
-        const token = await currentUser.getIdToken(true);
-        const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body:JSON.stringify(body), cache:'no-store' });
-        if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
-        return await res.json();
-    }
+    async function secureFetch(url, body) { if (!currentUser) throw new Error('No auth'); const token = await currentUser.getIdToken(true); const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body:JSON.stringify(body), cache:'no-store' }); if (!res.ok) throw new Error(`API Error`); return await res.json(); }
 
-    // --- UPLOAD ---
     dom.btnAgregarServicio.addEventListener('click', () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } });
 
     function agregarModuloServicio(tipo, data = null) {
-        const container = dom.containerServicios;
-        const existingServices = container.querySelectorAll('.servicio-card');
+        const container = dom.containerServicios; const existingServices = container.querySelectorAll('.servicio-card');
         const hasExclusive = Array.from(existingServices).some(c => c.dataset.tipo === 'bus' || c.dataset.tipo === 'crucero');
-        if (!data) {
-             if (hasExclusive) return window.showAlert("⛔ No puedes agregar más servicios a un paquete de Bus o Crucero.", "error");
-             if ((tipo === 'bus' || tipo === 'crucero') && existingServices.length > 0) return window.showAlert("⛔ Exclusivo.", "error");
-        }
-        const id = Date.now() + Math.random(); 
-        const div = document.createElement('div');
+        if (!data) { if (hasExclusive) return window.showAlert("⛔ No puedes agregar más servicios.", "error"); if ((tipo === 'bus' || tipo === 'crucero') && existingServices.length > 0) return window.showAlert("⛔ Exclusivo.", "error"); }
+        const id = Date.now() + Math.random(); const div = document.createElement('div');
         div.className = `servicio-card ${tipo}`; div.dataset.id = id; div.dataset.tipo = tipo;
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
@@ -358,25 +196,8 @@ document.addEventListener('DOMContentLoaded', () => {
         div.innerHTML = html;
         dom.containerServicios.appendChild(div);
         
-        if(dom.inputFechaViaje.value) {
-            const inputsFecha = div.querySelectorAll('input[type="date"]');
-            inputsFecha.forEach(i => i.min = dom.inputFechaViaje.value);
-        } else {
-            const inputsFecha = div.querySelectorAll('input[type="date"]');
-            const today = new Date();
-            today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
-            inputsFecha.forEach(i => i.min = today.toISOString().split('T')[0]);
-        }
-
-        if(data){
-            div.querySelectorAll('input, select, textarea').forEach(input => {
-                if (data[input.name] !== undefined) {
-                    if (input.type === 'checkbox') { input.checked = data[input.name]; if (input.name === 'bus_alojamiento') input.dispatchEvent(new Event('change')); }
-                    else if (input.type === 'hidden') { const counter = input.parentElement.querySelector('.counter-value'); if(counter) counter.innerText = data[input.name]; input.value = data[input.name]; }
-                    else { input.value = data[input.name]; if (input.name === 'checkin' || input.name === 'checkout') window.calcularNoches(id); }
-                }
-            });
-        }
+        if(dom.inputFechaViaje.value) { const inputsFecha = div.querySelectorAll('input[type="date"]'); inputsFecha.forEach(i => i.min = dom.inputFechaViaje.value); }
+        if(data){ div.querySelectorAll('input, select, textarea').forEach(input => { if (data[input.name] !== undefined) { if (input.type === 'checkbox') { input.checked = data[input.name]; if (input.name === 'bus_alojamiento') input.dispatchEvent(new Event('change')); } else if (input.type === 'hidden') { const counter = input.parentElement.querySelector('.counter-value'); if(counter) counter.innerText = data[input.name]; input.value = data[input.name]; } else { input.value = data[input.name]; if (input.name === 'checkin' || input.name === 'checkout') window.calcularNoches(id); } } }); }
     }
 
     window.crearContadorHTML = (n, v) => `<div class="counter-wrapper"><button type="button" class="counter-btn" onclick="this.nextElementSibling.innerText=Math.max(0,parseInt(this.nextElementSibling.innerText)-1)">-</button><span class="counter-value">${v}</span><button type="button" class="counter-btn" onclick="this.previousElementSibling.innerText=parseInt(this.previousElementSibling.innerText)+1">+</button><input type="hidden" name="${n}" value="${v}"></div>`;
@@ -384,223 +205,57 @@ document.addEventListener('DOMContentLoaded', () => {
     window.calcularTotal = () => { let t=0; document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); dom.inputCostoTotal.value=t; };
 
     dom.uploadForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        showLoader(true);
-        const rol = userData.rol;
-        const promoType = document.getElementById('upload-promo').value;
-        let status = 'approved';
-        if (rol === 'usuario' && promoType === 'FEED') status = 'pending';
-
-        const costo = parseFloat(dom.inputCostoTotal.value) || 0;
-        const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0;
-        const fechaViajeStr = dom.inputFechaViaje.value;
-
+        e.preventDefault(); showLoader(true);
+        const rol = userData.rol; const promoType = document.getElementById('upload-promo').value;
+        let status = 'approved'; if (rol === 'usuario' && promoType === 'FEED') status = 'pending';
+        const costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; const fechaViajeStr = dom.inputFechaViaje.value;
         if (tarifa < costo) { showLoader(false); return window.showAlert(`Error: Tarifa menor al costo.`, 'error'); }
         if (!fechaViajeStr) { showLoader(false); return window.showAlert("Falta fecha.", 'error'); }
-        const cards = document.querySelectorAll('.servicio-card');
-        if (cards.length === 0) { showLoader(false); return window.showAlert("Agrega servicios.", 'error'); }
+        const cards = document.querySelectorAll('.servicio-card'); if (cards.length === 0) { showLoader(false); return window.showAlert("Agrega servicios.", 'error'); }
 
-        let serviciosData = [];
-        for (let card of cards) {
-            const serv = { tipo: card.dataset.tipo };
-            card.querySelectorAll('input, select, textarea').forEach(i => {
-                if (i.type === 'checkbox') serv[i.name] = i.checked;
-                else if (i.type === 'hidden') serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value;
-                else serv[i.name] = i.value;
-            });
-            serviciosData.push(serv);
-        }
+        let serviciosData = []; for (let card of cards) { const serv = { tipo: card.dataset.tipo }; card.querySelectorAll('input, select, textarea').forEach(i => { if (i.type === 'checkbox') serv[i.name] = i.checked; else if (i.type === 'hidden') serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value; else serv[i.name] = i.value; }); serviciosData.push(serv); }
 
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        
-        let creadorFinal = userData.franquicia;
-        if (!creadorFinal && isEditingId) creadorFinal = originalCreator;
-        if (!creadorFinal) creadorFinal = 'Desconocido';
+        let creadorFinal = userData.franquicia; if (!creadorFinal && isEditingId) creadorFinal = originalCreator; if (!creadorFinal) creadorFinal = 'Desconocido';
 
-        const payload = {
-            id_paquete: idGenerado,
-            destino: document.getElementById('upload-destino').value,
-            salida: document.getElementById('upload-salida').value,
-            fecha_salida: fechaViajeStr,
-            costos_proveedor: costo,
-            tarifa: tarifa,
-            moneda: document.getElementById('upload-moneda').value,
-            tipo_promo: promoType,
-            financiacion: document.getElementById('upload-financiacion').value,
-            servicios: serviciosData,
-            status: status,
-            creador: creadorFinal, 
-            editor_email: currentUser.email,
-            action_type: isEditingId ? 'edit' : 'create'
-        };
+        const payload = { id_paquete: idGenerado, destino: document.getElementById('upload-destino').value, salida: document.getElementById('upload-salida').value, fecha_salida: fechaViajeStr, costos_proveedor: costo, tarifa: tarifa, moneda: document.getElementById('upload-moneda').value, tipo_promo: promoType, financiacion: document.getElementById('upload-financiacion').value, servicios: serviciosData, status: status, creador: creadorFinal, editor_email: currentUser.email, action_type: isEditingId ? 'edit' : 'create' };
 
-        try {
-            await secureFetch(API_URL_UPLOAD, payload);
-            await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success');
-            window.location.reload();
-        } catch(e) { window.showAlert("Error al guardar.", 'error'); }
+        try { await secureFetch(API_URL_UPLOAD, payload); await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success'); window.location.reload(); } catch(e) { window.showAlert("Error al guardar.", 'error'); }
     });
 
-    function populateFranchiseFilter(packages) {
-        const selector = dom.filtroCreador;
-        if(!selector) return;
-        const currentVal = selector.value;
-        const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))];
-        selector.innerHTML = '<option value="">Todas las Franquicias</option>';
-        creadores.sort().forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c; opt.innerText = c;
-            selector.appendChild(opt);
-        });
-        selector.value = currentVal;
-    }
+    function populateFranchiseFilter(packages) { const selector = dom.filtroCreador; if(!selector) return; const currentVal = selector.value; const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))]; selector.innerHTML = '<option value="">Todas las Franquicias</option>'; creadores.sort().forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt); }); selector.value = currentVal; }
 
     function applyFilters() {
-        const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
-        const fCreador = dom.filtroCreador ? dom.filtroCreador.value : '';
-        const fPromo = document.getElementById('filtro-promo').value;
-        const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
-
-        let result = uniquePackages.filter(pkg => {
-            const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
-            const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
-            const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
-            if (!mDestino || !mCreador || !mPromo) return false;
-
-            const isOwner = pkg.editor_email === currentUser.email;
-            const isPending = pkg.status === 'pending';
-            if (isPending && !isOwner && userData.rol !== 'admin' && userData.rol !== 'editor') return false;
-            return true;
-        });
-
-        if (fOrden === 'reciente') {
-            result.sort((a, b) => {
-                const getTs = (id) => {
-                    if(!id || !id.startsWith('pkg_')) return 0;
-                    return parseInt(id.split('_')[1]) || 0;
-                };
-                return getTs(b.id_paquete) - getTs(a.id_paquete);
-            });
-        }
-        else if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa));
-        else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
-
-        renderCards(result, dom.grid);
-        if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) {
-            const pendientes = uniquePackages.filter(p => p.status === 'pending');
-            renderCards(pendientes, dom.gridGestion);
-        }
+        const fDestino = document.getElementById('filtro-destino').value.toLowerCase(); const fCreador = dom.filtroCreador ? dom.filtroCreador.value : ''; const fPromo = document.getElementById('filtro-promo').value; const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
+        let result = uniquePackages.filter(pkg => { const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino)); const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador); const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo); if (!mDestino || !mCreador || !mPromo) return false; const isOwner = pkg.editor_email === currentUser.email; const isPending = pkg.status === 'pending'; if (isPending && !isOwner && userData.rol !== 'admin' && userData.rol !== 'editor') return false; return true; });
+        if (fOrden === 'reciente') { result.sort((a, b) => { const getTs = (id) => { if(!id || !id.startsWith('pkg_')) return 0; return parseInt(id.split('_')[1]) || 0; }; return getTs(b.id_paquete) - getTs(a.id_paquete); }); } else if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa)); else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
+        renderCards(result, dom.grid); if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) { const pendientes = uniquePackages.filter(p => p.status === 'pending'); renderCards(pendientes, dom.gridGestion); }
     }
 
     function renderCards(list, targetGrid = dom.grid) {
-        targetGrid.innerHTML = '';
-        if (!list || list.length === 0) { targetGrid.innerHTML = '<p>No hay resultados.</p>'; return; }
+        targetGrid.innerHTML = ''; if (!list || list.length === 0) { targetGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;">No hay resultados.</p>'; return; }
         list.forEach(pkg => {
             if (!pkg.destino) return; 
-
-            const card = document.createElement('div');
-            const noches = getNoches(pkg);
-            card.className = 'paquete-card';
-            const tarifaMostrar = parseFloat(pkg['tarifa']) || 0;
-            const summaryIcons = getSummaryIcons(pkg);
-            const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`;
-            let statusTag = '';
-            if (pkg.status === 'pending') statusTag = `<span style="background-color:#ffeaa7; color:#d35400; padding:2px 8px; border-radius:10px; font-size:0.7em; margin-left:5px;">⏳ En Revisión</span>`;
-
-            card.innerHTML = `
-                <div class="card-clickable">
-                    <div class="card-header" style="padding-bottom:0;">
-                        <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
-                            <div style="max-width:75%; padding-right:30px;"><h3 style="margin:0;font-size:1.5em;line-height:1.2;color:#11173d;">${pkg['destino']} ${statusTag}</h3></div>
-                            ${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:5px 10px;border-radius:12px;font-weight:bold;font-size:0.8em;white-space:nowrap;">🌙 ${noches}</div>` : ''}
-                        </div>
-                        <div style="margin-top:8px;margin-bottom:25px;font-size:0.9em;color:#666;font-weight:500;display:flex;align-items:center;gap:6px;"><span>📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</span></div>
-                    </div>
-                    <div class="card-body" style="padding:0 20px 15px 20px;"><div style="font-size:0.75em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div></div>
-                    <div class="card-footer" style="padding-top:15px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;"><div><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div><div><p class="precio-valor" style="font-size:1.8em;margin:0;color:#ef5a1a;">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar/2))}</p></div></div>
-                </div>`;
-            targetGrid.appendChild(card);
-            card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
+            const card = document.createElement('div'); const noches = getNoches(pkg); card.className = 'paquete-card'; const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; const summaryIcons = getSummaryIcons(pkg); const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`; let statusTag = ''; if (pkg.status === 'pending') statusTag = `<span style="background-color:#ffeaa7; color:#d35400; padding:2px 8px; border-radius:10px; font-size:0.7em; margin-left:5px;">⏳ En Revisión</span>`;
+            card.innerHTML = `<div class="card-clickable"><div class="card-header" style="padding-bottom:0;"><div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;"><div style="max-width:75%; padding-right:30px;"><h3 style="margin:0;font-size:1.5em;line-height:1.2;color:#11173d;">${pkg['destino']} ${statusTag}</h3></div>${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:5px 10px;border-radius:12px;font-weight:bold;font-size:0.8em;white-space:nowrap;">🌙 ${noches}</div>` : ''}</div><div style="margin-top:8px;margin-bottom:25px;font-size:0.9em;color:#666;font-weight:500;display:flex;align-items:center;gap:6px;"><span>📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</span></div></div><div class="card-body" style="padding:0 20px 15px 20px;"><div style="font-size:0.75em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div></div><div class="card-footer" style="padding-top:15px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;"><div><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div><div><p class="precio-valor" style="font-size:1.8em;margin:0;color:#ef5a1a;">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar/2))}</p></div></div></div>`;
+            targetGrid.appendChild(card); card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
         });
     }
 
-    // ACCIONES
-    window.deletePackage = async (pkg) => {
-        if (!await window.showConfirm("⚠️ ¿Eliminar este paquete?")) return;
-        showLoader(true);
-        try {
-            const id = pkg.id_paquete || pkg.id || pkg['item.id']; 
-            await secureFetch(API_URL_UPLOAD, { action_type: 'delete', id_paquete: id, status: 'deleted' }); 
-            await window.showAlert("Paquete eliminado.", "success");
-            window.location.reload();
-        } catch (e) { window.showAlert("Error al eliminar.", "error"); }
-    };
-
-    window.approvePackage = async (pkg) => {
-         if (!await window.showConfirm("¿Aprobar publicación en FEED?")) return;
-         showLoader(true);
-         try {
-             let payload = JSON.parse(JSON.stringify(pkg)); 
-             payload.status = 'approved';
-             payload.action_type = 'edit';
-             payload.creador = pkg.creador; 
-             delete payload['row_number']; 
-             await secureFetch(API_URL_UPLOAD, payload);
-             await window.showAlert("Paquete Aprobado.", "success");
-             window.location.reload();
-         } catch(e) { window.showAlert("Error al aprobar.", "error"); }
-    };
-
-    window.startEditing = async (pkg) => {
-        if (!await window.showConfirm("Se abrirá el formulario de edición.")) return;
-        isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; 
-        originalCreator = pkg.creador || '';
-        document.getElementById('upload-destino').value = pkg.destino;
-        document.getElementById('upload-salida').value = pkg.salida;
-        let fecha = pkg.fecha_salida; if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-');
-        dom.inputFechaViaje.value = fecha;
-        document.getElementById('upload-moneda').value = pkg.moneda;
-        document.getElementById('upload-promo').value = pkg.tipo_promo;
-        document.getElementById('upload-financiacion').value = pkg.financiacion || '';
-        document.getElementById('upload-tarifa-total').value = pkg.tarifa;
-        dom.containerServicios.innerHTML = '';
-        let servicios = [];
-        try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
-        if (Array.isArray(servicios)) { servicios.forEach(s => agregarModuloServicio(s.tipo, s)); }
-        window.calcularTotal();
-        dom.modal.style.display = 'none'; 
-        showView('upload');
-        window.scrollTo(0,0);
-        window.showAlert("Modo Edición Activado.", "info");
-    };
+    // GESTION MODAL
+    window.deletePackage = async (pkg) => { if (!await window.showConfirm("⚠️ ¿Eliminar este paquete?")) return; showLoader(true); try { const id = pkg.id_paquete || pkg.id || pkg['item.id']; await secureFetch(API_URL_UPLOAD, { action_type: 'delete', id_paquete: id, status: 'deleted' }); await window.showAlert("Paquete eliminado.", "success"); window.location.reload(); } catch (e) { window.showAlert("Error al eliminar.", "error"); } };
+    window.approvePackage = async (pkg) => { if (!await window.showConfirm("¿Aprobar publicación en FEED?")) return; showLoader(true); try { let payload = JSON.parse(JSON.stringify(pkg)); payload.status = 'approved'; payload.action_type = 'edit'; payload.creador = pkg.creador; delete payload['row_number']; await secureFetch(API_URL_UPLOAD, payload); await window.showAlert("Paquete Aprobado.", "success"); window.location.reload(); } catch(e) { window.showAlert("Error al aprobar.", "error"); } };
+    window.startEditing = async (pkg) => { if (!await window.showConfirm("Se abrirá el formulario de edición.")) return; isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; originalCreator = pkg.creador || ''; document.getElementById('upload-destino').value = pkg.destino; document.getElementById('upload-salida').value = pkg.salida; let fecha = pkg.fecha_salida; if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-'); dom.inputFechaViaje.value = fecha; document.getElementById('upload-moneda').value = pkg.moneda; document.getElementById('upload-promo').value = pkg.tipo_promo; document.getElementById('upload-financiacion').value = pkg.financiacion || ''; document.getElementById('upload-tarifa-total').value = pkg.tarifa; dom.containerServicios.innerHTML = ''; let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {} if (Array.isArray(servicios)) { servicios.forEach(s => agregarModuloServicio(s.tipo, s)); } window.calcularTotal(); dom.modal.style.display = 'none'; showView('upload'); window.scrollTo(0,0); window.showAlert("Modo Edición Activado.", "info"); };
 
     function openModal(pkg) {
         if (typeof renderServiciosClienteHTML !== 'function') return alert("Error interno.");
-        const rawServicios = pkg['servicios'] || pkg['item.servicios'];
-        const htmlCliente = renderServiciosClienteHTML(rawServicios);
-        const htmlCostos = renderCostosProveedoresHTML(rawServicios);
-        const noches = getNoches(pkg);
-        const tarifa = parseFloat(pkg['tarifa']) || 0;
-        const tarifaDoble = Math.round(tarifa / 2);
-        const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 8px;`;
-        let adminTools = '';
-        const isOwner = pkg.editor_email === currentUser.email;
-        const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
-        if (canEdit) {
-            const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick='approvePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : '';
-            adminTools = `<div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">${btnApprove}<button class="btn btn-secundario" onclick='startEditing(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button><button class="btn btn-secundario" onclick='deletePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button></div>`;
-        }
-        dom.modalBody.innerHTML = `${adminTools}<div class="modal-detalle-header" style="display:flex; flex-direction:column; align-items:flex-start; padding: 25px;"><h2 style="margin:0; color:#11173d; font-size: 2em; padding-right: 150px;">${pkg['destino']}</h2><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div><div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;"><div><h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>${htmlCliente}</div><div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;"><div style="margin-bottom:20px;"><h4 style="margin:0 0 10px 0; color:#11173d;">Resumen</h4><p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${formatDateAR(pkg['fecha_salida'])}</p><p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${pkg['salida']}</p><p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p><p style="margin:5px 0; font-size:0.9em;"><b>📅 Cargado el:</b> ${pkg['fecha_creacion'] || '-'}</p></div><div><h4 style="margin:0 0 10px 0; color:#11173d; border-top:1px solid #eee; padding-top:15px;">Costos (Interno)</h4>${htmlCostos}</div>${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}</div></div><div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px;"><div style="display:flex; gap:30px;"><div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div><div><small style="opacity:0.7;">Tarifa Final</small><div style="font-size:1.2em; font-weight:bold; color:#ef5a1a;">${pkg['moneda']} $${formatMoney(tarifa)}</div></div><div><small style="opacity:0.7;">x Persona (Base Doble)</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div></div></div><div style="text-align:right;"><small style="opacity:0.7;">Cargado por:</small><div style="font-size:0.9em;">${pkg['creador']}</div></div></div>`;
+        const rawServicios = pkg['servicios'] || pkg['item.servicios']; const htmlCliente = renderServiciosClienteHTML(rawServicios); const htmlCostos = renderCostosProveedoresHTML(rawServicios); const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2); const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 8px;`; let adminTools = ''; const isOwner = pkg.editor_email === currentUser.email; const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
+        if (canEdit) { const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick='approvePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : ''; adminTools = `<div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">${btnApprove}<button class="btn btn-secundario" onclick='startEditing(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button><button class="btn btn-secundario" onclick='deletePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button></div>`; }
+        dom.modalBody.innerHTML = `${adminTools}<div class="modal-detalle-header"><h2 style="margin:0;font-size:2em;padding-right:150px;">${pkg['destino']}</h2><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div><div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;"><div><h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>${htmlCliente}</div><div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;"><div style="margin-bottom:20px;"><h4 style="margin:0 0 10px 0; color:#11173d;">Resumen</h4><p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${formatDateAR(pkg['fecha_salida'])}</p><p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${pkg['salida']}</p><p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p><p style="margin:5px 0; font-size:0.9em;"><b>📅 Cargado el:</b> ${pkg['fecha_creacion'] || '-'}</p></div><div><h4 style="margin:0 0 10px 0; color:#11173d; border-top:1px solid #eee; padding-top:15px;">Costos (Interno)</h4>${htmlCostos}</div>${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}</div></div><div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px;"><div style="display:flex; gap:30px;"><div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div><div><small style="opacity:0.7;">Tarifa Final</small><div style="font-size:1.2em; font-weight:bold; color:#ef5a1a;">${pkg['moneda']} $${formatMoney(tarifa)}</div></div><div><small style="opacity:0.7;">x Persona (Base Doble)</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div></div></div><div style="text-align:right;"><small style="opacity:0.7;">Cargado por:</small><div style="font-size:0.9em;">${pkg['creador']}</div></div></div>`;
         dom.modal.style.display = 'flex';
     }
 
-    function showView(n) { 
-        Object.values(dom.views).forEach(v => v.classList.remove('active')); 
-        Object.values(dom.nav).forEach(b => b.classList.remove('active')); 
-        dom.views[n].classList.add('active'); 
-        dom.nav[n].classList.add('active'); 
-    }
-    
+    function showView(n) { Object.values(dom.views).forEach(v => v.classList.remove('active')); Object.values(dom.nav).forEach(b => b.classList.remove('active')); dom.views[n].classList.add('active'); dom.nav[n].classList.add('active'); }
     dom.nav.search.onclick = () => showView('search');
     dom.nav.upload.onclick = () => { isEditingId = null; originalCreator = ''; document.getElementById('upload-form').reset(); dom.containerServicios.innerHTML=''; showView('upload'); };
     dom.nav.gestion.onclick = async () => { await fetchAndLoadPackages(); showView('gestion'); };
