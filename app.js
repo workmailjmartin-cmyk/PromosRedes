@@ -25,19 +25,32 @@ document.addEventListener('DOMContentLoaded', () => {
     let allPackages = [];
     let uniquePackages = []; 
     let isEditingId = null; 
-    let originalCreator = ''; // NUEVA VARIABLE PARA GUARDAR EL DUEÑO ORIGINAL
+    let originalCreator = ''; 
 
     // DOM
     const dom = {
-        views: { search: document.getElementById('view-search'), upload: document.getElementById('view-upload'), gestion: document.getElementById('view-gestion'), users: document.getElementById('view-users') },
-        nav: { search: document.getElementById('nav-search'), upload: document.getElementById('nav-upload'), gestion: document.getElementById('nav-gestion'), users: document.getElementById('nav-users') },
+        views: {
+            search: document.getElementById('view-search'),
+            upload: document.getElementById('view-upload'),
+            gestion: document.getElementById('view-gestion'),
+            users: document.getElementById('view-users')
+        },
+        nav: {
+            search: document.getElementById('nav-search'),
+            upload: document.getElementById('nav-upload'),
+            gestion: document.getElementById('nav-gestion'),
+            users: document.getElementById('nav-users')
+        },
         grid: document.getElementById('grilla-paquetes'),
         gridGestion: document.getElementById('grid-gestion'),
+        
         uploadForm: document.getElementById('upload-form'),
+        uploadStatus: document.getElementById('upload-status'),
         userForm: document.getElementById('user-form'),
         usersList: document.getElementById('users-list'),
         inputCostoTotal: document.getElementById('upload-costo-total'),
         inputFechaViaje: document.getElementById('upload-fecha-salida'),
+        
         loginContainer: document.getElementById('login-container'),
         appContainer: document.getElementById('app-container'),
         btnLogin: document.getElementById('login-button'),
@@ -46,19 +59,27 @@ document.addEventListener('DOMContentLoaded', () => {
         modal: document.getElementById('modal-detalle'),
         modalBody: document.getElementById('modal-body'),
         modalClose: document.getElementById('modal-cerrar'),
+        
         containerServicios: document.getElementById('servicios-container'),
         btnAgregarServicio: document.getElementById('btn-agregar-servicio'),
         selectorServicio: document.getElementById('selector-servicio'),
+        
         btnBuscar: document.getElementById('boton-buscar'),
         btnLimpiar: document.getElementById('boton-limpiar'),
         filtroOrden: document.getElementById('filtro-orden'),
         filtroCreador: document.getElementById('filtro-creador'),
-        logo: document.querySelector('.logo')
+        
+        logoImg: document.getElementById('app-logo')
     };
 
-    if(dom.logo) dom.logo.addEventListener('click', () => window.location.reload());
+    // --- LOGO: Clic para recargar e ir al inicio ---
+    if(dom.logoImg) {
+        dom.logoImg.style.cursor = 'pointer';
+        dom.logoImg.addEventListener('click', () => window.location.reload());
+    }
 
     // --- 2. UTILIDADES VISUALES ---
+    
     window.showAlert = (message, type = 'error') => {
         return new Promise((resolve) => {
             const overlay = document.getElementById('custom-alert-overlay');
@@ -68,11 +89,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const icon = document.getElementById('custom-alert-icon');
             const btn = document.getElementById('custom-alert-btn');
             const btnCancel = document.getElementById('custom-alert-cancel');
+            
             if(btnCancel) btnCancel.style.display = 'none';
+
             if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; }
             else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; }
             else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; }
-            msg.innerText = message; overlay.style.display = 'flex';
+            
+            msg.innerText = message; 
+            overlay.style.display = 'flex';
+            
             btn.onclick = () => { overlay.style.display = 'none'; resolve(); };
         });
     };
@@ -85,25 +111,54 @@ document.addEventListener('DOMContentLoaded', () => {
             const icon = document.getElementById('custom-alert-icon');
             const btnOk = document.getElementById('custom-alert-btn');
             const btnCancel = document.getElementById('custom-alert-cancel');
+
             title.innerText = 'Confirmación'; title.style.color = '#11173d'; icon.innerHTML = '❓';
             msg.innerText = message;
+            
             if(btnCancel) btnCancel.style.display = 'inline-block';
             overlay.style.display = 'flex';
+
             btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); };
             if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); };
         });
     };
 
-    // --- 3. LÓGICA DE HISTORIAL ---
+    // --- 3. LÓGICA DE FECHAS (BLOQUEO AUTOMÁTICO) ---
+    // Cuando cambia la fecha de salida, actualizamos todos los calendarios de servicios
+    dom.inputFechaViaje.addEventListener('change', (e) => {
+        const fechaSalida = e.target.value;
+        if(fechaSalida) {
+            actualizarMinimosFechas(fechaSalida);
+        }
+    });
+
+    function actualizarMinimosFechas(minDate) {
+        // Busca todos los inputs de tipo fecha dentro de las tarjetas de servicio
+        const dateInputs = dom.containerServicios.querySelectorAll('input[type="date"]');
+        dateInputs.forEach(input => {
+            // Solo aplicamos si el input está vacío o si la fecha actual es menor al mínimo
+            // Pero para ser estrictos, forzamos el min siempre.
+            input.min = minDate;
+            
+            // Si la fecha que tenía puesta es menor a la de salida, la borramos para evitar errores
+            if(input.value && input.value < minDate){
+                input.value = '';
+            }
+        });
+    }
+
+    // --- 4. LÓGICA DE HISTORIAL ---
     function processPackageHistory(rawList) {
         if (!Array.isArray(rawList)) return [];
         const historyMap = new Map();
+        
         rawList.forEach(pkg => {
             const id = pkg.id_paquete || pkg.id || pkg['item.id'];
-            if (!id) return;
+            if (!id) return; 
             if (!historyMap.has(id)) historyMap.set(id, []);
             historyMap.get(id).push(pkg);
         });
+
         const processedList = [];
         historyMap.forEach((versions) => {
             const latestVersion = versions[versions.length - 1];
@@ -124,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e){ console.error(e); }
     }
 
-    // --- 4. AUTENTICACIÓN ---
+    // --- 5. AUTENTICACIÓN ---
     auth.onAuthStateChanged(async (u) => {
         if (u) {
             try {
@@ -133,9 +188,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (doc.exists) {
                     currentUser = u;
                     userData = doc.data(); 
+                    
                     dom.loginContainer.style.display='none';
                     dom.appContainer.style.display='block';
                     dom.userEmail.textContent = `${userData.franquicia} (${u.email})`;
+                    
                     configureUIByRole();
                     await fetchAndLoadPackages();
                     showView('search');
@@ -166,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- 5. GESTIÓN DE USUARIOS ---
+    // --- 6. GESTIÓN DE USUARIOS ---
     if (dom.userForm) {
         dom.userForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -217,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return await res.json();
     }
 
-    // --- 6. CARGA DE PAQUETES ---
+    // --- 7. CARGA DE PAQUETES ---
     dom.btnAgregarServicio.addEventListener('click', () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } });
 
     function agregarModuloServicio(tipo, data = null) {
@@ -233,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         div.className = `servicio-card ${tipo}`; div.dataset.id = id; div.dataset.tipo = tipo;
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
+        // --- BUILDERS ---
         if(tipo==='aereo'){html+=`<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas',0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='hotel'){html+=`<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='traslado'){html+=`<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Htl-Htl</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
@@ -243,6 +301,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         div.innerHTML = html;
         dom.containerServicios.appendChild(div);
+        
+        // APLICAR MINIMOS DE FECHA AL NUEVO SERVICIO
+        if(dom.inputFechaViaje.value) {
+            const inputsFecha = div.querySelectorAll('input[type="date"]');
+            inputsFecha.forEach(i => i.min = dom.inputFechaViaje.value);
+        }
+
         if(data){
             div.querySelectorAll('input, select, textarea').forEach(input => {
                 if (data[input.name] !== undefined) {
@@ -286,6 +351,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        
+        // LOGICA DE CREADOR:
+        // Si hay una franquicia en userData, la usamos. Si no, usamos el originalCreator (si existe), o 'Desconocido'.
+        let creadorFinal = userData.franquicia;
+        if (!creadorFinal && isEditingId) creadorFinal = originalCreator;
+        if (!creadorFinal) creadorFinal = 'Desconocido';
+
         const payload = {
             id_paquete: idGenerado,
             destino: document.getElementById('upload-destino').value,
@@ -298,8 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
             financiacion: document.getElementById('upload-financiacion').value,
             servicios: serviciosData,
             status: status,
-            // LOGICA DUEÑO: Usamos el original si existe, si no, el del usuario actual
-            creador: isEditingId ? originalCreator : (userData.franquicia || 'Desconocido'), 
+            creador: creadorFinal, 
             editor_email: currentUser.email,
             action_type: isEditingId ? 'edit' : 'create'
         };
@@ -311,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) { window.showAlert("Error al guardar.", 'error'); }
     });
 
-    // --- 7. FILTROS Y RENDERIZADO ---
+    // --- 8. FILTROS Y RENDERIZADO ---
     function populateFranchiseFilter(packages) {
         const selector = dom.filtroCreador;
         if(!selector) return;
@@ -395,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- UTILS QUE FALTABAN ---
+    // --- UTILS ---
     function getNoches(pkg) {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
@@ -442,10 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
              let payload = JSON.parse(JSON.stringify(pkg)); 
              payload.status = 'approved';
              payload.action_type = 'edit';
-             // NO enviamos creador para no sobreescribir (n8n ya lo maneja o se mantiene el viejo)
-             // Pero con la nueva logica de edit, enviamos explicitamente
              payload.creador = pkg.creador; 
-             
              delete payload['row_number']; 
              await secureFetch(API_URL_UPLOAD, payload);
              await window.showAlert("Paquete Aprobado.", "success");
@@ -502,28 +570,35 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderServiciosClienteHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h=''; s.forEach(x=>{ let i='🔹',t='',l=[]; if(x.tipo==='aereo'){i='✈️';t='AÉREO';l.push(`<b>${x.aerolinea}</b>`);l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);} else if(x.tipo==='hotel'){i='🏨';t='HOTEL';l.push(`<b>${x.hotel_nombre}</b> (${x.regimen})`);} else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} else if(x.tipo==='seguro'){i='🛡️';t='SEGURO';l.push(`${x.proveedor}`);} else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} else if(x.tipo==='bus'){i='🚌';t='BUS';l.push(`${x.bus_noches} Noches`);} else if(x.tipo==='crucero'){i='🚢';t='CRUCERO';l.push(`${x.crucero_naviera} - ${x.crucero_recorrido}`);} h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`; }); return h; }
     function renderCostosProveedoresHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h='<ul style="padding-left:15px;margin:0;">'; s.forEach(x=>{ h+=`<li>${x.proveedor||x.tipo}: $${x.costo}</li>`; }); return h+'</ul>'; }
     
-    // --- VISTAS ---
+    // --- VISTAS Y NAVEGACIÓN ---
     function showView(n) { 
         Object.values(dom.views).forEach(v => v.classList.remove('active')); 
         Object.values(dom.nav).forEach(b => b.classList.remove('active')); 
         dom.views[n].classList.add('active'); 
         dom.nav[n].classList.add('active'); 
-        // NO reseteamos isEditingId para que sobreviva al cambio de vista si venimos de "Editar"
     }
     
     dom.nav.search.onclick = () => showView('search');
     
-    // AQUI SI RESETEAMOS EL ID (Botón Cargar Nuevo)
+    // BOTÓN CARGAR: Limpia todo para una carga nueva
     dom.nav.upload.onclick = () => { 
         isEditingId = null; 
-        originalCreator = ''; // Reseteamos también el creador
+        originalCreator = ''; 
         document.getElementById('upload-form').reset(); 
         dom.containerServicios.innerHTML=''; 
         showView('upload'); 
     };
     
-    dom.nav.gestion.onclick = () => showView('gestion');
-    dom.nav.users.onclick = () => showView('users');
+    // NAVEGACIÓN CON REFRESCO (Request 2)
+    dom.nav.gestion.onclick = async () => {
+        await fetchAndLoadPackages(); 
+        showView('gestion');
+    };
+    dom.nav.users.onclick = async () => {
+        // Users list se refresca en su propia función loadUsersList(), pero podemos refrescar paquetes si quisieras
+        showView('users');
+    };
+
     dom.modalClose.onclick = () => dom.modal.style.display = 'none';
     window.onclick = e => { if(e.target === dom.modal) dom.modal.style.display='none'; };
     
