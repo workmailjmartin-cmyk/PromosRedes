@@ -141,10 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const rol = userData.rol;
         dom.nav.gestion.style.display = (rol === 'editor' || rol === 'admin') ? 'inline-block' : 'none';
         dom.nav.users.style.display = (rol === 'admin') ? 'inline-block' : 'none';
-        // MOSTRAR FILTRO DE CREADOR SI ES ADMIN/EDITOR
-        if (rol === 'admin' || rol === 'editor') {
-            if(dom.containerFiltroCreador) dom.containerFiltroCreador.style.display = 'flex';
-        }
+        if (rol === 'admin' || rol === 'editor') { if(dom.containerFiltroCreador) dom.containerFiltroCreador.style.display = 'flex'; }
         if (rol === 'admin') loadUsersList(); 
         const selectPromo = document.getElementById('upload-promo');
         if(selectPromo) {
@@ -184,7 +181,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = dom.containerServicios; const existingServices = container.querySelectorAll('.servicio-card');
         const hasExclusive = Array.from(existingServices).some(c => c.dataset.tipo === 'bus' || c.dataset.tipo === 'crucero');
         
-        // LÓGICA DE SERVICIOS: Si hay exclusivo (Bus/Crucero), SOLO se puede agregar ADICIONAL
         if (!data) { 
             if (hasExclusive && tipo !== 'adicional') return window.showAlert("⛔ Ya hay un servicio exclusivo. Solo puedes agregar Adicionales.", "error"); 
             if ((tipo === 'bus' || tipo === 'crucero') && existingServices.length > 0) return window.showAlert("⛔ Este servicio debe ser único.", "error"); 
@@ -194,7 +190,6 @@ document.addEventListener('DOMContentLoaded', () => {
         div.className = `servicio-card ${tipo}`; div.dataset.id = id; div.dataset.tipo = tipo;
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
-        // BUILDERS CON EMOJIS Y CHECKBOXES ARREGLADOS
         if(tipo==='aereo'){html+=`<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas',0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='hotel'){html+=`<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='traslado'){html+=`<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Hotel - Hotel</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
@@ -228,7 +223,14 @@ document.addEventListener('DOMContentLoaded', () => {
         let serviciosData = []; for (let card of cards) { const serv = { tipo: card.dataset.tipo }; card.querySelectorAll('input, select, textarea').forEach(i => { if (i.type === 'checkbox') serv[i.name] = i.checked; else if (i.type === 'hidden') serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value; else serv[i.name] = i.value; }); serviciosData.push(serv); }
 
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        let creadorFinal = userData.franquicia; if (!creadorFinal && isEditingId) creadorFinal = originalCreator; if (!creadorFinal) creadorFinal = 'Desconocido';
+        
+        // LOGICA CREADOR (CORREGIDA)
+        let creadorFinal;
+        if (isEditingId && originalCreator) {
+             creadorFinal = originalCreator; // Mantiene el original al editar
+        } else {
+             creadorFinal = userData.franquicia || 'Desconocido'; // Usa el actual si es nuevo
+        }
 
         const payload = { id_paquete: idGenerado, destino: document.getElementById('upload-destino').value, salida: document.getElementById('upload-salida').value, fecha_salida: fechaViajeStr, costos_proveedor: costo, tarifa: tarifa, moneda: document.getElementById('upload-moneda').value, tipo_promo: promoType, financiacion: document.getElementById('upload-financiacion').value, servicios: serviciosData, status: status, creador: creadorFinal, editor_email: currentUser.email, action_type: isEditingId ? 'edit' : 'create' };
 
