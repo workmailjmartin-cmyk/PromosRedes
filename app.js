@@ -29,28 +29,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // DOM
     const dom = {
-        views: {
-            search: document.getElementById('view-search'),
-            upload: document.getElementById('view-upload'),
-            gestion: document.getElementById('view-gestion'),
-            users: document.getElementById('view-users')
-        },
-        nav: {
-            search: document.getElementById('nav-search'),
-            upload: document.getElementById('nav-upload'),
-            gestion: document.getElementById('nav-gestion'),
-            users: document.getElementById('nav-users')
-        },
+        views: { search: document.getElementById('view-search'), upload: document.getElementById('view-upload'), gestion: document.getElementById('view-gestion'), users: document.getElementById('view-users') },
+        nav: { search: document.getElementById('nav-search'), upload: document.getElementById('nav-upload'), gestion: document.getElementById('nav-gestion'), users: document.getElementById('nav-users') },
         grid: document.getElementById('grilla-paquetes'),
         gridGestion: document.getElementById('grid-gestion'),
-        
         uploadForm: document.getElementById('upload-form'),
-        uploadStatus: document.getElementById('upload-status'),
         userForm: document.getElementById('user-form'),
         usersList: document.getElementById('users-list'),
         inputCostoTotal: document.getElementById('upload-costo-total'),
         inputFechaViaje: document.getElementById('upload-fecha-salida'),
-        
         loginContainer: document.getElementById('login-container'),
         appContainer: document.getElementById('app-container'),
         btnLogin: document.getElementById('login-button'),
@@ -59,27 +46,22 @@ document.addEventListener('DOMContentLoaded', () => {
         modal: document.getElementById('modal-detalle'),
         modalBody: document.getElementById('modal-body'),
         modalClose: document.getElementById('modal-cerrar'),
-        
         containerServicios: document.getElementById('servicios-container'),
         btnAgregarServicio: document.getElementById('btn-agregar-servicio'),
         selectorServicio: document.getElementById('selector-servicio'),
-        
         btnBuscar: document.getElementById('boton-buscar'),
         btnLimpiar: document.getElementById('boton-limpiar'),
         filtroOrden: document.getElementById('filtro-orden'),
         filtroCreador: document.getElementById('filtro-creador'),
-        
         logoImg: document.getElementById('app-logo')
     };
 
-    // LOGO: Clic para recargar
     if(dom.logoImg) {
         dom.logoImg.style.cursor = 'pointer';
         dom.logoImg.addEventListener('click', () => window.location.reload());
     }
 
-    // --- 2. UTILIDADES VISUALES (Alertas) ---
-    
+    // --- 2. UTILIDADES ---
     window.showAlert = (message, type = 'error') => {
         return new Promise((resolve) => {
             const overlay = document.getElementById('custom-alert-overlay');
@@ -89,16 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const icon = document.getElementById('custom-alert-icon');
             const btn = document.getElementById('custom-alert-btn');
             const btnCancel = document.getElementById('custom-alert-cancel');
-            
             if(btnCancel) btnCancel.style.display = 'none';
-
             if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; }
             else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; }
             else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; }
-            
-            msg.innerText = message; 
-            overlay.style.display = 'flex';
-            
+            msg.innerText = message; overlay.style.display = 'flex';
             btn.onclick = () => { overlay.style.display = 'none'; resolve(); };
         });
     };
@@ -111,90 +88,61 @@ document.addEventListener('DOMContentLoaded', () => {
             const icon = document.getElementById('custom-alert-icon');
             const btnOk = document.getElementById('custom-alert-btn');
             const btnCancel = document.getElementById('custom-alert-cancel');
-
             title.innerText = 'Confirmación'; title.style.color = '#11173d'; icon.innerHTML = '❓';
             msg.innerText = message;
-            
             if(btnCancel) btnCancel.style.display = 'inline-block';
             overlay.style.display = 'flex';
-
             btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); };
             if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); };
         });
     };
 
-    // --- 3. LÓGICA DE FECHAS (NUEVO: Validación y Bloqueo) ---
-    
-    // Obtenemos fecha de hoy (ajustada a zona horaria local para input date)
+    // --- 3. LÓGICA DE FECHAS (VALIDACIÓN) ---
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     const minGlobalDate = now.toISOString().split('T')[0];
     
     if(dom.inputFechaViaje) {
-        // Bloquear fechas pasadas en el selector principal
         dom.inputFechaViaje.min = minGlobalDate; 
-        
-        // Evento: Cuando cambia la fecha de salida del viaje
         dom.inputFechaViaje.addEventListener('change', (e) => {
             const fechaSalida = e.target.value;
-            
-            // Validación extra de seguridad
             if(fechaSalida < minGlobalDate) {
                 window.showAlert("⚠️ La fecha de salida no puede ser en el pasado.", "error");
                 dom.inputFechaViaje.value = "";
                 return;
             }
-
-            // Actualizamos los calendarios de los servicios
-            if(fechaSalida) {
-                actualizarMinimosFechas(fechaSalida);
-            }
+            if(fechaSalida) actualizarMinimosFechas(fechaSalida);
         });
     }
 
     function actualizarMinimosFechas(minDate) {
-        // Busca todos los inputs de tipo fecha dentro de las tarjetas de servicio
         const dateInputs = dom.containerServicios.querySelectorAll('input[type="date"]');
         dateInputs.forEach(input => {
-            // Regla: Ningún servicio puede ser anterior a la salida del viaje
             input.min = minDate;
-            
-            // Si el usuario ya había puesto una fecha y ahora es inválida (anterior a la salida), la borramos
             if(input.value && input.value < minDate){
                 input.value = '';
-                // Efecto visual de error (borde rojo por 2 segundos)
                 input.style.borderColor = '#ef5a1a';
-                setTimeout(() => input.style.borderColor = '#e0e0e0', 2000);
+                setTimeout(() => input.style.borderColor = '#ddd', 2000);
             }
         });
     }
 
-    // --- 4. LÓGICA DE HISTORIAL ---
+    // --- 4. HISTORIAL Y CARGA ---
     function processPackageHistory(rawList) {
         if (!Array.isArray(rawList)) return [];
-        
         const historyMap = new Map();
-
-        // Agrupamos filas por ID
         rawList.forEach(pkg => {
             const id = pkg.id_paquete || pkg.id || pkg['item.id'];
             if (!id) return; 
-
-            if (!historyMap.has(id)) {
-                historyMap.set(id, []);
-            }
+            if (!historyMap.has(id)) historyMap.set(id, []);
             historyMap.get(id).push(pkg);
         });
-
         const processedList = [];
-
-        // Procesamos grupos (Versionado)
         historyMap.forEach((versions) => {
             const latestVersion = versions[versions.length - 1];
-            if (latestVersion.status === 'deleted') return; // Eliminados fuera
+            if (latestVersion.status === 'deleted') return;
             processedList.push(latestVersion);
         });
-
         return processedList;
     }
 
@@ -203,15 +151,13 @@ document.addEventListener('DOMContentLoaded', () => {
             let d = await secureFetch(API_URL_SEARCH, {}); 
             if (typeof d === 'string') d = JSON.parse(d);
             allPackages = d; 
-            
             uniquePackages = processPackageHistory(allPackages);
-            
             populateFranchiseFilter(uniquePackages); 
             applyFilters(); 
         } catch(e){ console.error(e); }
     }
 
-    // --- 5. AUTENTICACIÓN ---
+    // --- 5. AUTH ---
     auth.onAuthStateChanged(async (u) => {
         if (u) {
             try {
@@ -220,27 +166,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (doc.exists) {
                     currentUser = u;
                     userData = doc.data(); 
-                    
                     dom.loginContainer.style.display='none';
                     dom.appContainer.style.display='block';
                     dom.userEmail.textContent = `${userData.franquicia} (${u.email})`;
-                    
                     configureUIByRole();
                     await fetchAndLoadPackages();
                     showView('search');
                 } else {
-                    await window.showAlert(`⛔ El usuario ${u.email} no tiene permisos. Contacta a un Admin.`);
+                    await window.showAlert(`⛔ Sin permisos.`);
                     auth.signOut();
                 }
-            } catch (e) { 
-                console.error(e);
-                await window.showAlert("Error de conexión con la base de datos."); 
-            }
+            } catch (e) { await window.showAlert("Error de conexión."); }
         } else {
-            currentUser = null;
-            userData = null;
-            dom.loginContainer.style.display='flex';
-            dom.appContainer.style.display='none';
+            currentUser = null; userData = null;
+            dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none';
         }
     });
 
@@ -249,41 +188,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function configureUIByRole() {
         const rol = userData.rol;
-        dom.nav.gestion.style.display = 'none';
-        dom.nav.users.style.display = 'none';
-
-        if (rol === 'editor' || rol === 'admin') dom.nav.gestion.style.display = 'inline-block';
-        if (rol === 'admin') {
-            dom.nav.users.style.display = 'inline-block';
-            loadUsersList(); 
-        }
-
+        dom.nav.gestion.style.display = (rol === 'editor' || rol === 'admin') ? 'inline-block' : 'none';
+        dom.nav.users.style.display = (rol === 'admin') ? 'inline-block' : 'none';
+        if (rol === 'admin') loadUsersList(); 
         const selectPromo = document.getElementById('upload-promo');
         if(selectPromo) {
             selectPromo.innerHTML = '';
-            if (rol === 'usuario') {
-                selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
-            } else {
-                selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
-            }
+            if (rol === 'usuario') selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
+            else selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
         }
     }
 
-    // --- 6. GESTIÓN DE USUARIOS ---
+    // --- 6. USUARIOS ---
     if (dom.userForm) {
         dom.userForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('user-email-input').value.trim().toLowerCase();
             const rol = document.getElementById('user-role-input').value;
             const fran = document.getElementById('user-franchise-input').value;
-
             try {
                 await db.collection('usuarios').doc(email).set({ email, rol, franquicia: fran, fecha_modificacion: new Date() }, { merge: true });
                 await window.showAlert('Usuario guardado.', 'success');
                 document.getElementById('user-email-input').value = '';
                 document.getElementById('user-franchise-input').value = '';
                 loadUsersList();
-            } catch (e) { await window.showAlert('Error al guardar usuario.', 'error'); }
+            } catch (e) { await window.showAlert('Error.', 'error'); }
         });
     }
 
@@ -298,10 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const li = document.createElement('li');
                 li.style.cssText = "padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;";
                 li.innerHTML = `<span><b>${u.email}</b><br><small>${u.rol.toUpperCase()} - ${u.franquicia}</small></span>
-                    <div style="display:flex; gap:5px;">
-                        <button class="btn btn-secundario" style="padding:4px 10px;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">✏️</button>
-                        <button class="btn btn-secundario" style="padding:4px 10px;" onclick="confirmDeleteUser('${u.email}')">🗑️</button>
-                    </div>`;
+                    <div style="display:flex; gap:5px;"><button class="btn btn-secundario" style="padding:4px 10px;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">✏️</button><button class="btn btn-secundario" style="padding:4px 10px;" onclick="confirmDeleteUser('${u.email}')">🗑️</button></div>`;
                 list.appendChild(li);
             });
         } catch (e) { list.innerHTML = 'Error.'; }
@@ -314,22 +240,17 @@ document.addEventListener('DOMContentLoaded', () => {
         window.scrollTo(0,0);
         window.showAlert(`Editando: ${e}`, 'info');
     };
-
-    window.confirmDeleteUser = async (e) => { 
-        if(await window.showConfirm("¿Eliminar usuario?")) {
-            try { await db.collection('usuarios').doc(e).delete(); loadUsersList(); } catch(x){alert('Error');} 
-        }
-    };
+    window.confirmDeleteUser = async (e) => { if(await window.showConfirm("¿Eliminar?")) try { await db.collection('usuarios').doc(e).delete(); loadUsersList(); } catch(x){alert('Error');} };
 
     async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
         const token = await currentUser.getIdToken(true);
         const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body:JSON.stringify(body), cache:'no-store' });
-        if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
+        if (!res.ok) throw new Error(`API Error`);
         return await res.json();
     }
 
-    // --- 7. CARGA DE PAQUETES ---
+    // --- 7. CARGA DE SERVICIOS ---
     dom.btnAgregarServicio.addEventListener('click', () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } });
 
     function agregarModuloServicio(tipo, data = null) {
@@ -345,7 +266,6 @@ document.addEventListener('DOMContentLoaded', () => {
         div.className = `servicio-card ${tipo}`; div.dataset.id = id; div.dataset.tipo = tipo;
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
-        // BUILDERS
         if(tipo==='aereo'){html+=`<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas',0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='hotel'){html+=`<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='traslado'){html+=`<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Htl-Htl</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
@@ -357,17 +277,15 @@ document.addEventListener('DOMContentLoaded', () => {
         div.innerHTML = html;
         dom.containerServicios.appendChild(div);
         
-        // APLICAR MINIMOS DE FECHA AL NUEVO SERVICIO (NUEVO BLOQUE)
+        // APLICAR MINIMOS DE FECHA AL NUEVO SERVICIO
         if(dom.inputFechaViaje.value) {
             const inputsFecha = div.querySelectorAll('input[type="date"]');
             inputsFecha.forEach(i => i.min = dom.inputFechaViaje.value);
         } else {
-            // Si no hay fecha de viaje aun, al menos que no sea pasado
             const inputsFecha = div.querySelectorAll('input[type="date"]');
             const today = new Date();
             today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
-            const todayStr = today.toISOString().split('T')[0];
-            inputsFecha.forEach(i => i.min = todayStr);
+            inputsFecha.forEach(i => i.min = today.toISOString().split('T')[0]);
         }
 
         if(data){
@@ -570,7 +488,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     dom.nav.search.onclick = () => showView('search');
     
-    // BOTÓN CARGAR: Limpia todo para una carga nueva
     dom.nav.upload.onclick = () => { 
         isEditingId = null; 
         originalCreator = ''; 
@@ -579,7 +496,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showView('upload'); 
     };
     
-    // NAVEGACIÓN CON REFRESCO (Gestion y Users)
     dom.nav.gestion.onclick = async () => {
         await fetchAndLoadPackages(); 
         showView('gestion');
