@@ -542,4 +542,56 @@ body {
     flex-direction: column;
     flex-grow: 1;
 }
+/* --- MEJORAS VISUALES (Logo y Fechas) --- */
+
+/* 1. Logo en Header */
+.logo img {
+    height: 50px; /* Ajusta este tamaño a tu gusto */
+    width: auto;
+    transition: transform 0.2s ease;
+    display: block;
+}
+.logo img:hover {
+    transform: scale(1.05); /* Pequeño efecto al pasar el mouse */
+}
+
+/* 2. Calendarios Más Grandes y Profesionales */
+input[type="date"] {
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 12px 15px; /* Más espacio interno */
+    font-size: 1.1em;   /* Letra más grande */
+    color: #333;
+    background-color: #fff;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px; /* Bordes más redondeados */
+    min-height: 50px;    /* Altura mínima cómoda para el dedo/mouse */
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+input[type="date"]:focus {
+    border-color: var(--color-secundario);
+    box-shadow: 0 0 0 3px rgba(86, 221, 224, 0.2);
+    outline: none;
+}
+
+/* Icono del calendario interno (solo Chrome/Edge/Opera) */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    width: 25px;
+    height: 25px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* Estilo para fechas deshabilitadas (aunque el navegador lo hace solo, reforzamos) */
+input[type="date"]:invalid {
+    color: #999;
+}
 
