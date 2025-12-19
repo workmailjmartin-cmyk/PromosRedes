@@ -54,9 +54,9 @@
                         <label>Destino</label>
                         <input type="text" id="filtro-destino" placeholder="Ej: Punta Cana...">
                     </div>
-                    <div class="filtro-group">
+                    <div class="filtro-group" id="container-filtro-creador" style="display:none;">
                         <label>Creador</label>
-                        <select id="filtro-creador" style="display:none;"><option value="">Todas</option></select>
+                        <select id="filtro-creador"><option value="">Todas las Franquicias</option></select>
                     </div>
                     <div class="filtro-group">
                         <label>Promoción</label>
@@ -95,13 +95,13 @@
                         <div class="add-service-bar">
                             <select id="selector-servicio" style="flex:1;">
                                 <option value="">Seleccionar Servicio...</option>
-                                <option value="aereo">Aéreo</option>
-                                <option value="hotel">Hotel</option>
-                                <option value="traslado">Traslado</option>
-                                <option value="seguro">Seguro</option>
-                                <option value="bus">Paquete Bus</option>
-                                <option value="crucero">Crucero</option>
-                                <option value="adicional">Adicional</option>
+                                <option value="aereo">✈️ Aéreo</option>
+                                <option value="hotel">🏨 Hotel</option>
+                                <option value="traslado">🚕 Traslado</option>
+                                <option value="seguro">🛡️ Seguro</option>
+                                <option value="bus">🚌 Paquete Bus</option>
+                                <option value="crucero">🚢 Crucero</option>
+                                <option value="adicional">➕ Adicional</option>
                             </select>
                             <button type="button" id="btn-agregar-servicio" class="btn btn-secundario" style="background:#11173d; color:white;">+ Agregar</button>
                         </div>
@@ -137,7 +137,6 @@
                         <button type="submit" class="btn btn-primario" style="height:45px;">Guardar</button>
                     </form>
                 </div>
-                
                 <div class="user-list-card">
                     <h3 style="padding:0 20px; color:#777;">Usuarios Existentes</h3>
                     <div id="users-list"></div>
