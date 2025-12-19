@@ -594,58 +594,51 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 input[type="date"]:invalid {
     color: #999;
 }
-/* --- MEJORAS VISUALES FINALES --- */
 
-/* 1. Logo Grande y Estético */
+/* --- ESTILO DE FECHAS (Normalizado y Prolijo) --- */
+
+/* Aseguramos que el input date sea idéntico a los inputs de texto */
+input[type="date"] {
+    width: 100%;
+    padding: 12px; /* Mismo padding que los otros inputs */
+    border: 1px solid #ddd; /* Mismo borde suave */
+    border-radius: 8px; /* Mismo redondeado */
+    font-size: 1em; /* Mismo tamaño de letra */
+    font-family: 'Poppins', sans-serif;
+    color: #333;
+    background-color: #fff;
+    box-sizing: border-box;
+    appearance: none; /* Limpia estilos nativos raros */
+    -webkit-appearance: none;
+    height: 45px; /* Altura forzada para igualar a los selects */
+}
+
+/* Estado al hacer clic (Foco) */
+input[type="date"]:focus {
+    border-color: #56DDE0; /* Color secundario (Turquesa) */
+    outline: none;
+}
+
+/* Icono del calendario interno (Ajustado para que sea sutil) */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+    transition: 0.2s;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* Logo Grande (Mantenemos el logo grande como pediste) */
 .logo img {
-    height: 90px; /* Aumentado considerablemente */
-    width: auto;  /* Mantiene la proporción */
+    height: 90px;
+    width: auto;
     transition: transform 0.3s ease;
     display: block;
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); /* Sutil sombra para resaltar */
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
 }
 .logo img:hover {
     transform: scale(1.05);
-}
-
-/* 2. Calendarios Modernos y Grandes */
-input[type="date"] {
-    appearance: none;
-    -webkit-appearance: none;
-    display: block;
-    width: 100%;
-    padding: 15px 20px; /* Espacio interno generoso */
-    font-size: 1.2em;   /* Letra grande y legible */
-    color: #11173d;
-    background-color: #fdfdfd;
-    border: 2px solid #dde2e5;
-    border-radius: 12px;
-    outline: none;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
-}
-
-/* Estado al hacer clic */
-input[type="date"]:focus {
-    border-color: #ef5a1a; /* Naranja de tu marca */
-    background-color: #fff;
-    box-shadow: 0 4px 15px rgba(239, 90, 26, 0.15);
-}
-
-/* Icono del calendario interno (Más grande y naranja) */
-input[type="date"]::-webkit-calendar-picker-indicator {
-    cursor: pointer;
-    width: 30px;
-    height: 30px;
-    opacity: 0.8;
-    filter: invert(47%) sepia(66%) saturate(3029%) hue-rotate(343deg) brightness(96%) contrast(93%); /* Convierte a Naranja aprox */
-    transition: transform 0.2s ease;
-}
-input[type="date"]::-webkit-calendar-picker-indicator:hover {
-    transform: scale(1.2);
-    opacity: 1;
 }
 
