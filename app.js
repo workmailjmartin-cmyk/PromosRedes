@@ -72,13 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
         logoImg: document.getElementById('app-logo')
     };
 
-    // --- LOGO: Clic para recargar e ir al inicio ---
+    // LOGO: Clic para recargar
     if(dom.logoImg) {
         dom.logoImg.style.cursor = 'pointer';
         dom.logoImg.addEventListener('click', () => window.location.reload());
     }
 
-    // --- 2. UTILIDADES VISUALES ---
+    // --- 2. UTILIDADES VISUALES (Alertas) ---
     
     window.showAlert = (message, type = 'error') => {
         return new Promise((resolve) => {
@@ -123,26 +123,48 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- 3. LÓGICA DE FECHAS (BLOQUEO AUTOMÁTICO) ---
-    // Cuando cambia la fecha de salida, actualizamos todos los calendarios de servicios
-    dom.inputFechaViaje.addEventListener('change', (e) => {
-        const fechaSalida = e.target.value;
-        if(fechaSalida) {
-            actualizarMinimosFechas(fechaSalida);
-        }
-    });
+    // --- 3. LÓGICA DE FECHAS (NUEVO: Validación y Bloqueo) ---
+    
+    // Obtenemos fecha de hoy (ajustada a zona horaria local para input date)
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    const minGlobalDate = now.toISOString().split('T')[0];
+    
+    if(dom.inputFechaViaje) {
+        // Bloquear fechas pasadas en el selector principal
+        dom.inputFechaViaje.min = minGlobalDate; 
+        
+        // Evento: Cuando cambia la fecha de salida del viaje
+        dom.inputFechaViaje.addEventListener('change', (e) => {
+            const fechaSalida = e.target.value;
+            
+            // Validación extra de seguridad
+            if(fechaSalida < minGlobalDate) {
+                window.showAlert("⚠️ La fecha de salida no puede ser en el pasado.", "error");
+                dom.inputFechaViaje.value = "";
+                return;
+            }
+
+            // Actualizamos los calendarios de los servicios
+            if(fechaSalida) {
+                actualizarMinimosFechas(fechaSalida);
+            }
+        });
+    }
 
     function actualizarMinimosFechas(minDate) {
         // Busca todos los inputs de tipo fecha dentro de las tarjetas de servicio
         const dateInputs = dom.containerServicios.querySelectorAll('input[type="date"]');
         dateInputs.forEach(input => {
-            // Solo aplicamos si el input está vacío o si la fecha actual es menor al mínimo
-            // Pero para ser estrictos, forzamos el min siempre.
+            // Regla: Ningún servicio puede ser anterior a la salida del viaje
             input.min = minDate;
             
-            // Si la fecha que tenía puesta es menor a la de salida, la borramos para evitar errores
+            // Si el usuario ya había puesto una fecha y ahora es inválida (anterior a la salida), la borramos
             if(input.value && input.value < minDate){
                 input.value = '';
+                // Efecto visual de error (borde rojo por 2 segundos)
+                input.style.borderColor = '#ef5a1a';
+                setTimeout(() => input.style.borderColor = '#e0e0e0', 2000);
             }
         });
     }
@@ -150,21 +172,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 4. LÓGICA DE HISTORIAL ---
     function processPackageHistory(rawList) {
         if (!Array.isArray(rawList)) return [];
-        const historyMap = new Map();
         
+        const historyMap = new Map();
+
+        // Agrupamos filas por ID
         rawList.forEach(pkg => {
             const id = pkg.id_paquete || pkg.id || pkg['item.id'];
             if (!id) return; 
-            if (!historyMap.has(id)) historyMap.set(id, []);
+
+            if (!historyMap.has(id)) {
+                historyMap.set(id, []);
+            }
             historyMap.get(id).push(pkg);
         });
 
         const processedList = [];
+
+        // Procesamos grupos (Versionado)
         historyMap.forEach((versions) => {
             const latestVersion = versions[versions.length - 1];
-            if (latestVersion.status === 'deleted') return;
+            if (latestVersion.status === 'deleted') return; // Eliminados fuera
             processedList.push(latestVersion);
         });
+
         return processedList;
     }
 
@@ -173,7 +203,9 @@ document.addEventListener('DOMContentLoaded', () => {
             let d = await secureFetch(API_URL_SEARCH, {}); 
             if (typeof d === 'string') d = JSON.parse(d);
             allPackages = d; 
+            
             uniquePackages = processPackageHistory(allPackages);
+            
             populateFranchiseFilter(uniquePackages); 
             applyFilters(); 
         } catch(e){ console.error(e); }
@@ -197,13 +229,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     await fetchAndLoadPackages();
                     showView('search');
                 } else {
-                    await window.showAlert(`⛔ Sin permisos.`);
+                    await window.showAlert(`⛔ El usuario ${u.email} no tiene permisos. Contacta a un Admin.`);
                     auth.signOut();
                 }
-            } catch (e) { await window.showAlert("Error de conexión."); }
+            } catch (e) { 
+                console.error(e);
+                await window.showAlert("Error de conexión con la base de datos."); 
+            }
         } else {
-            currentUser = null; userData = null;
-            dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none';
+            currentUser = null;
+            userData = null;
+            dom.loginContainer.style.display='flex';
+            dom.appContainer.style.display='none';
         }
     });
 
@@ -212,14 +249,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function configureUIByRole() {
         const rol = userData.rol;
-        dom.nav.gestion.style.display = (rol === 'editor' || rol === 'admin') ? 'inline-block' : 'none';
-        dom.nav.users.style.display = (rol === 'admin') ? 'inline-block' : 'none';
-        if (rol === 'admin') loadUsersList(); 
+        dom.nav.gestion.style.display = 'none';
+        dom.nav.users.style.display = 'none';
+
+        if (rol === 'editor' || rol === 'admin') dom.nav.gestion.style.display = 'inline-block';
+        if (rol === 'admin') {
+            dom.nav.users.style.display = 'inline-block';
+            loadUsersList(); 
+        }
+
         const selectPromo = document.getElementById('upload-promo');
         if(selectPromo) {
             selectPromo.innerHTML = '';
-            if (rol === 'usuario') selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
-            else selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
+            if (rol === 'usuario') {
+                selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
+            } else {
+                selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
+            }
         }
     }
 
@@ -230,13 +276,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const email = document.getElementById('user-email-input').value.trim().toLowerCase();
             const rol = document.getElementById('user-role-input').value;
             const fran = document.getElementById('user-franchise-input').value;
+
             try {
                 await db.collection('usuarios').doc(email).set({ email, rol, franquicia: fran, fecha_modificacion: new Date() }, { merge: true });
                 await window.showAlert('Usuario guardado.', 'success');
                 document.getElementById('user-email-input').value = '';
                 document.getElementById('user-franchise-input').value = '';
                 loadUsersList();
-            } catch (e) { await window.showAlert('Error.', 'error'); }
+            } catch (e) { await window.showAlert('Error al guardar usuario.', 'error'); }
         });
     }
 
@@ -251,7 +298,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const li = document.createElement('li');
                 li.style.cssText = "padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;";
                 li.innerHTML = `<span><b>${u.email}</b><br><small>${u.rol.toUpperCase()} - ${u.franquicia}</small></span>
-                    <div style="display:flex; gap:5px;"><button class="btn btn-secundario" style="padding:4px 10px;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">✏️</button><button class="btn btn-secundario" style="padding:4px 10px;" onclick="confirmDeleteUser('${u.email}')">🗑️</button></div>`;
+                    <div style="display:flex; gap:5px;">
+                        <button class="btn btn-secundario" style="padding:4px 10px;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">✏️</button>
+                        <button class="btn btn-secundario" style="padding:4px 10px;" onclick="confirmDeleteUser('${u.email}')">🗑️</button>
+                    </div>`;
                 list.appendChild(li);
             });
         } catch (e) { list.innerHTML = 'Error.'; }
@@ -264,7 +314,12 @@ document.addEventListener('DOMContentLoaded', () => {
         window.scrollTo(0,0);
         window.showAlert(`Editando: ${e}`, 'info');
     };
-    window.confirmDeleteUser = async (e) => { if(await window.showConfirm("¿Eliminar?")) try { await db.collection('usuarios').doc(e).delete(); loadUsersList(); } catch(x){alert('Error');} };
+
+    window.confirmDeleteUser = async (e) => { 
+        if(await window.showConfirm("¿Eliminar usuario?")) {
+            try { await db.collection('usuarios').doc(e).delete(); loadUsersList(); } catch(x){alert('Error');} 
+        }
+    };
 
     async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
@@ -290,7 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
         div.className = `servicio-card ${tipo}`; div.dataset.id = id; div.dataset.tipo = tipo;
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
-        // --- BUILDERS ---
+        // BUILDERS
         if(tipo==='aereo'){html+=`<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas',0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='hotel'){html+=`<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='traslado'){html+=`<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Htl-Htl</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
@@ -302,10 +357,17 @@ document.addEventListener('DOMContentLoaded', () => {
         div.innerHTML = html;
         dom.containerServicios.appendChild(div);
         
-        // APLICAR MINIMOS DE FECHA AL NUEVO SERVICIO
+        // APLICAR MINIMOS DE FECHA AL NUEVO SERVICIO (NUEVO BLOQUE)
         if(dom.inputFechaViaje.value) {
             const inputsFecha = div.querySelectorAll('input[type="date"]');
             inputsFecha.forEach(i => i.min = dom.inputFechaViaje.value);
+        } else {
+            // Si no hay fecha de viaje aun, al menos que no sea pasado
+            const inputsFecha = div.querySelectorAll('input[type="date"]');
+            const today = new Date();
+            today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+            const todayStr = today.toISOString().split('T')[0];
+            inputsFecha.forEach(i => i.min = todayStr);
         }
 
         if(data){
@@ -352,8 +414,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         
-        // LOGICA DE CREADOR:
-        // Si hay una franquicia en userData, la usamos. Si no, usamos el originalCreator (si existe), o 'Desconocido'.
         let creadorFinal = userData.franquicia;
         if (!creadorFinal && isEditingId) creadorFinal = originalCreator;
         if (!creadorFinal) creadorFinal = 'Desconocido';
@@ -496,80 +556,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
-    // GESTION MODAL
-    window.deletePackage = async (pkg) => {
-        if (!await window.showConfirm("⚠️ ¿Eliminar este paquete?")) return;
-        try {
-            const id = pkg.id_paquete || pkg.id || pkg['item.id']; 
-            await secureFetch(API_URL_UPLOAD, { action_type: 'delete', id_paquete: id, status: 'deleted' }); 
-            await window.showAlert("Paquete eliminado.", "success");
-            window.location.reload();
-        } catch (e) { window.showAlert("Error al eliminar.", "error"); }
-    };
-
-    window.approvePackage = async (pkg) => {
-         if (!await window.showConfirm("¿Aprobar publicación en FEED?")) return;
-         try {
-             let payload = JSON.parse(JSON.stringify(pkg)); 
-             payload.status = 'approved';
-             payload.action_type = 'edit';
-             payload.creador = pkg.creador; 
-             delete payload['row_number']; 
-             await secureFetch(API_URL_UPLOAD, payload);
-             await window.showAlert("Paquete Aprobado.", "success");
-             window.location.reload();
-         } catch(e) { window.showAlert("Error al aprobar.", "error"); }
-    };
-
-    window.startEditing = async (pkg) => {
-        if (!await window.showConfirm("Se abrirá el formulario de edición.")) return;
-        isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; 
-        
-        // GUARDAMOS EL DUEÑO ORIGINAL
-        originalCreator = pkg.creador || '';
-
-        document.getElementById('upload-destino').value = pkg.destino;
-        document.getElementById('upload-salida').value = pkg.salida;
-        let fecha = pkg.fecha_salida; if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-');
-        dom.inputFechaViaje.value = fecha;
-        document.getElementById('upload-moneda').value = pkg.moneda;
-        document.getElementById('upload-promo').value = pkg.tipo_promo;
-        document.getElementById('upload-financiacion').value = pkg.financiacion || '';
-        document.getElementById('upload-tarifa-total').value = pkg.tarifa;
-        dom.containerServicios.innerHTML = '';
-        let servicios = [];
-        try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
-        if (Array.isArray(servicios)) { servicios.forEach(s => agregarModuloServicio(s.tipo, s)); }
-        window.calcularTotal();
-        dom.modal.style.display = 'none'; 
-        showView('upload');
-        window.scrollTo(0,0);
-        window.showAlert("Modo Edición Activado.", "info");
-    };
-
-    function openModal(pkg) {
-        if (typeof renderServiciosClienteHTML !== 'function') return alert("Error interno.");
-        const rawServicios = pkg['servicios'] || pkg['item.servicios'];
-        const htmlCliente = renderServiciosClienteHTML(rawServicios);
-        const htmlCostos = renderCostosProveedoresHTML(rawServicios);
-        const noches = getNoches(pkg);
-        const tarifa = parseFloat(pkg['tarifa']) || 0;
-        const tarifaDoble = Math.round(tarifa / 2);
-        const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 8px;`;
-        let adminTools = '';
-        const isOwner = pkg.editor_email === currentUser.email;
-        const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
-        if (canEdit) {
-            const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick='approvePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : '';
-            adminTools = `<div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">${btnApprove}<button class="btn btn-secundario" onclick='startEditing(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button><button class="btn btn-secundario" onclick='deletePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button></div>`;
-        }
-        dom.modalBody.innerHTML = `${adminTools}<div class="modal-detalle-header" style="display:flex; flex-direction:column; align-items:flex-start; padding: 25px;"><h2 style="margin:0; color:#11173d; font-size: 2em; padding-right: 150px;">${pkg['destino']}</h2><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div><div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;"><div><h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>${htmlCliente}</div><div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;"><div style="margin-bottom:20px;"><h4 style="margin:0 0 10px 0; color:#11173d;">Resumen</h4><p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${formatDateAR(pkg['fecha_salida'])}</p><p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${pkg['salida']}</p><p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p><p style="margin:5px 0; font-size:0.9em;"><b>📅 Cargado el:</b> ${pkg['fecha_creacion'] || '-'}</p></div><div><h4 style="margin:0 0 10px 0; color:#11173d; border-top:1px solid #eee; padding-top:15px;">Costos (Interno)</h4>${htmlCostos}</div>${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}</div></div><div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px;"><div style="display:flex; gap:30px;"><div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div><div><small style="opacity:0.7;">Tarifa Final</small><div style="font-size:1.2em; font-weight:bold; color:#ef5a1a;">${pkg['moneda']} $${formatMoney(tarifa)}</div></div><div><small style="opacity:0.7;">x Persona (Base Doble)</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div></div></div><div style="text-align:right;"><small style="opacity:0.7;">Cargado por:</small><div style="font-size:0.9em;">${pkg['creador']}</div></div></div>`;
-        dom.modal.style.display = 'flex';
-    }
-
     function renderServiciosClienteHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h=''; s.forEach(x=>{ let i='🔹',t='',l=[]; if(x.tipo==='aereo'){i='✈️';t='AÉREO';l.push(`<b>${x.aerolinea}</b>`);l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);} else if(x.tipo==='hotel'){i='🏨';t='HOTEL';l.push(`<b>${x.hotel_nombre}</b> (${x.regimen})`);} else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} else if(x.tipo==='seguro'){i='🛡️';t='SEGURO';l.push(`${x.proveedor}`);} else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} else if(x.tipo==='bus'){i='🚌';t='BUS';l.push(`${x.bus_noches} Noches`);} else if(x.tipo==='crucero'){i='🚢';t='CRUCERO';l.push(`${x.crucero_naviera} - ${x.crucero_recorrido}`);} h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`; }); return h; }
-    function renderCostosProveedoresHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h='<ul style="padding-left:15px;margin:0;">'; s.forEach(x=>{ h+=`<li>${x.proveedor||x.tipo}: $${x.costo}</li>`; }); return h+'</ul>'; }
     
+    function renderCostosProveedoresHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h='<ul style="padding-left:15px;margin:0;">'; s.forEach(x=>{ h+=`<li>${x.proveedor||x.tipo}: $${x.costo}</li>`; }); return h+'</ul>'; }
+
     // --- VISTAS Y NAVEGACIÓN ---
     function showView(n) { 
         Object.values(dom.views).forEach(v => v.classList.remove('active')); 
@@ -589,13 +579,13 @@ document.addEventListener('DOMContentLoaded', () => {
         showView('upload'); 
     };
     
-    // NAVEGACIÓN CON REFRESCO (Request 2)
+    // NAVEGACIÓN CON REFRESCO (Gestion y Users)
     dom.nav.gestion.onclick = async () => {
         await fetchAndLoadPackages(); 
         showView('gestion');
     };
     dom.nav.users.onclick = async () => {
-        // Users list se refresca en su propia función loadUsersList(), pero podemos refrescar paquetes si quisieras
+        await loadUsersList(); 
         showView('users');
     };
 
