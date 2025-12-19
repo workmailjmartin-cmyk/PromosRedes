@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
         measurementId: "G-2PNDZR3ZS1"
     };
 
-    // URLs DE n8n
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
@@ -26,31 +25,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let allPackages = [];
     let uniquePackages = []; 
     let isEditingId = null; 
+    let originalCreator = ''; // NUEVA VARIABLE PARA GUARDAR EL DUEÑO ORIGINAL
 
     // DOM
     const dom = {
-        views: {
-            search: document.getElementById('view-search'),
-            upload: document.getElementById('view-upload'),
-            gestion: document.getElementById('view-gestion'),
-            users: document.getElementById('view-users')
-        },
-        nav: {
-            search: document.getElementById('nav-search'),
-            upload: document.getElementById('nav-upload'),
-            gestion: document.getElementById('nav-gestion'),
-            users: document.getElementById('nav-users')
-        },
+        views: { search: document.getElementById('view-search'), upload: document.getElementById('view-upload'), gestion: document.getElementById('view-gestion'), users: document.getElementById('view-users') },
+        nav: { search: document.getElementById('nav-search'), upload: document.getElementById('nav-upload'), gestion: document.getElementById('nav-gestion'), users: document.getElementById('nav-users') },
         grid: document.getElementById('grilla-paquetes'),
         gridGestion: document.getElementById('grid-gestion'),
-        
         uploadForm: document.getElementById('upload-form'),
-        uploadStatus: document.getElementById('upload-status'),
         userForm: document.getElementById('user-form'),
         usersList: document.getElementById('users-list'),
         inputCostoTotal: document.getElementById('upload-costo-total'),
         inputFechaViaje: document.getElementById('upload-fecha-salida'),
-        
         loginContainer: document.getElementById('login-container'),
         appContainer: document.getElementById('app-container'),
         btnLogin: document.getElementById('login-button'),
@@ -59,23 +46,19 @@ document.addEventListener('DOMContentLoaded', () => {
         modal: document.getElementById('modal-detalle'),
         modalBody: document.getElementById('modal-body'),
         modalClose: document.getElementById('modal-cerrar'),
-        
         containerServicios: document.getElementById('servicios-container'),
         btnAgregarServicio: document.getElementById('btn-agregar-servicio'),
         selectorServicio: document.getElementById('selector-servicio'),
-        
         btnBuscar: document.getElementById('boton-buscar'),
         btnLimpiar: document.getElementById('boton-limpiar'),
         filtroOrden: document.getElementById('filtro-orden'),
         filtroCreador: document.getElementById('filtro-creador'),
-        
         logo: document.querySelector('.logo')
     };
 
-    if(dom.logo) { dom.logo.style.cursor = 'pointer'; dom.logo.addEventListener('click', () => window.location.reload()); }
+    if(dom.logo) dom.logo.addEventListener('click', () => window.location.reload());
 
-    // --- 2. UTILIDADES VISUALES (Alertas) ---
-    
+    // --- 2. UTILIDADES VISUALES ---
     window.showAlert = (message, type = 'error') => {
         return new Promise((resolve) => {
             const overlay = document.getElementById('custom-alert-overlay');
@@ -85,16 +68,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const icon = document.getElementById('custom-alert-icon');
             const btn = document.getElementById('custom-alert-btn');
             const btnCancel = document.getElementById('custom-alert-cancel');
-            
             if(btnCancel) btnCancel.style.display = 'none';
-
             if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; }
             else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; }
             else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; }
-            
-            msg.innerText = message; 
-            overlay.style.display = 'flex';
-            
+            msg.innerText = message; overlay.style.display = 'flex';
             btn.onclick = () => { overlay.style.display = 'none'; resolve(); };
         });
     };
@@ -107,48 +85,31 @@ document.addEventListener('DOMContentLoaded', () => {
             const icon = document.getElementById('custom-alert-icon');
             const btnOk = document.getElementById('custom-alert-btn');
             const btnCancel = document.getElementById('custom-alert-cancel');
-
             title.innerText = 'Confirmación'; title.style.color = '#11173d'; icon.innerHTML = '❓';
             msg.innerText = message;
-            
             if(btnCancel) btnCancel.style.display = 'inline-block';
             overlay.style.display = 'flex';
-
             btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); };
             if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); };
         });
     };
 
-    // --- 3. LÓGICA DE HISTORIAL (Evita duplicados y borrados) ---
+    // --- 3. LÓGICA DE HISTORIAL ---
     function processPackageHistory(rawList) {
         if (!Array.isArray(rawList)) return [];
-        
         const historyMap = new Map();
-
-        // Agrupamos todas las filas por su ID de paquete
         rawList.forEach(pkg => {
             const id = pkg.id_paquete || pkg.id || pkg['item.id'];
-            if (!id) return; // Ignorar si no tiene ID (basura)
-
-            if (!historyMap.has(id)) {
-                historyMap.set(id, []);
-            }
+            if (!id) return;
+            if (!historyMap.has(id)) historyMap.set(id, []);
             historyMap.get(id).push(pkg);
         });
-
         const processedList = [];
-
-        // Procesamos cada grupo
         historyMap.forEach((versions) => {
-            // Tomamos la última versión (la más reciente en el Sheet)
             const latestVersion = versions[versions.length - 1];
-
-            // Si la última versión dice 'deleted', el paquete está borrado.
             if (latestVersion.status === 'deleted') return;
-
             processedList.push(latestVersion);
         });
-
         return processedList;
     }
 
@@ -157,10 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let d = await secureFetch(API_URL_SEARCH, {}); 
             if (typeof d === 'string') d = JSON.parse(d);
             allPackages = d; 
-            
-            // 1. Limpiamos historial (Aquí se van los borrados y duplicados)
             uniquePackages = processPackageHistory(allPackages);
-            
             populateFranchiseFilter(uniquePackages); 
             applyFilters(); 
         } catch(e){ console.error(e); }
@@ -175,27 +133,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (doc.exists) {
                     currentUser = u;
                     userData = doc.data(); 
-                    
                     dom.loginContainer.style.display='none';
                     dom.appContainer.style.display='block';
                     dom.userEmail.textContent = `${userData.franquicia} (${u.email})`;
-                    
                     configureUIByRole();
                     await fetchAndLoadPackages();
                     showView('search');
                 } else {
-                    await window.showAlert(`⛔ El usuario ${u.email} no tiene permisos. Contacta a un Admin.`);
+                    await window.showAlert(`⛔ Sin permisos.`);
                     auth.signOut();
                 }
-            } catch (e) { 
-                console.error(e);
-                await window.showAlert("Error de conexión con la base de datos."); 
-            }
+            } catch (e) { await window.showAlert("Error de conexión."); }
         } else {
-            currentUser = null;
-            userData = null;
-            dom.loginContainer.style.display='flex';
-            dom.appContainer.style.display='none';
+            currentUser = null; userData = null;
+            dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none';
         }
     });
 
@@ -204,23 +155,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function configureUIByRole() {
         const rol = userData.rol;
-        dom.nav.gestion.style.display = 'none';
-        dom.nav.users.style.display = 'none';
-
-        if (rol === 'editor' || rol === 'admin') dom.nav.gestion.style.display = 'inline-block';
-        if (rol === 'admin') {
-            dom.nav.users.style.display = 'inline-block';
-            loadUsersList(); 
-        }
-
+        dom.nav.gestion.style.display = (rol === 'editor' || rol === 'admin') ? 'inline-block' : 'none';
+        dom.nav.users.style.display = (rol === 'admin') ? 'inline-block' : 'none';
+        if (rol === 'admin') loadUsersList(); 
         const selectPromo = document.getElementById('upload-promo');
         if(selectPromo) {
             selectPromo.innerHTML = '';
-            if (rol === 'usuario') {
-                selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
-            } else {
-                selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
-            }
+            if (rol === 'usuario') selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
+            else selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
         }
     }
 
@@ -231,14 +173,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const email = document.getElementById('user-email-input').value.trim().toLowerCase();
             const rol = document.getElementById('user-role-input').value;
             const fran = document.getElementById('user-franchise-input').value;
-
             try {
                 await db.collection('usuarios').doc(email).set({ email, rol, franquicia: fran, fecha_modificacion: new Date() }, { merge: true });
                 await window.showAlert('Usuario guardado.', 'success');
                 document.getElementById('user-email-input').value = '';
                 document.getElementById('user-franchise-input').value = '';
                 loadUsersList();
-            } catch (e) { await window.showAlert('Error al guardar usuario.', 'error'); }
+            } catch (e) { await window.showAlert('Error.', 'error'); }
         });
     }
 
@@ -253,10 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const li = document.createElement('li');
                 li.style.cssText = "padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;";
                 li.innerHTML = `<span><b>${u.email}</b><br><small>${u.rol.toUpperCase()} - ${u.franquicia}</small></span>
-                    <div style="display:flex; gap:5px;">
-                        <button class="btn btn-secundario" style="padding:4px 10px;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">✏️</button>
-                        <button class="btn btn-secundario" style="padding:4px 10px;" onclick="confirmDeleteUser('${u.email}')">🗑️</button>
-                    </div>`;
+                    <div style="display:flex; gap:5px;"><button class="btn btn-secundario" style="padding:4px 10px;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">✏️</button><button class="btn btn-secundario" style="padding:4px 10px;" onclick="confirmDeleteUser('${u.email}')">🗑️</button></div>`;
                 list.appendChild(li);
             });
         } catch (e) { list.innerHTML = 'Error.'; }
@@ -269,12 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.scrollTo(0,0);
         window.showAlert(`Editando: ${e}`, 'info');
     };
-
-    window.confirmDeleteUser = async (e) => { 
-        if(await window.showConfirm("¿Eliminar usuario?")) {
-            try { await db.collection('usuarios').doc(e).delete(); loadUsersList(); } catch(x){alert('Error');} 
-        }
-    };
+    window.confirmDeleteUser = async (e) => { if(await window.showConfirm("¿Eliminar?")) try { await db.collection('usuarios').doc(e).delete(); loadUsersList(); } catch(x){alert('Error');} };
 
     async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
@@ -365,7 +298,8 @@ document.addEventListener('DOMContentLoaded', () => {
             financiacion: document.getElementById('upload-financiacion').value,
             servicios: serviciosData,
             status: status,
-            creador: isEditingId ? undefined : (userData.franquicia || 'Desconocido'), 
+            // LOGICA DUEÑO: Usamos el original si existe, si no, el del usuario actual
+            creador: isEditingId ? originalCreator : (userData.franquicia || 'Desconocido'), 
             editor_email: currentUser.email,
             action_type: isEditingId ? 'edit' : 'create'
         };
@@ -433,7 +367,6 @@ document.addEventListener('DOMContentLoaded', () => {
         targetGrid.innerHTML = '';
         if (!list || list.length === 0) { targetGrid.innerHTML = '<p>No hay resultados.</p>'; return; }
         list.forEach(pkg => {
-            // CORRECCIÓN TARJETAS VACÍAS
             if (!pkg.destino) return; 
 
             const card = document.createElement('div');
@@ -462,7 +395,37 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- ACCIONES DE GESTIÓN ---
+    // --- UTILS QUE FALTABAN ---
+    function getNoches(pkg) {
+        let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
+        if(!Array.isArray(servicios)) return 0;
+        const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
+        const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
+        if(!pkg['fecha_salida']) return 0;
+        let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
+        const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
+        servicios.forEach(s => {
+            if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+            if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+        });
+        return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
+    }
+
+    const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
+    const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
+
+    function getSummaryIcons(pkg) { 
+        let s = []; 
+        try { 
+            s = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; 
+        } catch(e) {} 
+        
+        if (!Array.isArray(s)) return ''; 
+        const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; 
+        return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
+    }
+
+    // GESTION MODAL
     window.deletePackage = async (pkg) => {
         if (!await window.showConfirm("⚠️ ¿Eliminar este paquete?")) return;
         try {
@@ -479,7 +442,10 @@ document.addEventListener('DOMContentLoaded', () => {
              let payload = JSON.parse(JSON.stringify(pkg)); 
              payload.status = 'approved';
              payload.action_type = 'edit';
+             // NO enviamos creador para no sobreescribir (n8n ya lo maneja o se mantiene el viejo)
+             // Pero con la nueva logica de edit, enviamos explicitamente
              payload.creador = pkg.creador; 
+             
              delete payload['row_number']; 
              await secureFetch(API_URL_UPLOAD, payload);
              await window.showAlert("Paquete Aprobado.", "success");
@@ -490,6 +456,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.startEditing = async (pkg) => {
         if (!await window.showConfirm("Se abrirá el formulario de edición.")) return;
         isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; 
+        
+        // GUARDAMOS EL DUEÑO ORIGINAL
+        originalCreator = pkg.creador || '';
+
         document.getElementById('upload-destino').value = pkg.destino;
         document.getElementById('upload-salida').value = pkg.salida;
         let fecha = pkg.fecha_salida; if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-');
@@ -529,54 +499,24 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.modal.style.display = 'flex';
     }
 
-    // --- UTILS QUE FALTABAN ---
-    function getNoches(pkg) {
-        let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
-        if(!Array.isArray(servicios)) return 0;
-        const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
-        const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
-        if(!pkg['fecha_salida']) return 0;
-        let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
-        const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
-        servicios.forEach(s => {
-            if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
-            if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
-        });
-        return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
-    }
-
-    const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
-    const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
-
-    function getSummaryIcons(pkg) { 
-        let s = []; 
-        try { 
-            s = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; 
-        } catch(e) {} 
-        
-        if (!Array.isArray(s)) return ''; 
-        const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; 
-        return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
-    }
-
     function renderServiciosClienteHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h=''; s.forEach(x=>{ let i='🔹',t='',l=[]; if(x.tipo==='aereo'){i='✈️';t='AÉREO';l.push(`<b>${x.aerolinea}</b>`);l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);} else if(x.tipo==='hotel'){i='🏨';t='HOTEL';l.push(`<b>${x.hotel_nombre}</b> (${x.regimen})`);} else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} else if(x.tipo==='seguro'){i='🛡️';t='SEGURO';l.push(`${x.proveedor}`);} else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} else if(x.tipo==='bus'){i='🚌';t='BUS';l.push(`${x.bus_noches} Noches`);} else if(x.tipo==='crucero'){i='🚢';t='CRUCERO';l.push(`${x.crucero_naviera} - ${x.crucero_recorrido}`);} h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`; }); return h; }
-    
     function renderCostosProveedoresHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h='<ul style="padding-left:15px;margin:0;">'; s.forEach(x=>{ h+=`<li>${x.proveedor||x.tipo}: $${x.costo}</li>`; }); return h+'</ul>'; }
-
+    
     // --- VISTAS ---
     function showView(n) { 
         Object.values(dom.views).forEach(v => v.classList.remove('active')); 
         Object.values(dom.nav).forEach(b => b.classList.remove('active')); 
         dom.views[n].classList.add('active'); 
         dom.nav[n].classList.add('active'); 
-        // CORRECCIÓN: No reseteamos isEditingId aquí para que sobreviva al cambio de vista
+        // NO reseteamos isEditingId para que sobreviva al cambio de vista si venimos de "Editar"
     }
     
     dom.nav.search.onclick = () => showView('search');
     
-    // Aquí SÍ reseteamos el ID porque es un "Nuevo Paquete"
+    // AQUI SI RESETEAMOS EL ID (Botón Cargar Nuevo)
     dom.nav.upload.onclick = () => { 
         isEditingId = null; 
+        originalCreator = ''; // Reseteamos también el creador
         document.getElementById('upload-form').reset(); 
         dom.containerServicios.innerHTML=''; 
         showView('upload'); 
