@@ -526,3 +526,29 @@ input[type="date"] {
 /* Alertas */
 .custom-alert-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 6000; display: none; justify-content: center; align-items: center; }
 .custom-alert-box { background: #fff; padding: 30px; border-radius: 16px; text-align: center; max-width: 400px; width: 90%; }
+
+/* =========================================
+   10. FOOTER (PIE DE PÁGINA)
+   ========================================= */
+.main-footer {
+    text-align: center;
+    padding: 40px 20px;       /* Espacio arriba y abajo */
+    color: #b0b0b0;           /* Gris discreto */
+    font-size: 0.85em;        /* Letra un poco más chica */
+    font-weight: 500;
+    letter-spacing: 0.5px;    /* Espaciado elegante entre letras */
+    margin-top: auto;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+    opacity: 0.8;             /* Un poco de transparencia para más sutileza */
+}
+
+/* Ajuste para que se vea bien en pantallas chicas */
+@media (max-width: 768px) {
+    .main-footer {
+        padding: 30px 10px;
+        font-size: 0.75em;
+    }
+}
+
