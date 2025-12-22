@@ -53,9 +53,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
-    // --- NUEVO: GENERADOR DE TEXTO PARA COPIAR ---
+    // --- GENERADOR DE TEXTO (CORREGIDO: FECHA CARGA) ---
     function generarTextoPresupuesto(pkg) {
-        const fechaHoy = new Date().toLocaleDateString('es-AR');
+        // Usamos la fecha de creación del paquete si existe, si no, la de hoy.
+        // Asumiendo que el campo se llama 'fecha_creacion' o similar en tu DB.
+        // Si no tienes ese campo, usa new Date()
+        const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
+        
         const noches = getNoches(pkg);
         const tarifa = parseFloat(pkg['tarifa']) || 0;
         const tarifaDoble = Math.round(tarifa / 2);
@@ -69,7 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (noches > 0) texto += `🌙 Duración: ${noches} Noches\n`;
         texto += `\n`;
 
-        // Iterar servicios
         if (Array.isArray(servicios)) {
             servicios.forEach(s => {
                 if(s.tipo === 'aereo') {
@@ -100,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
         texto += `--------------------------------------------\n`;
         texto += `Información importante:\n`;
         texto += `-Tarifas y disponibilidad sujetas a cambio al momento de la reserva.\n`;
-        texto += `-Cotización válida al ${fechaHoy}\n\n`;
+        texto += `-Cotización válida al ${fechaCotizacion}\n\n`; // AQUI SE USA LA FECHA
         texto += `ℹ Más info:\n(https://felizviaje.tur.ar/informacion-antes-de-contratar)\n\n`;
         texto += `⚠¡Cupos limitados!\n`;
         texto += `-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n`;
@@ -113,13 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return texto;
     }
 
-    // Función para el botón
     window.copiarPresupuesto = (pkg) => {
-        // Necesitamos recuperar el objeto completo. Como pasamos strings en el HTML, a veces es mejor reconstruirlo o pasarlo diferente.
-        // Pero para simplificar, usaremos el objeto que ya tenemos en memoria en 'uniquePackages' buscando por ID si es necesario,
-        // o mejor, pasamos el objeto directo en el renderizado (stringified).
-        // NOTA: El parametro pkg viene del onclick.
-        
         const texto = generarTextoPresupuesto(pkg);
         navigator.clipboard.writeText(texto).then(() => {
             window.showAlert("✅ ¡Presupuesto copiado al portapapeles!", "success");
@@ -371,12 +368,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <h2 style="margin:0;font-size:2.2em;line-height:1.1;">${pkg['destino']}</h2>
-                    <div style="margin-right: 50px;">${btnCopiar}</div>
                 </div>
                 <div style="margin-top:5px;"><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;"><div><h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>${htmlCliente}</div><div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;"><div style="margin-bottom:20px;"><h4 style="margin:0 0 10px 0; color:#11173d;">Resumen</h4><p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${formatDateAR(pkg['fecha_salida'])}</p><p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${pkg['salida']}</p><p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p><p style="margin:5px 0; font-size:0.9em;"><b>📅 Cargado el:</b> ${pkg['fecha_creacion'] || '-'}</p></div><div><h4 style="margin:0 0 10px 0; color:#11173d; border-top:1px solid #eee; padding-top:15px;">Costos (Interno)</h4>${htmlCostos}</div>${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}</div></div><div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px;"><div style="display:flex; gap:30px;"><div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div><div><small style="opacity:0.7;">Tarifa Final</small><div style="font-size:1.2em; font-weight:bold; color:#ef5a1a;">${pkg['moneda']} $${formatMoney(tarifa)}</div></div><div><small style="opacity:0.7;">x Persona (Base Doble)</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div></div></div><div style="text-align:right;"><small style="opacity:0.7;">Cargado por:</small><div style="font-size:0.9em;">${pkg['creador']}</div></div></div>`;
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;"><div><h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>${htmlCliente}</div><div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;"><div style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:flex-start;"><h4 style="margin:0 0 10px 0; color:#11173d;">Resumen</h4>${btnCopiar}</div><p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${formatDateAR(pkg['fecha_salida'])}</p><p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${pkg['salida']}</p><p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p><p style="margin:5px 0; font-size:0.9em;"><b>📅 Cargado el:</b> ${pkg['fecha_creacion'] || '-'}</p><div><h4 style="margin:20px 0 10px 0; color:#11173d; border-top:1px solid #eee; padding-top:15px;">Costos (Interno)</h4>${htmlCostos}</div>${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}</div></div><div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px;"><div style="display:flex; gap:30px;"><div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div><div><small style="opacity:0.7;">Tarifa Final</small><div style="font-size:1.2em; font-weight:bold; color:#ef5a1a;">${pkg['moneda']} $${formatMoney(tarifa)}</div></div><div><small style="opacity:0.7;">x Persona (Base Doble)</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div></div></div><div style="text-align:right;"><small style="opacity:0.7;">Cargado por:</small><div style="font-size:0.9em;">${pkg['creador']}</div></div></div>`;
         dom.modal.style.display = 'flex';
     }
 
