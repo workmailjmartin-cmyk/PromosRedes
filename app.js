@@ -53,6 +53,82 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
+    // --- NUEVO: GENERADOR DE TEXTO PARA COPIAR ---
+    function generarTextoPresupuesto(pkg) {
+        const fechaHoy = new Date().toLocaleDateString('es-AR');
+        const noches = getNoches(pkg);
+        const tarifa = parseFloat(pkg['tarifa']) || 0;
+        const tarifaDoble = Math.round(tarifa / 2);
+        
+        let servicios = [];
+        try { servicios = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {}
+
+        let texto = `*${pkg.destino.toUpperCase()}*\n\n`;
+        texto += `📅 Salida: ${formatDateAR(pkg.fecha_salida)}\n`;
+        texto += `📍 Desde: ${pkg.salida}\n`;
+        if (noches > 0) texto += `🌙 Duración: ${noches} Noches\n`;
+        texto += `\n`;
+
+        // Iterar servicios
+        if (Array.isArray(servicios)) {
+            servicios.forEach(s => {
+                if(s.tipo === 'aereo') {
+                    texto += `✈️ AÉREO\n${s.aerolinea || 'Aerolínea'}\n${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n\n`;
+                } else if (s.tipo === 'hotel') {
+                    texto += `🏨 HOTEL\n${s.hotel_nombre} (${s.regimen || ''})\n\n`;
+                } else if (s.tipo === 'traslado') {
+                    texto += `🚕 TRASLADO\n${s.tipo_trf || 'Incluido'}\n\n`;
+                } else if (s.tipo === 'seguro') {
+                    texto += `🛡️ SEGURO\n${s.proveedor || 'Asistencia al viajero'}\n\n`;
+                } else if (s.tipo === 'bus') {
+                    texto += `🚌 BUS\n${s.bus_noches} Noches ${s.bus_regimen ? '('+s.bus_regimen+')' : ''}\n\n`;
+                } else if (s.tipo === 'crucero') {
+                    texto += `🚢 CRUCERO\n${s.crucero_naviera} - ${s.crucero_recorrido}\n\n`;
+                } else if (s.tipo === 'adicional') {
+                    texto += `➕ ADICIONAL\n${s.descripcion}\n\n`;
+                }
+            });
+        }
+
+        texto += `💲*Tarifa final por Persona en Base Doble:*\n`;
+        texto += `${pkg.moneda} $${formatMoney(tarifaDoble)}\n\n`;
+
+        if (pkg.financiacion) {
+            texto += `💳 Financiación: ${pkg.financiacion}\n\n`;
+        }
+
+        texto += `--------------------------------------------\n`;
+        texto += `Información importante:\n`;
+        texto += `-Tarifas y disponibilidad sujetas a cambio al momento de la reserva.\n`;
+        texto += `-Cotización válida al ${fechaHoy}\n\n`;
+        texto += `ℹ Más info:\n(https://felizviaje.tur.ar/informacion-antes-de-contratar)\n\n`;
+        texto += `⚠¡Cupos limitados!\n`;
+        texto += `-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n`;
+        texto += `-Las plazas y precios pueden modificarse en cualquier momento según disponibilidad de vuelos y hotel.\n\n`;
+        texto += `¿Encontraste una mejor oferta? ¡Compartila con nosotros y la mejoramos para vos!\n\n`;
+        texto += `✈ Políticas generales de aerolíneas (tarifas económicas)\n`;
+        texto += `-Equipaje y la selección de asientos no están incluidos (pueden tener costo adicional)\n\n`;
+        texto += `Asistencia al viajero no incluida. Puede añadirse al reservar o más adelante. Es requisito obligatorio en la mayoría de los destinos internacionales`;
+
+        return texto;
+    }
+
+    // Función para el botón
+    window.copiarPresupuesto = (pkg) => {
+        // Necesitamos recuperar el objeto completo. Como pasamos strings en el HTML, a veces es mejor reconstruirlo o pasarlo diferente.
+        // Pero para simplificar, usaremos el objeto que ya tenemos en memoria en 'uniquePackages' buscando por ID si es necesario,
+        // o mejor, pasamos el objeto directo en el renderizado (stringified).
+        // NOTA: El parametro pkg viene del onclick.
+        
+        const texto = generarTextoPresupuesto(pkg);
+        navigator.clipboard.writeText(texto).then(() => {
+            window.showAlert("✅ ¡Presupuesto copiado al portapapeles!", "success");
+        }).catch(err => {
+            console.error('Error al copiar: ', err);
+            window.showAlert("Error al copiar texto.", "error");
+        });
+    };
+
     function renderServiciosClienteHTML(rawJson) { 
         let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} 
         if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; 
@@ -224,13 +300,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         
-        // LOGICA CREADOR (CORREGIDA)
         let creadorFinal;
-        if (isEditingId && originalCreator) {
-             creadorFinal = originalCreator; // Mantiene el original al editar
-        } else {
-             creadorFinal = userData.franquicia || 'Desconocido'; // Usa el actual si es nuevo
-        }
+        if (isEditingId && originalCreator) { creadorFinal = originalCreator; } else { creadorFinal = userData.franquicia || 'Desconocido'; }
 
         const payload = { id_paquete: idGenerado, destino: document.getElementById('upload-destino').value, salida: document.getElementById('upload-salida').value, fecha_salida: fechaViajeStr, costos_proveedor: costo, tarifa: tarifa, moneda: document.getElementById('upload-moneda').value, tipo_promo: promoType, financiacion: document.getElementById('upload-financiacion').value, servicios: serviciosData, status: status, creador: creadorFinal, editor_email: currentUser.email, action_type: isEditingId ? 'edit' : 'create' };
 
@@ -246,13 +317,11 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCards(result, dom.grid); if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) { const pendientes = uniquePackages.filter(p => p.status === 'pending'); renderCards(pendientes, dom.gridGestion); }
     }
 
-    // --- RENDERIZADO DE TARJETAS (VUELTA AL DISEÑO ORIGINAL) ---
     function renderCards(list, targetGrid = dom.grid) {
         targetGrid.innerHTML = ''; if (!list || list.length === 0) { targetGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;">No hay resultados.</p>'; return; }
         list.forEach(pkg => {
             if (!pkg.destino) return; 
             const card = document.createElement('div'); const noches = getNoches(pkg); card.className = 'paquete-card'; const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; const summaryIcons = getSummaryIcons(pkg); 
-            // Burbuja
             const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`; 
             let statusTag = ''; if (pkg.status === 'pending') statusTag = `<span style="background-color:#ffeaa7; color:#d35400; padding:2px 8px; border-radius:10px; font-size:0.7em; margin-left:5px;">⏳ En Revisión</span>`;
 
@@ -286,7 +355,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.approvePackage = async (pkg) => { if (!await window.showConfirm("¿Aprobar publicación en FEED?")) return; showLoader(true); try { let payload = JSON.parse(JSON.stringify(pkg)); payload.status = 'approved'; payload.action_type = 'edit'; payload.creador = pkg.creador; delete payload['row_number']; await secureFetch(API_URL_UPLOAD, payload); await window.showAlert("Paquete Aprobado.", "success"); window.location.reload(); } catch(e) { window.showAlert("Error al aprobar.", "error"); } };
     window.startEditing = async (pkg) => { if (!await window.showConfirm("Se abrirá el formulario de edición.")) return; isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; originalCreator = pkg.creador || ''; document.getElementById('upload-destino').value = pkg.destino; document.getElementById('upload-salida').value = pkg.salida; let fecha = pkg.fecha_salida; if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-'); dom.inputFechaViaje.value = fecha; document.getElementById('upload-moneda').value = pkg.moneda; document.getElementById('upload-promo').value = pkg.tipo_promo; document.getElementById('upload-financiacion').value = pkg.financiacion || ''; document.getElementById('upload-tarifa-total').value = pkg.tarifa; dom.containerServicios.innerHTML = ''; let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {} if (Array.isArray(servicios)) { servicios.forEach(s => agregarModuloServicio(s.tipo, s)); } window.calcularTotal(); dom.modal.style.display = 'none'; showView('upload'); window.scrollTo(0,0); window.showAlert("Modo Edición Activado.", "info"); };
 
-    // --- MODAL DETALLE (CON TAG ABAJO DEL TITULO) ---
     function openModal(pkg) {
         if (typeof renderServiciosClienteHTML !== 'function') return alert("Error interno.");
         const rawServicios = pkg['servicios'] || pkg['item.servicios']; const htmlCliente = renderServiciosClienteHTML(rawServicios); const htmlCostos = renderCostosProveedoresHTML(rawServicios); const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2); 
@@ -294,13 +362,20 @@ document.addEventListener('DOMContentLoaded', () => {
         let adminTools = ''; const isOwner = pkg.editor_email === currentUser.email; const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
         if (canEdit) { const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick='approvePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : ''; adminTools = `<div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">${btnApprove}<button class="btn btn-secundario" onclick='startEditing(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button><button class="btn btn-secundario" onclick='deletePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button></div>`; }
         
-        // Estructura cambiada: Tag Promo debajo del título
+        // --- BOTÓN COPIAR PRESUPUESTO AÑADIDO AQUÍ ---
+        const btnCopiar = `<button class="btn" onclick='copiarPresupuesto(${JSON.stringify(pkg)})' style="background:#34495e; color:white; padding: 5px 15px; font-size:0.8em; display:flex; align-items:center; gap:5px;">📋 Copiar</button>`;
+
         dom.modalBody.innerHTML = `
             ${adminTools}
+            
             <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
-                <h2 style="margin:0;font-size:2.2em;line-height:1.1;">${pkg['destino']}</h2>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <h2 style="margin:0;font-size:2.2em;line-height:1.1;">${pkg['destino']}</h2>
+                    <div style="margin-right: 50px;">${btnCopiar}</div>
+                </div>
                 <div style="margin-top:5px;"><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
             </div>
+
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;"><div><h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>${htmlCliente}</div><div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;"><div style="margin-bottom:20px;"><h4 style="margin:0 0 10px 0; color:#11173d;">Resumen</h4><p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${formatDateAR(pkg['fecha_salida'])}</p><p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${pkg['salida']}</p><p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p><p style="margin:5px 0; font-size:0.9em;"><b>📅 Cargado el:</b> ${pkg['fecha_creacion'] || '-'}</p></div><div><h4 style="margin:0 0 10px 0; color:#11173d; border-top:1px solid #eee; padding-top:15px;">Costos (Interno)</h4>${htmlCostos}</div>${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}</div></div><div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px;"><div style="display:flex; gap:30px;"><div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div><div><small style="opacity:0.7;">Tarifa Final</small><div style="font-size:1.2em; font-weight:bold; color:#ef5a1a;">${pkg['moneda']} $${formatMoney(tarifa)}</div></div><div><small style="opacity:0.7;">x Persona (Base Doble)</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div></div></div><div style="text-align:right;"><small style="opacity:0.7;">Cargado por:</small><div style="font-size:0.9em;">${pkg['creador']}</div></div></div>`;
         dom.modal.style.display = 'flex';
     }
