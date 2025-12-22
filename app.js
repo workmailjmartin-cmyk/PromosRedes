@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnBuscar: document.getElementById('boton-buscar'), btnLimpiar: document.getElementById('boton-limpiar'),
         filtroOrden: document.getElementById('filtro-orden'), filtroCreador: document.getElementById('filtro-creador'), containerFiltroCreador: document.getElementById('container-filtro-creador'),
         logoImg: document.getElementById('app-logo'), loader: document.getElementById('loader-overlay'),
-        badgeGestion: document.getElementById('badge-gestion') // NUEVA REFERENCIA
+        badgeGestion: document.getElementById('badge-gestion')
     };
 
     // UTILS
@@ -54,8 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
-    // --- GENERADOR DE TEXTO (CORREGIDO: FECHA CARGA) ---
+    // --- GENERADOR DE TEXTO ---
     function generarTextoPresupuesto(pkg) {
+        // PRIORIDAD: Fecha de carga original. Si no existe, fecha actual.
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         
         const noches = getNoches(pkg);
@@ -101,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         texto += `--------------------------------------------\n`;
         texto += `Información importante:\n`;
         texto += `-Tarifas y disponibilidad sujetas a cambio al momento de la reserva.\n`;
-        texto += `-Cotización válida al ${fechaCotizacion}\n\n`; // AQUI SE USA LA FECHA
+        texto += `-Cotización válida al ${fechaCotizacion}\n\n`;
         texto += `ℹ Más info:\n(https://felizviaje.tur.ar/informacion-antes-de-contratar)\n\n`;
         texto += `⚠¡Cupos limitados!\n`;
         texto += `-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n`;
@@ -181,25 +182,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return processedList;
     }
 
-    // NUEVA FUNCIÓN PARA EL BADGE
+    // BADGE
     function updatePendingBadge() {
         const badge = document.getElementById('badge-gestion');
         if (!badge) return;
-
-        // Solo calcular si es admin o editor
-        if (userData.rol !== 'admin' && userData.rol !== 'editor') {
-            badge.style.display = 'none';
-            return;
-        }
-
+        if (userData.rol !== 'admin' && userData.rol !== 'editor') { badge.style.display = 'none'; return; }
         const pendingCount = uniquePackages.filter(p => p.status === 'pending').length;
-
-        if (pendingCount > 0) {
-            badge.innerText = pendingCount;
-            badge.style.display = 'inline-block';
-        } else {
-            badge.style.display = 'none';
-        }
+        if (pendingCount > 0) { badge.innerText = pendingCount; badge.style.display = 'inline-block'; } 
+        else { badge.style.display = 'none'; }
     }
 
     async function fetchAndLoadPackages() { 
@@ -211,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
             uniquePackages = processPackageHistory(allPackages); 
             populateFranchiseFilter(uniquePackages); 
             applyFilters();
-            updatePendingBadge(); // ACTUALIZAR BADGE AL CARGAR
+            updatePendingBadge(); 
         } catch(e){ console.error(e); }
         showLoader(false);
     }
@@ -242,7 +232,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.nav.gestion.style.display = (rol === 'editor' || rol === 'admin') ? 'inline-block' : 'none';
         dom.nav.users.style.display = (rol === 'admin') ? 'inline-block' : 'none';
         
-        // CORRECCIÓN: SIEMPRE MOSTRAR EL FILTRO DE CREADOR, PARA TODOS
         if(dom.containerFiltroCreador) dom.containerFiltroCreador.style.display = 'flex';
 
         if (rol === 'admin') loadUsersList(); 
@@ -252,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (rol === 'usuario') selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
             else selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
         }
-        updatePendingBadge(); // CHEQUEAR BADGE AL CONFIGURAR UI
+        updatePendingBadge(); 
     }
 
     if (dom.userForm) {
@@ -328,8 +317,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         
+        // LOGICA CREADOR (CORREGIDA)
         let creadorFinal;
-        if (isEditingId && originalCreator) { creadorFinal = originalCreator; } else { creadorFinal = userData.franquicia || 'Desconocido'; }
+        if (isEditingId && originalCreator) {
+             creadorFinal = originalCreator; // Mantiene el original al editar
+        } else {
+             creadorFinal = userData.franquicia || 'Desconocido'; // Usa el actual si es nuevo
+        }
 
         const payload = { id_paquete: idGenerado, destino: document.getElementById('upload-destino').value, salida: document.getElementById('upload-salida').value, fecha_salida: fechaViajeStr, costos_proveedor: costo, tarifa: tarifa, moneda: document.getElementById('upload-moneda').value, tipo_promo: promoType, financiacion: document.getElementById('upload-financiacion').value, servicios: serviciosData, status: status, creador: creadorFinal, editor_email: currentUser.email, action_type: isEditingId ? 'edit' : 'create' };
 
@@ -345,6 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCards(result, dom.grid); if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) { const pendientes = uniquePackages.filter(p => p.status === 'pending'); renderCards(pendientes, dom.gridGestion); }
     }
 
+    // --- RENDERIZADO DE TARJETAS (VUELTA AL DISEÑO ORIGINAL) ---
     function renderCards(list, targetGrid = dom.grid) {
         targetGrid.innerHTML = ''; if (!list || list.length === 0) { targetGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;">No hay resultados.</p>'; return; }
         list.forEach(pkg => {
@@ -390,6 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let adminTools = ''; const isOwner = pkg.editor_email === currentUser.email; const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
         if (canEdit) { const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick='approvePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : ''; adminTools = `<div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">${btnApprove}<button class="btn btn-secundario" onclick='startEditing(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button><button class="btn btn-secundario" onclick='deletePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button></div>`; }
         
+        // --- BOTÓN COPIAR PRESUPUESTO MOVIDO AL LADO DE "RESUMEN" ---
         const btnCopiar = `<button class="btn" onclick='copiarPresupuesto(${JSON.stringify(pkg)})' style="background:#34495e; color:white; padding: 5px 15px; font-size:0.8em; display:flex; align-items:center; gap:5px;">📋 Copiar</button>`;
 
         dom.modalBody.innerHTML = `
@@ -398,12 +394,43 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <h2 style="margin:0;font-size:2.2em;line-height:1.1;">${pkg['destino']}</h2>
-                    <div style="margin-right: 50px;">${btnCopiar}</div>
                 </div>
                 <div style="margin-top:5px;"><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;"><div><h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>${htmlCliente}</div><div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;"><div style="margin-bottom:20px;"><h4 style="margin:0 0 10px 0; color:#11173d;">Resumen</h4><p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${formatDateAR(pkg['fecha_salida'])}</p><p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${pkg['salida']}</p><p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p><p style="margin:5px 0; font-size:0.9em;"><b>📅 Cargado el:</b> ${pkg['fecha_creacion'] || '-'}</p></div><div><h4 style="margin:20px 0 10px 0; color:#11173d; border-top:1px solid #eee; padding-top:15px;">Costos (Interno)</h4>${htmlCostos}</div>${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}</div></div><div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px;"><div style="display:flex; gap:30px;"><div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div><div><small style="opacity:0.7;">Tarifa Final</small><div style="font-size:1.2em; font-weight:bold; color:#ef5a1a;">${pkg['moneda']} $${formatMoney(tarifa)}</div></div><div><small style="opacity:0.7;">x Persona (Base Doble)</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div></div></div><div style="text-align:right;"><small style="opacity:0.7;">Cargado por:</small><div style="font-size:0.9em;">${pkg['creador']}</div></div></div>`;
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">
+                <div>
+                    <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>
+                    ${htmlCliente}
+                </div>
+                
+                <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
+                        <h4 style="margin:0; color:#11173d;">Resumen</h4>
+                        ${btnCopiar}
+                    </div>
+                    <p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${formatDateAR(pkg['fecha_salida'])}</p>
+                    <p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${pkg['salida']}</p>
+                    <p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p>
+                    <p style="margin:5px 0; font-size:0.9em;"><b>📅 Cargado el:</b> ${pkg['fecha_creacion'] || '-'}</p>
+                    
+                    <div>
+                        <h4 style="margin:20px 0 10px 0; color:#11173d; border-top:1px solid #eee; padding-top:15px;">Costos (Interno)</h4>
+                        ${htmlCostos}
+                    </div>
+                    
+                    ${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}
+                </div>
+            </div>
+            
+            <div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px;">
+                <div style="display:flex; gap:30px;">
+                    <div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div>
+                    <div><small style="opacity:0.7;">Tarifa Final</small><div style="font-size:1.2em; font-weight:bold; color:#ef5a1a;">${pkg['moneda']} $${formatMoney(tarifa)}</div></div>
+                    <div><small style="opacity:0.7;">x Persona (Base Doble)</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div></div>
+                </div>
+                <div style="text-align:right;"><small style="opacity:0.7;">Cargado por:</small><div style="font-size:0.9em;">${pkg['creador']}</div></div>
+            </div>`;
         dom.modal.style.display = 'flex';
     }
 
