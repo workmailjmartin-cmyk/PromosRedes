@@ -78,12 +78,32 @@ body {
     cursor: pointer;
     border-bottom: 3px solid transparent;
     transition: all 0.2s;
+    position: relative; /* Necesario para ubicar el badge */
 }
 
 .nav-button:hover { color: var(--color-base); }
 .nav-button.active {
     color: var(--color-acento);
     border-bottom-color: var(--color-acento);
+}
+
+/* --- BADGE DE NOTIFICACIÓN (NUEVO) --- */
+.nav-badge {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    background-color: #ff3b30; /* Rojo vibrante */
+    color: white;
+    font-size: 0.7em;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 50%;
+    min-width: 14px;
+    text-align: center;
+    line-height: 1;
+    transform: translateX(10%);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    display: none; /* Oculto por defecto */
 }
 
 /* Usuario e Info (Derecha) */
@@ -137,7 +157,7 @@ body {
     flex-direction: column;
 }
 
-.filtro-group.large { flex: 2; } /* El input de destino más ancho */
+.filtro-group.large { flex: 2; } 
 
 .filtro-group label {
     font-size: 0.85em;
@@ -211,7 +231,7 @@ input:focus, select:focus, textarea:focus {
     outline: none;
 }
 
-/* Estilo de Fechas (Normalizado como pediste) */
+/* Estilo de Fechas (Normalizado) */
 input[type="date"] {
     appearance: none;
     -webkit-appearance: none;
@@ -251,7 +271,6 @@ input[type="date"] {
     box-shadow: 0 2px 5px rgba(0,0,0,0.02);
     border-left: 5px solid #ccc;
 }
-/* Colores específicos por tipo */
 .servicio-card.aereo { border-left-color: #3498db; background: #fbfdff; }
 .servicio-card.hotel { border-left-color: #9b59b6; background: #fcfaff; }
 .servicio-card.traslado { border-left-color: #f1c40f; background: #fffff9; }
@@ -280,7 +299,6 @@ input[type="date"] {
     cursor: pointer;
 }
 
-/* Botón Agregar Servicio (Abajo) */
 .add-service-bar {
     display: flex;
     gap: 10px;
@@ -293,7 +311,7 @@ input[type="date"] {
     align-items: center;
 }
 
-/* CONTADORES (Escalas) */
+/* CONTADORES */
 .counter-wrapper {
     display: flex;
     align-items: center;
@@ -315,7 +333,7 @@ input[type="date"] {
 .counter-btn:hover { background: #e0e0e0; }
 .counter-value { flex: 1; text-align: center; font-weight: 600; }
 
-/* SECCIONES FINALES (Totales y Financiación) */
+/* SECCIONES FINALES */
 .totals-section {
     background: #11173d;
     color: white;
@@ -371,7 +389,8 @@ input[type="date"] {
    6. MODAL Y TARJETAS
    ========================================= */
 .modal-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(17, 23, 61, 0.7);
     z-index: 5000;
     display: none;
@@ -406,7 +425,7 @@ input[type="date"] {
 }
 .modal-cerrar-btn:hover { background: rgba(255,255,255,0.4); }
 
-/* TARJETAS (FRENTE) - DISEÑO ORIGINAL RESTAURADO */
+/* TARJETAS (FRENTE) */
 .paquete-card {
     background: #fff;
     border-radius: 12px;
@@ -423,29 +442,10 @@ input[type="date"] {
 .card-clickable {
     display: flex; flex-direction: column; height: 100%; flex-grow: 1;
 }
-/* Header Tarjeta */
-.card-header {
-    padding: 20px 20px 10px 20px;
-}
-.card-header h3 {
-    margin: 0;
-    color: var(--color-base);
-    font-size: 1.4em;
-}
-.card-header .fecha {
-    font-size: 0.9em;
-    color: #666;
-    font-weight: 500;
-    margin-top: 5px;
-}
-/* Body Tarjeta (Iconos) */
-.card-body {
-    padding: 10px 20px 20px 20px;
-    flex-grow: 1;
-    display: flex;
-    align-items: flex-end; /* Iconos abajo */
-}
-/* Footer Tarjeta */
+.card-header { padding: 20px 20px 10px 20px; }
+.card-header h3 { margin: 0; color: var(--color-base); font-size: 1.4em; }
+.card-header .fecha { font-size: 0.9em; color: #666; font-weight: 500; margin-top: 5px; }
+.card-body { padding: 10px 20px 20px 20px; flex-grow: 1; display: flex; align-items: flex-end; }
 .card-footer {
     background: #fafafa;
     padding: 15px 20px;
@@ -454,12 +454,7 @@ input[type="date"] {
     justify-content: space-between;
     align-items: center;
 }
-.precio-valor {
-    color: var(--color-acento);
-    font-weight: 700;
-    font-size: 1.6em;
-    margin: 0;
-}
+.precio-valor { color: var(--color-acento); font-weight: 700; font-size: 1.6em; margin: 0; }
 
 .grilla-resultados {
     display: grid;
@@ -480,79 +475,41 @@ input[type="date"] {
 .btn-secundario:hover { background: #ddd; }
 
 /* =========================================
-   7. BOTÓN LOGOUT (TU DISEÑO ROJO)
+   7. BOTÓN LOGOUT
    ========================================= */
 .Btn {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  width: 45px;
-  height: 45px;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition-duration: .3s;
-  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.199);
+  display: flex; align-items: center; justify-content: flex-start;
+  width: 45px; height: 45px; border: none; border-radius: 50%;
+  cursor: pointer; position: relative; overflow: hidden;
+  transition-duration: .3s; box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.199);
   background-color: #ef5a1a;
 }
-
-.sign {
-  width: 100%;
-  transition-duration: .3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.sign svg { width: 17px; }
-.sign svg path { fill: white; }
-
-.text {
-  position: absolute;
-  right: 0%;
-  width: 0%;
-  opacity: 0;
-  color: white;
-  font-size: 1.2em;
-  font-weight: 600;
-  transition-duration: .3s;
-}
-
+.sign { width: 100%; transition-duration: .3s; display: flex; align-items: center; justify-content: center; }
+.sign svg { width: 17px; } .sign svg path { fill: white; }
+.text { position: absolute; right: 0%; width: 0%; opacity: 0; color: white; font-size: 1.2em; font-weight: 600; transition-duration: .3s; }
 .Btn:hover { width: 125px; border-radius: 40px; transition-duration: .3s; }
 .Btn:hover .sign { width: 30%; transition-duration: .3s; padding-left: 20px; }
 .Btn:hover .text { opacity: 1; width: 70%; transition-duration: .3s; padding-right: 10px; }
 .Btn:active { transform: translate(2px ,2px); }
 
 /* =========================================
-   8. LOADER (RELOJ DE ARENA)
+   8. LOADER
    ========================================= */
 #loader-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(255,255,255,0.9); z-index: 99999;
     display: none; justify-content: center; align-items: center;
 }
-
-.hourglassBackground {
-  position: relative; background-color: #ef5a1a; height: 130px; width: 130px; border-radius: 50%; margin: 30px auto;
-}
-.hourglassContainer {
-  position: absolute; top: 30px; left: 40px; width: 50px; height: 70px;
-  animation: hourglassRotate 2s ease-in 0s infinite;
-  transform-style: preserve-3d; perspective: 1000px;
-}
+.hourglassBackground { position: relative; background-color: #ef5a1a; height: 130px; width: 130px; border-radius: 50%; margin: 30px auto; }
+.hourglassContainer { position: absolute; top: 30px; left: 40px; width: 50px; height: 70px; animation: hourglassRotate 2s ease-in 0s infinite; transform-style: preserve-3d; perspective: 1000px; }
 .hourglassContainer div, .hourglassContainer div:before, .hourglassContainer div:after { transform-style: preserve-3d; }
-@keyframes hourglassRotate {
-  0% { transform: rotateX(0deg); } 50% { transform: rotateX(180deg); } 100% { transform: rotateX(180deg); }
-}
+@keyframes hourglassRotate { 0% { transform: rotateX(0deg); } 50% { transform: rotateX(180deg); } 100% { transform: rotateX(180deg); } }
 .hourglassCapTop { top: 0; } .hourglassCapTop:before { top: -25px; } .hourglassCapTop:after { top: -20px; }
 .hourglassCapBottom { bottom: 0; } .hourglassCapBottom:before { bottom: -25px; } .hourglassCapBottom:after { bottom: -20px; }
 .hourglassGlassTop { transform: rotateX(90deg); position: absolute; top: -16px; left: 3px; border-radius: 50%; width: 44px; height: 44px; background-color: #999999; }
 .hourglassGlass { perspective: 100px; position: absolute; top: 32px; left: 20px; width: 10px; height: 6px; background-color: #999999; opacity: 0.5; }
 .hourglassGlass:before, .hourglassGlass:after { content: ''; display: block; position: absolute; background-color: #999999; left: -17px; width: 44px; height: 28px; }
-.hourglassGlass:before { top: -27px; border-radius: 0 0 25px 25px; }
-.hourglassGlass:after { bottom: -27px; border-radius: 25px 25px 0 0; }
+.hourglassGlass:before { top: -27px; border-radius: 0 0 25px 25px; } .hourglassGlass:after { bottom: -27px; border-radius: 25px 25px 0 0; }
 .hourglassCurves:before, .hourglassCurves:after { content: ''; display: block; position: absolute; top: 32px; width: 6px; height: 6px; border-radius: 50%; background-color: #555; animation: hideCurves 2s ease-in 0s infinite; }
 .hourglassCurves:before { left: 15px; } .hourglassCurves:after { left: 29px; }
 @keyframes hideCurves { 0% { opacity: 1; } 25% { opacity: 0; } 30% { opacity: 0; } 40% { opacity: 1; } 100% { opacity: 1; } }
@@ -566,6 +523,6 @@ input[type="date"] {
 @keyframes sandFillup { 0% { opacity: 0; height: 0; } 60% { opacity: 1; height: 0; } 100% { opacity: 1; height: 17px; } }
 @keyframes sandDeplete { 0% { opacity: 0; top: 45px; height: 17px; width: 38px; left: 6px; } 1% { opacity: 1; top: 45px; height: 17px; width: 38px; left: 6px; } 24% { opacity: 1; top: 45px; height: 17px; width: 38px; left: 6px; } 25% { opacity: 1; top: 41px; height: 17px; width: 38px; left: 6px; } 50% { opacity: 1; top: 41px; height: 17px; width: 38px; left: 6px; } 90% { opacity: 1; top: 41px; height: 0; width: 10px; left: 20px; } }
 
-/* ALERTAS */
+/* Alertas */
 .custom-alert-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 6000; display: none; justify-content: center; align-items: center; }
 .custom-alert-box { background: #fff; padding: 30px; border-radius: 16px; text-align: center; max-width: 400px; width: 90%; }
