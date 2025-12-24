@@ -48,7 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const showLoader = (show, text = null) => { 
         if(dom.loader) {
             dom.loader.style.display = show ? 'flex' : 'none';
-            // Si pasamos texto, buscamos el párrafo dentro del loader o lo creamos
             let p = dom.loader.querySelector('p');
             if (!p) { p = document.createElement('p'); p.style.cssText = "margin-top:20px; font-weight:600; color:#11173d; font-size:1.2em;"; dom.loader.appendChild(p); }
             p.innerText = text || "Procesando...";
@@ -252,18 +251,27 @@ document.addEventListener('DOMContentLoaded', () => {
             body:JSON.stringify(body), 
             cache:'no-store' 
         });
-        if (!res.ok) throw new Error(`API Error`);
-        return await res.json();
+        
+        if (!res.ok) throw new Error(`API HTTP Error: ${res.status}`);
+
+        const jsonResponse = await res.json();
+
+        // --- VALIDACIÓN DE RESPUESTA REAL ---
+        // Esto evita el "Falso Positivo" si n8n devuelve 200 OK pero con un error en el cuerpo
+        if (jsonResponse.error || jsonResponse.status === 'error' || (Array.isArray(jsonResponse) && jsonResponse.length === 0 && url === API_URL_UPLOAD)) {
+            throw new Error(jsonResponse.message || "Error procesando en n8n (Respuesta inválida).");
+        }
+
+        return jsonResponse;
     }
 
     async function uploadWithMutex(url, body) {
         const lockRef = db.collection('config').doc('upload_lock');
-        const myId = currentUser.email + '_' + Date.now();
         let acquired = false;
         let attempts = 0;
         
         // Intentar adquirir el turno (lock)
-        while(!acquired && attempts < 20) { // Reintentar por 40-50 segundos
+        while(!acquired && attempts < 20) { 
             try {
                 await db.runTransaction(async (t) => {
                     const doc = await t.get(lockRef);
