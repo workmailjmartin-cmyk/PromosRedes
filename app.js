@@ -1,6 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    const firebaseConfig = { apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk", authDomain: "feliz-viaje-43d02.firebaseapp.com", projectId: "feliz-viaje-43d02", storageBucket: "feliz-viaje-43d02.firebasestorage.app", messagingSenderId: "931689659600", appId: "1:931689659600:web:66dbce023705936f26b2d5", measurementId: "G-2PNDZR3ZS1" };
+    // --- 1. CONFIGURACIÓN ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk",
+        authDomain: "feliz-viaje-43d02.firebaseapp.com",
+        projectId: "feliz-viaje-43d02",
+        storageBucket: "feliz-viaje-43d02.firebasestorage.app",
+        messagingSenderId: "931689659600",
+        appId: "1:931689659600:web:66dbce023705936f26b2d5",
+        measurementId: "G-2PNDZR3ZS1"
+    };
+
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
@@ -9,8 +19,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
 
-    let currentUser = null, userData = null, allPackages = [], uniquePackages = [], isEditingId = null, originalCreator = ''; 
+    // ESTADO GLOBAL
+    let currentUser = null;
+    let userData = null; 
+    let allPackages = [];
+    let uniquePackages = []; 
+    let isEditingId = null; 
+    let originalCreator = ''; 
 
+    // DOM
     const dom = {
         views: { search: document.getElementById('view-search'), upload: document.getElementById('view-upload'), gestion: document.getElementById('view-gestion'), users: document.getElementById('view-users') },
         nav: { search: document.getElementById('nav-search'), upload: document.getElementById('nav-upload'), gestion: document.getElementById('nav-gestion'), users: document.getElementById('nav-users') },
@@ -27,8 +44,16 @@ document.addEventListener('DOMContentLoaded', () => {
         badgeGestion: document.getElementById('badge-gestion')
     };
 
-    // UTILS
-    const showLoader = (show) => { if(dom.loader) dom.loader.style.display = show ? 'flex' : 'none'; };
+    // --- UTILS ---
+    const showLoader = (show, text = null) => { 
+        if(dom.loader) {
+            dom.loader.style.display = show ? 'flex' : 'none';
+            // Si pasamos texto, buscamos el párrafo dentro del loader o lo creamos
+            let p = dom.loader.querySelector('p');
+            if (!p) { p = document.createElement('p'); p.style.cssText = "margin-top:20px; font-weight:600; color:#11173d; font-size:1.2em;"; dom.loader.appendChild(p); }
+            p.innerText = text || "Procesando...";
+        }
+    };
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
     
@@ -206,42 +231,81 @@ document.addEventListener('DOMContentLoaded', () => {
         else { badge.style.display = 'none'; }
     }
 
-    // --- REINTENTO INTELIGENTE (Anti-Colisión para cuentas compartidas) ---
-    async function secureFetch(url, body, retries = 3) {
+    // --- SISTEMA DE COLA / MUTEX CON FIRESTORE ---
+    async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
-        const token = await currentUser.getIdToken(true);
         
-        try {
-            const res = await fetch(url, { 
-                method:'POST', 
-                headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, 
-                body:JSON.stringify(body), 
-                cache:'no-store' 
-            });
-            
-            if (!res.ok) {
-                // Si el servidor está ocupado o da error, reintenta
-                if (retries > 0) {
-                    const delay = Math.floor(Math.random() * 2000) + 1000; // Espera aleatoria 1-3 seg
-                    await new Promise(r => setTimeout(r, delay));
-                    return secureFetch(url, body, retries - 1);
+        // Si no es una operación de escritura (búsqueda), no usamos cola
+        if (url === API_URL_SEARCH) {
+            return await _doFetch(url, body);
+        }
+
+        // Si es escritura (subida), usamos el Mutex
+        return await uploadWithMutex(url, body);
+    }
+
+    async function _doFetch(url, body) {
+        const token = await currentUser.getIdToken(true);
+        const res = await fetch(url, { 
+            method:'POST', 
+            headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, 
+            body:JSON.stringify(body), 
+            cache:'no-store' 
+        });
+        if (!res.ok) throw new Error(`API Error`);
+        return await res.json();
+    }
+
+    async function uploadWithMutex(url, body) {
+        const lockRef = db.collection('config').doc('upload_lock');
+        const myId = currentUser.email + '_' + Date.now();
+        let acquired = false;
+        let attempts = 0;
+        
+        // Intentar adquirir el turno (lock)
+        while(!acquired && attempts < 20) { // Reintentar por 40-50 segundos
+            try {
+                await db.runTransaction(async (t) => {
+                    const doc = await t.get(lockRef);
+                    const data = doc.data();
+                    const now = Date.now();
+
+                    // Si está ocupado y el bloqueo es reciente (< 15 segundos), fallamos
+                    if (data && data.locked && (now - data.timestamp < 15000)) {
+                        throw "LOCKED";
+                    }
+
+                    // Si está libre o el bloqueo es muy viejo (se colgó), lo tomamos
+                    t.set(lockRef, { locked: true, user: currentUser.email, timestamp: now });
+                });
+                acquired = true;
+            } catch (e) {
+                if (e === "LOCKED" || e.message === "LOCKED") {
+                    showLoader(true, `⏳ Esperando turno de carga... (${attempts+1}/20)`);
+                    await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000)); // Esperar 2-3 seg
+                    attempts++;
+                } else {
+                    console.error("Error Transaction:", e);
+                    throw e; 
                 }
-                throw new Error(`API Error`);
             }
-            return await res.json();
-        } catch (err) {
-            // Si hay error de red, también reintenta
-            if (retries > 0) {
-                const delay = Math.floor(Math.random() * 2000) + 1000;
-                await new Promise(r => setTimeout(r, delay));
-                return secureFetch(url, body, retries - 1);
-            }
-            throw err;
+        }
+
+        if(!acquired) throw new Error("El sistema está muy saturado. Por favor intenta en 1 minuto.");
+
+        // Tenemos el turno, hacemos la carga
+        try {
+            showLoader(true, "🚀 Subiendo datos...");
+            const result = await _doFetch(url, body);
+            return result;
+        } finally {
+            // SIEMPRE liberar el turno al terminar (éxito o error)
+            await lockRef.set({ locked: false });
         }
     }
 
     async function fetchAndLoadPackages() { 
-        showLoader(true);
+        showLoader(true, "Cargando paquetes...");
         try { 
             let d = await secureFetch(API_URL_SEARCH, {}); 
             if (typeof d === 'string') d = JSON.parse(d); 
@@ -255,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     auth.onAuthStateChanged(async (u) => {
-        showLoader(true);
+        showLoader(true, "Iniciando...");
         if (u) {
             try {
                 const emailLimpio = u.email.trim().toLowerCase();
