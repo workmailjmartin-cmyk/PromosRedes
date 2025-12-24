@@ -73,11 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(servicios)) {
             servicios.forEach(s => {
                 if(s.tipo === 'aereo') {
-                    // LOGICA GRAMATICA ESCALAS
                     let escalasTxt = "Directo";
-                    if (s.escalas > 0) {
-                        escalasTxt = (s.escalas == 1) ? "1 Escala" : `${s.escalas} Escalas`;
-                    }
+                    if (s.escalas > 0) { escalasTxt = (s.escalas == 1) ? "1 Escala" : `${s.escalas} Escalas`; }
                     texto += `✈️ AÉREO\n${s.aerolinea || 'Aerolínea'}\n${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
                     texto += `🔄 ${escalasTxt} | 🧳 ${s.tipo_equipaje || '-'}\n\n`;
                 } else if (s.tipo === 'hotel') {
@@ -141,13 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 i='✈️';t='AÉREO';
                 l.push(`<b>${x.aerolinea}</b>`);
                 l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);
-                
-                // LOGICA GRAMATICA ESCALAS EN MODAL
                 let escalasTxt = "Directo";
-                if (x.escalas > 0) {
-                    escalasTxt = (x.escalas == 1) ? "1 Escala" : `${x.escalas} Escalas`;
-                }
-                
+                if (x.escalas > 0) { escalasTxt = (x.escalas == 1) ? "1 Escala" : `${x.escalas} Escalas`; }
                 l.push(`🔄 ${escalasTxt} | 🧳 ${x.tipo_equipaje || '-'}`);
             } 
             else if(x.tipo==='hotel'){
@@ -212,6 +204,40 @@ document.addEventListener('DOMContentLoaded', () => {
         const pendingCount = uniquePackages.filter(p => p.status === 'pending').length;
         if (pendingCount > 0) { badge.innerText = pendingCount; badge.style.display = 'inline-block'; } 
         else { badge.style.display = 'none'; }
+    }
+
+    // --- REINTENTO INTELIGENTE (Anti-Colisión para cuentas compartidas) ---
+    async function secureFetch(url, body, retries = 3) {
+        if (!currentUser) throw new Error('No auth');
+        const token = await currentUser.getIdToken(true);
+        
+        try {
+            const res = await fetch(url, { 
+                method:'POST', 
+                headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, 
+                body:JSON.stringify(body), 
+                cache:'no-store' 
+            });
+            
+            if (!res.ok) {
+                // Si el servidor está ocupado o da error, reintenta
+                if (retries > 0) {
+                    const delay = Math.floor(Math.random() * 2000) + 1000; // Espera aleatoria 1-3 seg
+                    await new Promise(r => setTimeout(r, delay));
+                    return secureFetch(url, body, retries - 1);
+                }
+                throw new Error(`API Error`);
+            }
+            return await res.json();
+        } catch (err) {
+            // Si hay error de red, también reintenta
+            if (retries > 0) {
+                const delay = Math.floor(Math.random() * 2000) + 1000;
+                await new Promise(r => setTimeout(r, delay));
+                return secureFetch(url, body, retries - 1);
+            }
+            throw err;
+        }
     }
 
     async function fetchAndLoadPackages() { 
@@ -288,8 +314,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.editUser = (e, r, f) => { document.getElementById('user-email-input').value = e; document.getElementById('user-role-input').value = r; document.getElementById('user-franchise-input').value = f; window.scrollTo(0,0); window.showAlert(`Editando: ${e}`, 'info'); };
     window.confirmDeleteUser = async (e) => { if(await window.showConfirm("¿Eliminar?")) try { showLoader(true); await db.collection('usuarios').doc(e).delete(); loadUsersList(); showLoader(false); } catch(x){alert('Error');} };
 
-    async function secureFetch(url, body) { if (!currentUser) throw new Error('No auth'); const token = await currentUser.getIdToken(true); const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body:JSON.stringify(body), cache:'no-store' }); if (!res.ok) throw new Error(`API Error`); return await res.json(); }
-
     dom.btnAgregarServicio.addEventListener('click', () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } });
 
     function agregarModuloServicio(tipo, data = null) {
@@ -363,7 +387,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let t=0; 
         document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); 
         dom.inputCostoTotal.value = t;
-        // Calcular sugerido 18.5%
         const tarifaSugerida = Math.round(t * 1.185);
         dom.inputTarifaTotal.value = tarifaSugerida;
     };
