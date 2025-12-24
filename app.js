@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nav: { search: document.getElementById('nav-search'), upload: document.getElementById('nav-upload'), gestion: document.getElementById('nav-gestion'), users: document.getElementById('nav-users') },
         grid: document.getElementById('grilla-paquetes'), gridGestion: document.getElementById('grid-gestion'),
         uploadForm: document.getElementById('upload-form'), userForm: document.getElementById('user-form'), usersList: document.getElementById('users-list'),
-        inputCostoTotal: document.getElementById('upload-costo-total'), inputFechaViaje: document.getElementById('upload-fecha-salida'),
+        inputCostoTotal: document.getElementById('upload-costo-total'), inputTarifaTotal: document.getElementById('upload-tarifa-total'), inputFechaViaje: document.getElementById('upload-fecha-salida'),
         loginContainer: document.getElementById('login-container'), appContainer: document.getElementById('app-container'),
         btnLogin: document.getElementById('login-button'), btnLogout: document.getElementById('logout-button'), userEmail: document.getElementById('user-email'),
         modal: document.getElementById('modal-detalle'), modalBody: document.getElementById('modal-body'), modalClose: document.getElementById('modal-cerrar'),
@@ -54,11 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
-    // --- GENERADOR DE TEXTO ---
+    // --- GENERADOR DE TEXTO (CORREGIDO CON DETALLES) ---
     function generarTextoPresupuesto(pkg) {
-        // PRIORIDAD: Fecha de carga original. Si no existe, fecha actual.
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
-        
         const noches = getNoches(pkg);
         const tarifa = parseFloat(pkg['tarifa']) || 0;
         const tarifaDoble = Math.round(tarifa / 2);
@@ -75,9 +73,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(servicios)) {
             servicios.forEach(s => {
                 if(s.tipo === 'aereo') {
-                    texto += `✈️ AÉREO\n${s.aerolinea || 'Aerolínea'}\n${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n\n`;
+                    const escalasTxt = (s.escalas == 0 || s.escalas == '0') ? "Directo" : `${s.escalas} Escalas`;
+                    texto += `✈️ AÉREO\n${s.aerolinea || 'Aerolínea'}\n${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
+                    texto += `🔄 ${escalasTxt} | 🧳 ${s.tipo_equipaje || '-'}\n\n`;
                 } else if (s.tipo === 'hotel') {
-                    texto += `🏨 HOTEL\n${s.hotel_nombre} (${s.regimen || ''})\n\n`;
+                    texto += `🏨 HOTEL\n${s.hotel_nombre} (${s.regimen || ''})\n`;
+                    if(s.hotel_link) texto += `📍 Ubicación: ${s.hotel_link}\n`;
+                    texto += `\n`;
                 } else if (s.tipo === 'traslado') {
                     texto += `🚕 TRASLADO\n${s.tipo_trf || 'Incluido'}\n\n`;
                 } else if (s.tipo === 'seguro') {
@@ -131,8 +133,19 @@ document.addEventListener('DOMContentLoaded', () => {
         let h=''; 
         s.forEach(x=>{ 
             let i='🔹',t='',l=[]; 
-            if(x.tipo==='aereo'){i='✈️';t='AÉREO';l.push(`<b>${x.aerolinea}</b>`);l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);} 
-            else if(x.tipo==='hotel'){i='🏨';t='HOTEL';l.push(`<b>${x.hotel_nombre}</b> (${x.regimen})`);} 
+            if(x.tipo==='aereo'){
+                i='✈️';t='AÉREO';
+                l.push(`<b>${x.aerolinea}</b>`);
+                l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);
+                // LOGICA ESCALAS Y EQUIPAJE EN MODAL
+                const escalasTxt = (x.escalas == 0 || x.escalas == '0') ? "Directo" : `${x.escalas} Escalas`;
+                l.push(`🔄 ${escalasTxt} | 🧳 ${x.tipo_equipaje || '-'}`);
+            } 
+            else if(x.tipo==='hotel'){
+                i='🏨';t='HOTEL';
+                l.push(`<b>${x.hotel_nombre}</b> (${x.regimen})`);
+                if(x.hotel_link) l.push(`<a href="${x.hotel_link}" target="_blank" style="color:#ef5a1a;text-decoration:none;">📍 Ver Ubicación</a>`);
+            } 
             else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} 
             else if(x.tipo==='seguro'){i='🛡️';t='SEGURO';l.push(`${x.proveedor}`);} 
             else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} 
@@ -283,8 +296,40 @@ document.addEventListener('DOMContentLoaded', () => {
         div.className = `servicio-card ${tipo}`; div.dataset.id = id; div.dataset.tipo = tipo;
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
-        if(tipo==='aereo'){html+=`<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas',0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Carry On</option><option>Carry On + Bodega</option><option>Bodega (15kg)</option><option>Bodega (23kg)</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
-        else if(tipo==='hotel'){html+=`<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
+        if(tipo==='aereo'){
+            html+=`<h4>✈️ Aéreo</h4>
+            <div class="form-group-row">
+                <div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div>
+                <div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div>
+                <div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div>
+            </div>
+            <div class="form-group-row">
+                <div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas',0)}</div>
+                <div class="form-group"><label>Equipaje</label>
+                    <select name="tipo_equipaje">
+                        <option>Objeto Personal</option>
+                        <option>Objeto Personal + Carry On</option>
+                        <option>Objeto Personal + Carry On + Bodega</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group-row">
+                <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
+                <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
+            </div>`;
+        }
+        else if(tipo==='hotel'){
+            html+=`<h4>🏨 Hotel</h4>
+            <div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div>
+            <div class="form-group"><label>Ubicación (Link)</label><input type="url" name="hotel_link" placeholder="https://maps.google.com/..."></div>
+            <div class="form-group-row">
+                <div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div>
+                <div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div>
+                <div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div>
+            </div>
+            <div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div>
+            <div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
+        }
         else if(tipo==='traslado'){html+=`<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Hotel - Hotel</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='seguro'){html+=`<h4>🛡️ Seguro</h4><div class="form-group-row"><div class="form-group"><label>Cobertura</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='adicional'){html+=`<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
@@ -302,7 +347,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.crearContadorHTML = (n, v) => `<div class="counter-wrapper"><button type="button" class="counter-btn" onclick="this.nextElementSibling.innerText=Math.max(0,parseInt(this.nextElementSibling.innerText)-1)">-</button><span class="counter-value">${v}</span><button type="button" class="counter-btn" onclick="this.previousElementSibling.innerText=parseInt(this.previousElementSibling.innerText)+1">+</button><input type="hidden" name="${n}" value="${v}"></div>`;
     window.calcularNoches = (id) => { const c=document.querySelector(`.servicio-card[data-id="${id}"]`); if(!c)return; const i=c.querySelector('input[name="checkin"]'), o=c.querySelector('input[name="checkout"]'); if(i&&o&&i.value&&o.value){ const d1=new Date(i.value), d2=new Date(o.value); document.getElementById(`noches-${id}`).value=(d2>d1)?Math.ceil((d2-d1)/86400000):'-'; } };
-    window.calcularTotal = () => { let t=0; document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); dom.inputCostoTotal.value=t; };
+    
+    // --- CALCULO AUTOMATICO 18.5% ---
+    window.calcularTotal = () => { 
+        let t=0; 
+        document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); 
+        dom.inputCostoTotal.value = t;
+        // Calcular sugerido 18.5%
+        const tarifaSugerida = Math.round(t * 1.185);
+        dom.inputTarifaTotal.value = tarifaSugerida;
+    };
 
     dom.uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault(); showLoader(true);
@@ -317,13 +371,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         
-        // LOGICA CREADOR (CORREGIDA)
         let creadorFinal;
-        if (isEditingId && originalCreator) {
-             creadorFinal = originalCreator; // Mantiene el original al editar
-        } else {
-             creadorFinal = userData.franquicia || 'Desconocido'; // Usa el actual si es nuevo
-        }
+        if (isEditingId && originalCreator) { creadorFinal = originalCreator; } else { creadorFinal = userData.franquicia || 'Desconocido'; }
 
         const payload = { id_paquete: idGenerado, destino: document.getElementById('upload-destino').value, salida: document.getElementById('upload-salida').value, fecha_salida: fechaViajeStr, costos_proveedor: costo, tarifa: tarifa, moneda: document.getElementById('upload-moneda').value, tipo_promo: promoType, financiacion: document.getElementById('upload-financiacion').value, servicios: serviciosData, status: status, creador: creadorFinal, editor_email: currentUser.email, action_type: isEditingId ? 'edit' : 'create' };
 
@@ -339,7 +388,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCards(result, dom.grid); if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) { const pendientes = uniquePackages.filter(p => p.status === 'pending'); renderCards(pendientes, dom.gridGestion); }
     }
 
-    // --- RENDERIZADO DE TARJETAS (VUELTA AL DISEÑO ORIGINAL) ---
     function renderCards(list, targetGrid = dom.grid) {
         targetGrid.innerHTML = ''; if (!list || list.length === 0) { targetGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;">No hay resultados.</p>'; return; }
         list.forEach(pkg => {
@@ -385,7 +433,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let adminTools = ''; const isOwner = pkg.editor_email === currentUser.email; const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
         if (canEdit) { const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick='approvePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : ''; adminTools = `<div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">${btnApprove}<button class="btn btn-secundario" onclick='startEditing(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button><button class="btn btn-secundario" onclick='deletePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button></div>`; }
         
-        // --- BOTÓN COPIAR PRESUPUESTO MOVIDO AL LADO DE "RESUMEN" ---
         const btnCopiar = `<button class="btn" onclick='copiarPresupuesto(${JSON.stringify(pkg)})' style="background:#34495e; color:white; padding: 5px 15px; font-size:0.8em; display:flex; align-items:center; gap:5px;">📋 Copiar</button>`;
 
         dom.modalBody.innerHTML = `
@@ -394,6 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <h2 style="margin:0;font-size:2.2em;line-height:1.1;">${pkg['destino']}</h2>
+                    <div style="margin-right: 50px;">${btnCopiar}</div>
                 </div>
                 <div style="margin-top:5px;"><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
             </div>
