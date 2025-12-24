@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
-    // --- GENERADOR DE TEXTO (CORREGIDO CON DETALLES) ---
+    // --- GENERADOR DE TEXTO ---
     function generarTextoPresupuesto(pkg) {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg);
@@ -73,7 +73,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(servicios)) {
             servicios.forEach(s => {
                 if(s.tipo === 'aereo') {
-                    const escalasTxt = (s.escalas == 0 || s.escalas == '0') ? "Directo" : `${s.escalas} Escalas`;
+                    // LOGICA GRAMATICA ESCALAS
+                    let escalasTxt = "Directo";
+                    if (s.escalas > 0) {
+                        escalasTxt = (s.escalas == 1) ? "1 Escala" : `${s.escalas} Escalas`;
+                    }
                     texto += `✈️ AÉREO\n${s.aerolinea || 'Aerolínea'}\n${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
                     texto += `🔄 ${escalasTxt} | 🧳 ${s.tipo_equipaje || '-'}\n\n`;
                 } else if (s.tipo === 'hotel') {
@@ -137,8 +141,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 i='✈️';t='AÉREO';
                 l.push(`<b>${x.aerolinea}</b>`);
                 l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);
-                // LOGICA ESCALAS Y EQUIPAJE EN MODAL
-                const escalasTxt = (x.escalas == 0 || x.escalas == '0') ? "Directo" : `${x.escalas} Escalas`;
+                
+                // LOGICA GRAMATICA ESCALAS EN MODAL
+                let escalasTxt = "Directo";
+                if (x.escalas > 0) {
+                    escalasTxt = (x.escalas == 1) ? "1 Escala" : `${x.escalas} Escalas`;
+                }
+                
                 l.push(`🔄 ${escalasTxt} | 🧳 ${x.tipo_equipaje || '-'}`);
             } 
             else if(x.tipo==='hotel'){
@@ -309,6 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <select name="tipo_equipaje">
                         <option>Objeto Personal</option>
                         <option>Objeto Personal + Carry On</option>
+                        <option>Objeto Personal + Bodega</option>
                         <option>Objeto Personal + Carry On + Bodega</option>
                     </select>
                 </div>
@@ -441,7 +451,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <h2 style="margin:0;font-size:2.2em;line-height:1.1;">${pkg['destino']}</h2>
-                    <div style="margin-right: 50px;">${btnCopiar}</div>
                 </div>
                 <div style="margin-top:5px;"><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
             </div>
