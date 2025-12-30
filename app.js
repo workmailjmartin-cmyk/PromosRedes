@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // CONFIGURACIÓN
     const firebaseConfig = { apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk", authDomain: "feliz-viaje-43d02.firebaseapp.com", projectId: "feliz-viaje-43d02", storageBucket: "feliz-viaje-43d02.firebasestorage.app", messagingSenderId: "931689659600", appId: "1:931689659600:web:66dbce023705936f26b2d5", measurementId: "G-2PNDZR3ZS1" };
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
@@ -24,8 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
         containerServicios: document.getElementById('servicios-container'), btnAgregarServicio: document.getElementById('btn-agregar-servicio'), selectorServicio: document.getElementById('selector-servicio'),
         btnBuscar: document.getElementById('boton-buscar'), btnLimpiar: document.getElementById('boton-limpiar'),
         filtroOrden: document.getElementById('filtro-orden'), filtroCreador: document.getElementById('filtro-creador'), containerFiltroCreador: document.getElementById('container-filtro-creador'),
-        logoImg: document.getElementById('app-logo'), loader: document.getElementById('loader-overlay'), badgeGestion: document.getElementById('badge-gestion'),
-        // NUEVO: Calendario
+        logoImg: document.getElementById('app-logo'), loader: document.getElementById('loader-overlay'),
+        badgeGestion: document.getElementById('badge-gestion'),
         calendarContainer: document.getElementById('weekly-calendar-container'), calendarGrid: document.getElementById('calendar-grid')
     };
 
@@ -43,90 +42,109 @@ document.addEventListener('DOMContentLoaded', () => {
     function getNoches(pkg) { let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {} if(!Array.isArray(servicios)) return 0; const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches); const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches); if(!pkg['fecha_salida']) return 0; let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-'); const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false; servicios.forEach(s => { if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} } if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} } }); return hasData ? Math.ceil((maxDate - start) / 86400000) : 0; }
     function getSummaryIcons(pkg) { let s = []; try { s = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {} if (!Array.isArray(s)) return ''; const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); }
 
-    // --- CALENDARIO SEMANAL ---
+    // --- CALENDARIO ---
     async function loadWeeklyCalendar() {
         if (!dom.calendarContainer) return;
-        
-        // Días de la semana
         const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
-        const todayIndex = new Date().getDay(); // 0=Dom, 1=Lun, 5=Vie
-        
+        const todayIndex = new Date().getDay(); 
         try {
-            // Leer configuración de Firestore
             const doc = await db.collection('config').doc('weekly_calendar').get();
             const data = doc.exists ? doc.data() : {};
-            
             dom.calendarGrid.innerHTML = '';
-            
             days.forEach((dayName, index) => {
-                const dayKey = `day_${index + 1}`; // day_1, day_2...
+                const dayKey = `day_${index + 1}`;
                 const content = data[dayKey] || 'Sin asignar';
-                const isActive = (todayIndex === index + 1); // Highlight si coincide con hoy
-                
+                const isActive = (todayIndex === index + 1);
                 const card = document.createElement('div');
                 card.className = `day-card ${isActive ? 'active' : ''}`;
-                
-                // Botón editar solo para admins/editores
                 let editBtn = '';
-                if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) {
-                    editBtn = `<button class="edit-calendar-btn" onclick="editCalendarDay('${dayKey}', '${dayName}')">✏️</button>`;
-                }
-
-                card.innerHTML = `
-                    ${editBtn}
-                    <h4>${dayName}</h4>
-                    <div class="day-content">${content}</div>
-                `;
+                if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) { editBtn = `<button class="edit-calendar-btn" onclick="editCalendarDay('${dayKey}', '${dayName}')">✏️</button>`; }
+                card.innerHTML = `${editBtn}<h4>${dayName}</h4><div class="day-content">${content}</div>`;
                 dom.calendarGrid.appendChild(card);
             });
-            
             dom.calendarContainer.style.display = 'block';
-
-        } catch (e) {
-            console.error("Error cargando calendario:", e);
-        }
+        } catch (e) { console.error(e); }
     }
-
-    // Función global para editar (llamada desde el HTML inyectado)
     window.editCalendarDay = async (dayKey, dayName) => {
         const newVal = prompt(`Ingrese el tema/promo para el ${dayName}:`);
         if (newVal !== null) {
-            showLoader(true, "Actualizando calendario...");
-            try {
-                // Guardar en Firestore con merge para no borrar otros días
-                await db.collection('config').doc('weekly_calendar').set({
-                    [dayKey]: newVal
-                }, { merge: true });
-                await loadWeeklyCalendar(); // Recargar visualmente
-            } catch (e) {
-                alert("Error al guardar.");
-            }
+            showLoader(true, "Actualizando...");
+            try { await db.collection('config').doc('weekly_calendar').set({ [dayKey]: newVal }, { merge: true }); await loadWeeklyCalendar(); } catch (e) { alert("Error al guardar."); }
             showLoader(false);
         }
     };
 
-    // --- COLA / MUTEX ---
-    async function secureFetch(url, body, retries = 3) {
+    // --- COLA / MUTEX ROBUSTO ---
+    async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
-        if (url === API_URL_SEARCH) return await _doFetch(url, body);
+        if (url === API_URL_SEARCH) return await _doFetch(url, body); // Búsqueda directa
+        
+        // Escritura con Mutex
         return await uploadWithMutex(url, body);
     }
+
     async function _doFetch(url, body) {
         const token = await currentUser.getIdToken(true);
         const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body:JSON.stringify(body), cache:'no-store' });
-        if (!res.ok) throw new Error(`API Error`);
+        if (!res.ok) throw new Error(`Error HTTP: ${res.status}`);
         const j = await res.json();
-        if (j.error || j.status === 'error' || (Array.isArray(j) && j.length === 0 && url === API_URL_UPLOAD)) throw new Error(j.message || "Error procesando.");
+        // Validar respuesta de n8n para evitar falsos positivos
+        if (j.error || j.status === 'error' || (Array.isArray(j) && j.length === 0 && url === API_URL_UPLOAD)) throw new Error(j.message || "Error en n8n.");
         return j;
     }
+
     async function uploadWithMutex(url, body) {
         const lockRef = db.collection('config').doc('upload_lock');
-        let acquired = false, attempts = 0;
-        while(!acquired && attempts < 20) { 
-            try { await db.runTransaction(async (t) => { const doc = await t.get(lockRef); const data = doc.data(); const now = Date.now(); if (data && data.locked && (now - data.timestamp < 15000)) { throw "LOCKED"; } t.set(lockRef, { locked: true, user: currentUser.email, timestamp: now }); }); acquired = true; } catch (e) { if (e === "LOCKED" || e.message === "LOCKED") { showLoader(true, `⏳ Esperando turno... (${attempts+1}/20)`); await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000)); attempts++; } else { throw e; } }
+        let acquired = false;
+        let attempts = 0;
+        
+        // Intentar adquirir turno (20 intentos, ~40 seg max)
+        while(!acquired && attempts < 20) {
+            try {
+                await db.runTransaction(async (t) => {
+                    const doc = await t.get(lockRef);
+                    const now = Date.now();
+                    
+                    if (!doc.exists) {
+                        // Si no existe, lo creamos y lo tomamos (Primer uso)
+                        t.set(lockRef, { locked: true, user: currentUser.email, timestamp: now });
+                        return;
+                    }
+
+                    const data = doc.data();
+                    // Si está bloqueado y es reciente (<15s), fallar para esperar
+                    if (data && data.locked && (now - data.timestamp < 15000)) {
+                        throw "LOCKED";
+                    }
+                    
+                    // Si está libre o expiró, lo tomamos
+                    t.set(lockRef, { locked: true, user: currentUser.email, timestamp: now });
+                });
+                acquired = true;
+            } catch (e) {
+                if (e === "LOCKED" || e.message === "LOCKED") {
+                    showLoader(true, `⏳ Esperando turno... (${attempts+1}/20)`);
+                    // Espera aleatoria para desincronizar usuarios
+                    await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000));
+                    attempts++;
+                } else {
+                    console.error("Error Transacción:", e);
+                    throw e; // Error real de Firebase (permisos, red, etc)
+                }
+            }
         }
-        if(!acquired) throw new Error("Sistema saturado. Intente en 1 min.");
-        try { showLoader(true, "🚀 Subiendo datos..."); return await _doFetch(url, body); } finally { await lockRef.set({ locked: false }); }
+
+        if(!acquired) throw new Error("Sistema saturado. Intenta en 1 minuto.");
+
+        // Turno adquirido: Subir
+        try {
+            showLoader(true, "🚀 Subiendo datos...");
+            const result = await _doFetch(url, body);
+            return result;
+        } finally {
+            // Liberar turno siempre (incluso si falla n8n)
+            await lockRef.set({ locked: false });
+        }
     }
 
     // --- GENERADOR TEXTO ---
@@ -161,9 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchAndLoadPackages() { 
         showLoader(true, "Cargando datos...");
         try { 
-            // Cargar Calendario en paralelo
             loadWeeklyCalendar(); 
-            
             let d = await secureFetch(API_URL_SEARCH, {}); 
             if (typeof d === 'string') d = JSON.parse(d); allPackages = d; uniquePackages = processPackageHistory(allPackages); populateFranchiseFilter(uniquePackages); applyFilters(); updatePendingBadge(); 
         } catch(e){ console.error(e); }
@@ -216,16 +232,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         let creadorFinal = (isEditingId && originalCreator) ? originalCreator : (userData.franquicia || 'Desconocido');
         const payload = { id_paquete: idGenerado, destino: document.getElementById('upload-destino').value, salida: document.getElementById('upload-salida').value, fecha_salida: fechaViajeStr, costos_proveedor: costo, tarifa: tarifa, moneda: document.getElementById('upload-moneda').value, tipo_promo: promoType, financiacion: document.getElementById('upload-financiacion').value, servicios: serviciosData, status: status, creador: creadorFinal, editor_email: currentUser.email, action_type: isEditingId ? 'edit' : 'create' };
-        try { await secureFetch(API_URL_UPLOAD, payload); await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success'); window.location.reload(); } catch(e) { window.showAlert("Error al guardar.", 'error'); }
+        try { await secureFetch(API_URL_UPLOAD, payload); await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success'); window.location.reload(); } catch(e) { window.showAlert(e.message || "Error al guardar.", 'error'); }
     });
 
     // --- OTROS ---
     if (dom.userForm) { dom.userForm.addEventListener('submit', async (e) => { e.preventDefault(); showLoader(true); const email = document.getElementById('user-email-input').value.trim().toLowerCase(); const rol = document.getElementById('user-role-input').value; const fran = document.getElementById('user-franchise-input').value; try { await db.collection('usuarios').doc(email).set({ email, rol, franquicia: fran, fecha_modificacion: new Date() }, { merge: true }); await window.showAlert('Usuario guardado.', 'success'); document.getElementById('user-email-input').value = ''; document.getElementById('user-franchise-input').value = ''; loadUsersList(); } catch (e) { await window.showAlert('Error.', 'error'); } showLoader(false); }); }
     dom.btnAgregarServicio.addEventListener('click', () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } });
     
-    // BUILDERS SERVICIOS (Igual que antes, omitido por brevedad en este bloque pero DEBE estar completo en tu archivo)
-    // *** ASEGÚRATE DE COPIAR LA FUNCIÓN agregarModuloServicio COMPLETA DEL MENSAJE ANTERIOR SI ESTE CÓDIGO SE CORTA ***
-    // (Incluyo la versión condensada para que entre, funciona igual)
+    // BUILDERS SERVICIOS
     function agregarModuloServicio(t,d=null){const c=dom.containerServicios;const x=c.querySelectorAll('.servicio-card');const h=Array.from(x).some(k=>k.dataset.tipo==='bus'||k.dataset.tipo==='crucero');if(!d){if(h&&t!=='adicional')return window.showAlert("Solo Adicionales.","error");if((t==='bus'||t==='crucero')&&x.length>0)return window.showAlert("Exclusivo.","error");}const id=Date.now()+Math.random();const v=document.createElement('div');v.className=`servicio-card ${t}`;v.dataset.id=id;v.dataset.tipo=t;let m=`<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove();window.calcularTotal()">×</button>`;
     if(t==='aereo')m+=`<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas',0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Objeto Personal + Carry On</option><option>Objeto Personal + Bodega</option><option>Objeto Personal + Carry On + Bodega</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
     else if(t==='hotel')m+=`<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group"><label>Ubicación (Link)</label><input type="url" name="hotel_link"></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee;width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
