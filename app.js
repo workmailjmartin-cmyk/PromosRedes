@@ -1,7 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 1. CONFIGURACIÓN ---
-    const firebaseConfig = { apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk", authDomain: "feliz-viaje-43d02.firebaseapp.com", projectId: "feliz-viaje-43d02", storageBucket: "feliz-viaje-43d02.firebasestorage.app", messagingSenderId: "931689659600", appId: "1:931689659600:web:66dbce023705936f26b2d5", measurementId: "G-2PNDZR3ZS1" };
+    const firebaseConfig = {
+        apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk",
+        authDomain: "feliz-viaje-43d02.firebaseapp.com",
+        projectId: "feliz-viaje-43d02",
+        storageBucket: "feliz-viaje-43d02.firebasestorage.app",
+        messagingSenderId: "931689659600",
+        appId: "1:931689659600:web:66dbce023705936f26b2d5",
+        measurementId: "G-2PNDZR3ZS1"
+    };
+
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
@@ -10,8 +19,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
 
-    let currentUser = null, userData = null, allPackages = [], uniquePackages = [], isEditingId = null, originalCreator = ''; 
+    // ESTADO GLOBAL
+    let currentUser = null;
+    let userData = null; 
+    let allPackages = [];
+    let uniquePackages = []; 
+    let isEditingId = null; 
+    let originalCreator = ''; 
 
+    // DOM
     const dom = {
         views: { search: document.getElementById('view-search'), upload: document.getElementById('view-upload'), gestion: document.getElementById('view-gestion'), users: document.getElementById('view-users') },
         nav: { search: document.getElementById('nav-search'), upload: document.getElementById('nav-upload'), gestion: document.getElementById('nav-gestion'), users: document.getElementById('nav-users') },
@@ -40,27 +56,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
     
-    // --- NUEVA LÓGICA DE NOCHES (Calcula hoteles primero) ---
+    // --- LÓGICA DE DURACIÓN (CORREGIDA) ---
     function getNoches(pkg) {
-        let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
+        let servicios = []; 
+        try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
 
-        // 1. Prioridad: Sumar noches de hoteles
-        let nochesHotel = 0;
+        // 1. PRIORIDAD: Sumar noches de Hoteles
+        let totalHotel = 0;
         let hayHotel = false;
         servicios.forEach(s => {
-            if (s.tipo === 'hotel' && s.noches) {
-                nochesHotel += parseInt(s.noches) || 0;
+            if(s.tipo === 'hotel' && s.noches) {
+                totalHotel += parseInt(s.noches) || 0;
                 hayHotel = true;
             }
         });
-        if (hayHotel && nochesHotel > 0) return nochesHotel;
+        if(hayHotel && totalHotel > 0) return totalHotel;
 
-        // 2. Prioridad: Bus / Crucero
+        // 2. PRIORIDAD: Bus o Crucero
         const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
         const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
         
-        // 3. Fallback: Fechas (lo que hacía antes)
+        // 3. FALLBACK: Fechas
         if(!pkg['fecha_salida']) return 0;
         let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
         const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
@@ -77,10 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; 
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
-
-    // --- ALERTAS (Indispensables para que no se congele) ---
-    window.showAlert = (message, type = 'error') => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btn = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); if(btnCancel) btnCancel.style.display = 'none'; if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; } else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; } else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; } msg.innerText = message; overlay.style.display = 'flex'; btn.onclick = () => { overlay.style.display = 'none'; resolve(); }; }); };
-    window.showConfirm = (message) => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btnOk = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); title.innerText = 'Confirmación'; title.style.color = '#11173d'; icon.innerHTML = '❓'; msg.innerText = message; if(btnCancel) btnCancel.style.display = 'inline-block'; overlay.style.display = 'flex'; btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); }; if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); }; }); };
 
     // --- GENERADOR DE TEXTO (WHATSAPP) ---
     function generarTextoPresupuesto(pkg) {
@@ -106,7 +119,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     texto += `✈️ AÉREO\n${s.aerolinea || 'Aerolínea'}\n${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
                     texto += `🔄 ${escalasTxt} | 🧳 ${s.tipo_equipaje || '-'}\n\n`;
                 } else if (s.tipo === 'hotel') {
-                    let stars = ''; if(s.hotel_estrellas){ for(let k=0;k<s.hotel_estrellas;k++) stars+='⭐'; }
+                    // HOTEL: Estrellas + Noches + Ingreso + Link
+                    let stars = ''; if(s.hotel_estrellas) { for(let i=0; i<s.hotel_estrellas; i++) stars += '⭐'; }
                     texto += `🏨 HOTEL\n${s.hotel_nombre} ${stars} (${s.regimen || ''})\n`;
                     if(s.noches) texto += `🌙 ${s.noches} Noches`;
                     if(s.checkin) texto += ` | 📥 Ingreso: ${formatDateAR(s.checkin)}`;
@@ -115,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (s.tipo === 'traslado') {
                     texto += `🚕 TRASLADO\n${s.tipo_trf || 'Incluido'}\n\n`;
                 } else if (s.tipo === 'seguro') {
-                    // Solo mostramos cobertura, NO el proveedor
+                    // SEGURO: Sin proveedor, solo cobertura
                     texto += `🛡️ SEGURO\n${s.cobertura || 'Asistencia al viajero'}\n\n`;
                 } else if (s.tipo === 'bus') {
                     texto += `🚌 BUS\n${s.bus_noches} Noches ${s.bus_regimen ? '('+s.bus_regimen+')' : ''}\n\n`;
@@ -160,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- RENDERIZADO VISUAL (MODAL) ---
+    // --- RENDER VISUAL (MODAL) ---
     function renderServiciosClienteHTML(rawJson) { 
         let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} 
         if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; 
@@ -177,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } 
             else if(x.tipo==='hotel'){
                 i='🏨';t='HOTEL';
-                let stars = ''; if(x.hotel_estrellas){ for(let k=0;k<x.hotel_estrellas;k++) stars+='⭐'; }
+                let stars = ''; if(x.hotel_estrellas) { for(let k=0; k<x.hotel_estrellas; k++) stars += '⭐'; }
                 l.push(`<b>${x.hotel_nombre}</b> <span style="color:#ef5a1a;">${stars}</span>`);
                 l.push(`(${x.regimen})`);
                 
@@ -187,12 +201,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(x.checkin) det.push(`Ingreso: ${formatDateAR(x.checkin)}`);
                 if(det.length > 0) l.push(`<small>${det.join(' | ')}</small>`);
 
-                if(x.hotel_link) l.push(`<a href="${x.hotel_link}" target="_blank" style="color:#ef5a1a;text-decoration:none;font-weight:bold;">📍 Ver Ubicación</a>`);
+                if(x.hotel_link) l.push(`<a href="${x.hotel_link}" target="_blank" style="color:#ef5a1a;font-weight:bold;text-decoration:none;">📍 Ver Ubicación</a>`);
             } 
             else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} 
             else if(x.tipo==='seguro'){
                 i='🛡️';t='SEGURO';
-                // En el visual del cliente, ocultamos proveedor, mostramos cobertura
+                // En Modal Cliente: Solo Cobertura
                 if(x.cobertura) l.push(x.cobertura);
             } 
             else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} 
@@ -208,13 +222,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; 
         let h='<ul style="padding-left:15px;margin:0;">'; 
         s.forEach(x=>{ 
-            // Aquí SI mostramos el proveedor del seguro
-            h+=`<li>${x.proveedor||x.tipo}: $${x.costo}</li>`; 
+            // En COSTOS: Sí mostramos el proveedor del seguro
+            let texto = `${x.proveedor||x.tipo}: $${x.costo}`;
+            h+=`<li>${texto}</li>`; 
         }); 
         return h+'</ul>'; 
     }
 
-    // --- CORE & AUTH ---
+    // --- ALERTAS ---
+    window.showAlert = (message, type = 'error') => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btn = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); if(btnCancel) btnCancel.style.display = 'none'; if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; } else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; } else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; } msg.innerText = message; overlay.style.display = 'flex'; btn.onclick = () => { overlay.style.display = 'none'; resolve(); }; }); };
+    window.showConfirm = (message) => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btnOk = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); title.innerText = 'Confirmación'; title.style.color = '#11173d'; icon.innerHTML = '❓'; msg.innerText = message; if(btnCancel) btnCancel.style.display = 'inline-block'; overlay.style.display = 'flex'; btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); }; if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); }; }); };
+
+    // --- CORE ---
     if(dom.logoImg) dom.logoImg.addEventListener('click', () => { showLoader(true); window.location.reload(); });
 
     const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -232,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dateInputs.forEach(input => { input.min = minDate; if(input.value && input.value < minDate){ input.value = ''; input.style.borderColor = '#ef5a1a'; setTimeout(() => input.style.borderColor = '#ddd', 2000); } });
     }
 
-    // --- COLA / MUTEX ---
+    // --- COLA (MUTEX) ---
     async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
         if (url === API_URL_SEARCH) return await _doFetch(url, body);
@@ -241,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function _doFetch(url, body) {
         const token = await currentUser.getIdToken(true);
         const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body:JSON.stringify(body), cache:'no-store' });
-        if (!res.ok) throw new Error(`API Error`);
+        if (!res.ok) throw new Error(`API HTTP Error: ${res.status}`);
         const j = await res.json();
         if (j.error || j.status === 'error' || (Array.isArray(j) && j.length === 0 && url === API_URL_UPLOAD)) throw new Error(j.message || "Error procesando en n8n.");
         return j;
@@ -279,11 +298,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return processedList;
     }
 
+    // --- AUTH ---
     auth.onAuthStateChanged(async (u) => {
         showLoader(true);
         if (u) {
             try {
-                const doc = await db.collection('usuarios').doc(u.email.trim().toLowerCase()).get();
+                const emailLimpio = u.email.trim().toLowerCase();
+                const doc = await db.collection('usuarios').doc(emailLimpio).get();
                 if (doc.exists) {
                     currentUser = u; userData = doc.data(); 
                     dom.loginContainer.style.display='none'; dom.appContainer.style.display='block';
@@ -316,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- FORMULARIO Y ESTRELLAS ---
     
-    // Función global para el click en estrellas
+    // Función global para click en estrellas
     window.setStars = (id, count) => {
         const container = document.querySelector(`.servicio-card[data-id="${id}"] .star-rating`);
         const input = document.getElementById(`stars-${id}`);
@@ -369,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
         }
         else if(tipo==='hotel'){
-            // HOTEL COMPLETO: ESTRELLAS + LINK + NOCHES AUTOMATICAS
+            // HOTEL CON ESTRELLAS Y LINK
             html+=`<h4>🏨 Hotel</h4>
             <div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div>
             
@@ -416,41 +437,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if(dom.inputFechaViaje.value) { const inputsFecha = div.querySelectorAll('input[type="date"]'); inputsFecha.forEach(i => i.min = dom.inputFechaViaje.value); }
         else { const inputsFecha = div.querySelectorAll('input[type="date"]'); const today = new Date(); today.setMinutes(today.getMinutes() - today.getTimezoneOffset()); inputsFecha.forEach(i => i.min = today.toISOString().split('T')[0]); }
 
-        if(data){ 
-            div.querySelectorAll('input, select, textarea').forEach(input => { 
-                if (data[input.name] !== undefined) { 
-                    if (input.type === 'checkbox') { 
-                        input.checked = data[input.name]; 
-                        if (input.name === 'bus_alojamiento') input.dispatchEvent(new Event('change')); 
-                    } else if (input.type === 'hidden') { 
-                        // Cargar Estrellas
-                        if(input.name === 'hotel_estrellas') { window.setStars(id, data[input.name]); }
-                        
-                        const counter = input.parentElement.querySelector('.counter-value'); 
-                        if(counter) counter.innerText = data[input.name]; 
-                        input.value = data[input.name]; 
-                    } else { 
-                        input.value = data[input.name]; 
-                        if (input.name === 'checkin' || input.name === 'checkout') window.calcularNoches(id); 
-                    } 
-                } 
-            }); 
-        }
+        if(data){ div.querySelectorAll('input, select, textarea').forEach(input => { if (data[input.name] !== undefined) { if (input.type === 'checkbox') { input.checked = data[input.name]; if (input.name === 'bus_alojamiento') input.dispatchEvent(new Event('change')); } else if (input.type === 'hidden') { if(input.name==='hotel_estrellas') window.setStars(id, data[input.name]); else { const counter = input.parentElement.querySelector('.counter-value'); if(counter) counter.innerText = data[input.name]; input.value = data[input.name]; } } else { input.value = data[input.name]; if (input.name === 'checkin' || input.name === 'checkout') window.calcularNoches(id); } } }); }
     }
 
     window.crearContadorHTML = (n, v) => `<div class="counter-wrapper"><button type="button" class="counter-btn" onclick="this.nextElementSibling.innerText=Math.max(0,parseInt(this.nextElementSibling.innerText)-1)">-</button><span class="counter-value">${v}</span><button type="button" class="counter-btn" onclick="this.previousElementSibling.innerText=parseInt(this.previousElementSibling.innerText)+1">+</button><input type="hidden" name="${n}" value="${v}"></div>`;
     
-    // CALCULO NOCHES (HOTEL INDIVIDUAL)
+    // CALCULO DE NOCHES HOTEL (Ahora actualiza el input hidden y visible)
     window.calcularNoches = (id) => { 
-        const c=document.querySelector(`.servicio-card[data-id="${id}"]`); 
-        if(!c)return; 
+        const c=document.querySelector(`.servicio-card[data-id="${id}"]`); if(!c)return; 
         const i=c.querySelector('input[name="checkin"]'), o=c.querySelector('input[name="checkout"]'); 
         if(i&&o&&i.value&&o.value){ 
             const d1=new Date(i.value), d2=new Date(o.value); 
-            // setear value del input visible para que se guarde en formData
             const diff = (d2>d1)?Math.ceil((d2-d1)/86400000):0;
-            const inputNoches = document.getElementById(`noches-${id}`);
-            if(inputNoches) inputNoches.value = diff;
+            const inputN = document.getElementById(`noches-${id}`);
+            if(inputN) inputN.value = diff;
         } 
     };
     
@@ -459,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let t=0; 
         document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); 
         dom.inputCostoTotal.value = t;
-        // Agrega el 18.5%
+        // La corrección que faltaba: Sumar el 18.5%
         const tarifaSugerida = Math.round(t * 1.185);
         dom.inputTarifaTotal.value = tarifaSugerida;
     };
@@ -526,6 +526,28 @@ document.addEventListener('DOMContentLoaded', () => {
             targetGrid.appendChild(card); card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
         });
     }
+
+    if (dom.userForm) {
+        dom.userForm.addEventListener('submit', async (e) => {
+            e.preventDefault(); showLoader(true);
+            const email = document.getElementById('user-email-input').value.trim().toLowerCase();
+            const rol = document.getElementById('user-role-input').value;
+            const fran = document.getElementById('user-franchise-input').value;
+            try { await db.collection('usuarios').doc(email).set({ email, rol, franquicia: fran, fecha_modificacion: new Date() }, { merge: true }); await window.showAlert('Usuario guardado.', 'success'); document.getElementById('user-email-input').value = ''; document.getElementById('user-franchise-input').value = ''; loadUsersList(); } catch (e) { await window.showAlert('Error.', 'error'); }
+            showLoader(false);
+        });
+    }
+
+    async function loadUsersList() {
+        const list = dom.usersList; list.innerHTML = 'Cargando...';
+        try {
+            const snap = await db.collection('usuarios').get(); list.innerHTML = '';
+            snap.forEach(doc => { const u = doc.data(); const li = document.createElement('div'); li.className = 'user-item'; li.innerHTML = `<span><b>${u.email}</b><br><small>${u.rol.toUpperCase()} - ${u.franquicia}</small></span><div style="display:flex; gap:5px;"><button class="btn btn-secundario" style="padding:4px 10px;" onclick="editUser('${u.email}', '${u.rol}', '${u.franquicia}')">✏️</button><button class="btn btn-secundario" style="padding:4px 10px;" onclick="confirmDeleteUser('${u.email}')">🗑️</button></div>`; list.appendChild(li); });
+        } catch (e) { list.innerHTML = 'Error.'; }
+    }
+
+    window.editUser = (e, r, f) => { document.getElementById('user-email-input').value = e; document.getElementById('user-role-input').value = r; document.getElementById('user-franchise-input').value = f; window.scrollTo(0,0); window.showAlert(`Editando: ${e}`, 'info'); };
+    window.confirmDeleteUser = async (e) => { if(await window.showConfirm("¿Eliminar?")) try { showLoader(true); await db.collection('usuarios').doc(e).delete(); loadUsersList(); showLoader(false); } catch(x){alert('Error');} };
 
     // GESTION MODAL
     window.deletePackage = async (pkg) => { if (!await window.showConfirm("⚠️ ¿Eliminar este paquete?")) return; showLoader(true); try { const id = pkg.id_paquete || pkg.id || pkg['item.id']; await secureFetch(API_URL_UPLOAD, { action_type: 'delete', id_paquete: id, status: 'deleted' }); await window.showAlert("Paquete eliminado.", "success"); window.location.reload(); } catch (e) { window.showAlert("Error al eliminar.", "error"); } };
