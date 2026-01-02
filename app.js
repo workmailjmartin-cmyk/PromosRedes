@@ -1,16 +1,30 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    const firebaseConfig = { apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk", authDomain: "feliz-viaje-43d02.firebaseapp.com", projectId: "feliz-viaje-43d02", storageBucket: "feliz-viaje-43d02.firebasestorage.app", messagingSenderId: "931689659600", appId: "1:931689659600:web:66dbce023705936f26b2d5", measurementId: "G-2PNDZR3ZS1" };
+    // 1. CONFIGURACIÓN DE FIREBASE (Verifica que estos datos sean los tuyos)
+    const firebaseConfig = { 
+        apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk", 
+        authDomain: "feliz-viaje-43d02.firebaseapp.com", 
+        projectId: "feliz-viaje-43d02", 
+        storageBucket: "feliz-viaje-43d02.firebasestorage.app", 
+        messagingSenderId: "931689659600", 
+        appId: "1:931689659600:web:66dbce023705936f26b2d5", 
+        measurementId: "G-2PNDZR3ZS1" 
+    };
+    
+    // 2. CONFIGURACIÓN DE N8N (Webhooks)
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
+    // INICIALIZACIÓN
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
 
+    // VARIABLES GLOBALES
     let currentUser = null, userData = null, allPackages = [], uniquePackages = [], isEditingId = null, originalCreator = ''; 
 
+    // REFERENCIAS AL DOM (HTML)
     const dom = {
         views: { search: document.getElementById('view-search'), upload: document.getElementById('view-upload'), gestion: document.getElementById('view-gestion'), users: document.getElementById('view-users') },
         nav: { search: document.getElementById('nav-search'), upload: document.getElementById('nav-upload'), gestion: document.getElementById('nav-gestion'), users: document.getElementById('nav-users') },
@@ -27,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         badgeGestion: document.getElementById('badge-gestion')
     };
 
-    // UTILS
+    // --- FUNCIONES DE UTILIDAD ---
     const showLoader = (show, text = null) => { 
         if(dom.loader) {
             dom.loader.style.display = show ? 'flex' : 'none';
@@ -38,39 +52,81 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
-    function getNoches(pkg) { let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {} if(!Array.isArray(servicios)) return 0; const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches); const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches); if(!pkg['fecha_salida']) return 0; let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-'); const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false; servicios.forEach(s => { if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} } if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} } }); return hasData ? Math.ceil((maxDate - start) / 86400000) : 0; }
-    function getSummaryIcons(pkg) { let s = []; try { s = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {} if (!Array.isArray(s)) return ''; const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); }
+    
+    function getNoches(pkg) {
+        let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
+        if(!Array.isArray(servicios)) return 0;
+        const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
+        const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
+        if(!pkg['fecha_salida']) return 0;
+        let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
+        const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
+        servicios.forEach(s => {
+            if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+            if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+        });
+        return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
+    }
 
-    // --- COLA / MUTEX ---
+    function getSummaryIcons(pkg) { 
+        let s = []; try { s = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {} 
+        if (!Array.isArray(s)) return ''; 
+        const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; 
+        return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
+    }
+
+    // --- COLA DE CARGA (MUTEX) ---
     async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
-        if (url === API_URL_SEARCH) return await _doFetch(url, body);
-        return await uploadWithMutex(url, body);
+        if (url === API_URL_SEARCH) return await _doFetch(url, body); // Búsqueda directa
+        return await uploadWithMutex(url, body); // Subida con cola
     }
+
     async function _doFetch(url, body) {
         const token = await currentUser.getIdToken(true);
         const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body:JSON.stringify(body), cache:'no-store' });
-        if (!res.ok) throw new Error(`API HTTP Error: ${res.status}`);
+        if (!res.ok) throw new Error(`API Error ${res.status}`);
         const j = await res.json();
-        if (j.error || j.status === 'error' || (Array.isArray(j) && j.length === 0 && url === API_URL_UPLOAD)) throw new Error(j.message || "Error en n8n.");
+        if (j.error || j.status === 'error' || (Array.isArray(j) && j.length === 0 && url === API_URL_UPLOAD)) throw new Error(j.message || "Error en proceso n8n.");
         return j;
     }
+
     async function uploadWithMutex(url, body) {
         const lockRef = db.collection('config').doc('upload_lock');
-        let acquired = false, attempts = 0;
+        let acquired = false;
+        let attempts = 0;
+        
         while(!acquired && attempts < 20) {
-            try { await db.runTransaction(async (t) => { const doc = await t.get(lockRef); const now = Date.now(); if (!doc.exists) { t.set(lockRef, { locked: true, user: currentUser.email, timestamp: now }); return; } const data = doc.data(); if (data && data.locked && (now - data.timestamp < 15000)) { throw "LOCKED"; } t.set(lockRef, { locked: true, user: currentUser.email, timestamp: now }); }); acquired = true; } catch (e) { if (e === "LOCKED" || e.message === "LOCKED") { showLoader(true, `⏳ Esperando turno... (${attempts+1}/20)`); await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000)); attempts++; } else { throw e; } }
+            try {
+                await db.runTransaction(async (t) => {
+                    const doc = await t.get(lockRef);
+                    const now = Date.now();
+                    if (!doc.exists) { t.set(lockRef, { locked: true, user: currentUser.email, timestamp: now }); return; }
+                    const data = doc.data();
+                    if (data && data.locked && (now - data.timestamp < 15000)) { throw "LOCKED"; }
+                    t.set(lockRef, { locked: true, user: currentUser.email, timestamp: now });
+                });
+                acquired = true;
+            } catch (e) {
+                if (e === "LOCKED" || e.message === "LOCKED") {
+                    showLoader(true, `⏳ Esperando turno... (${attempts+1}/20)`);
+                    await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000));
+                    attempts++;
+                } else { throw e; }
+            }
         }
-        if(!acquired) throw new Error("Sistema saturado. Intenta en 1 minuto.");
+        if(!acquired) throw new Error("Sistema saturado. Intenta en 1 min.");
         try { showLoader(true, "🚀 Subiendo datos..."); return await _doFetch(url, body); } finally { await lockRef.set({ locked: false }); }
     }
 
-    // --- GENERADOR TEXTO ---
+    // --- GENERADOR TEXTO WHATSAPP ---
     function generarTextoPresupuesto(pkg) {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2);
         let servicios = []; try { servicios = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {}
+        
         let texto = `*${pkg.destino.toUpperCase()}*\n\n📅 Salida: ${formatDateAR(pkg.fecha_salida)}\n📍 Desde: ${pkg.salida}\n${noches > 0 ? `🌙 Duración: ${noches} Noches\n` : ''}\n`;
+        
         if (Array.isArray(servicios)) { servicios.forEach(s => { 
             if(s.tipo === 'aereo') { 
                 let escalasTxt = "Directo"; if (s.escalas > 0) { escalasTxt = (s.escalas == 1) ? "1 Escala" : `${s.escalas} Escalas`; }
@@ -78,10 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             else if (s.tipo === 'hotel') { texto += `🏨 HOTEL\n${s.hotel_nombre} (${s.regimen || ''})\n${s.hotel_link ? `📍 Ubicación: ${s.hotel_link}\n` : ''}\n`; }
             else if (s.tipo === 'traslado') { texto += `🚕 TRASLADO\n${s.tipo_trf || 'Incluido'}\n\n`; }
-            else if (s.tipo === 'seguro') { 
-                // SEGURO: PROVEEDOR + COBERTURA
-                texto += `🛡️ SEGURO\n${s.proveedor || 'Asistencia'} ${s.cobertura ? '('+s.cobertura+')' : ''}\n\n`; 
-            }
+            else if (s.tipo === 'seguro') { texto += `🛡️ SEGURO\n${s.proveedor || 'Asistencia'} ${s.cobertura ? '('+s.cobertura+')' : ''}\n\n`; }
             else if (s.tipo === 'bus') { texto += `🚌 BUS\n${s.bus_noches} Noches ${s.bus_regimen ? '('+s.bus_regimen+')' : ''}\n\n`; }
             else if (s.tipo === 'crucero') { texto += `🚢 CRUCERO\n${s.crucero_naviera} - ${s.crucero_recorrido}\n\n`; }
             else if (s.tipo === 'adicional') { texto += `➕ ADICIONAL\n${s.descripcion}\n\n`; }
@@ -93,20 +146,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     window.copiarPresupuesto = (pkg) => { const t = generarTextoPresupuesto(pkg); navigator.clipboard.writeText(t).then(() => window.showAlert("✅ Copiado!", "success")).catch(() => window.showAlert("Error al copiar", "error")); };
 
-    function renderServiciosClienteHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h=''; s.forEach(x=>{ let i='🔹',t='',l=[]; 
-        if(x.tipo==='aereo'){ i='✈️';t='AÉREO'; l.push(`<b>${x.aerolinea}</b>`); l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`); let es = (x.escalas == 0 || x.escalas == '0') ? "Directo" : (x.escalas == 1 ? "1 Escala" : `${x.escalas} Escalas`); l.push(`🔄 ${es} | 🧳 ${x.tipo_equipaje || '-'}`);} 
-        else if(x.tipo==='hotel'){ i='🏨';t='HOTEL'; l.push(`<b>${x.hotel_nombre}</b> (${x.regimen})`); if(x.hotel_link) l.push(`<a href="${x.hotel_link}" target="_blank" style="color:#ef5a1a;">📍 Ver Ubicación</a>`);} 
-        else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} 
-        else if(x.tipo==='seguro'){
-            i='🛡️';t='SEGURO';
-            // MOSTRAR PROVEEDOR
-            if(x.proveedor) l.push(`<b>${x.proveedor}</b>`);
-            if(x.cobertura) l.push(x.cobertura);
-        } 
-        else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} else if(x.tipo==='bus'){i='🚌';t='BUS';l.push(`${x.bus_noches} Noches`);} else if(x.tipo==='crucero'){i='🚢';t='CRUCERO';l.push(`${x.crucero_naviera} - ${x.crucero_recorrido}`);} h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`; }); return h; }
+    // --- RENDER HTML TARJETAS ---
+    function renderServiciosClienteHTML(rawJson) { 
+        let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; 
+        let h=''; 
+        s.forEach(x=>{ 
+            let i='🔹',t='',l=[]; 
+            if(x.tipo==='aereo'){ i='✈️';t='AÉREO'; l.push(`<b>${x.aerolinea}</b>`); l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`); let es = (x.escalas == 0 || x.escalas == '0') ? "Directo" : (x.escalas == 1 ? "1 Escala" : `${x.escalas} Escalas`); l.push(`🔄 ${es} | 🧳 ${x.tipo_equipaje || '-'}`);} 
+            else if(x.tipo==='hotel'){ i='🏨';t='HOTEL'; l.push(`<b>${x.hotel_nombre}</b> (${x.regimen})`); if(x.hotel_link) l.push(`<a href="${x.hotel_link}" target="_blank" style="color:#ef5a1a;">📍 Ver Ubicación</a>`);} 
+            else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} 
+            else if(x.tipo==='seguro'){
+                i='🛡️';t='SEGURO';
+                if(x.proveedor) l.push(`<b>${x.proveedor}</b>`);
+                if(x.cobertura) l.push(x.cobertura);
+            } 
+            else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} else if(x.tipo==='bus'){i='🚌';t='BUS';l.push(`${x.bus_noches} Noches`);} else if(x.tipo==='crucero'){i='🚢';t='CRUCERO';l.push(`${x.crucero_naviera} - ${x.crucero_recorrido}`);} h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`; 
+        }); 
+        return h; 
+    }
+    
     function renderCostosProveedoresHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h='<ul style="padding-left:15px;margin:0;">'; s.forEach(x=>{ h+=`<li>${x.proveedor||x.tipo}: $${x.costo}</li>`; }); return h+'</ul>'; }
 
-    // --- AUTH & INIT ---
+    // --- CARGA INICIAL ---
     async function fetchAndLoadPackages() { 
         showLoader(true, "Cargando datos...");
         try { 
@@ -145,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePendingBadge();
     }
 
-    // --- FORM UPLOAD ---
+    // --- FORMULARIO DE CARGA ---
     window.crearContadorHTML = (n, v) => `<div class="counter-wrapper"><button type="button" class="counter-btn" onclick="this.nextElementSibling.innerText=Math.max(0,parseInt(this.nextElementSibling.innerText)-1)">-</button><span class="counter-value">${v}</span><button type="button" class="counter-btn" onclick="this.previousElementSibling.innerText=parseInt(this.previousElementSibling.innerText)+1">+</button><input type="hidden" name="${n}" value="${v}"></div>`;
     window.calcularNoches = (id) => { const c=document.querySelector(`.servicio-card[data-id="${id}"]`); if(!c)return; const i=c.querySelector('input[name="checkin"]'), o=c.querySelector('input[name="checkout"]'); if(i&&o&&i.value&&o.value){ const d1=new Date(i.value), d2=new Date(o.value); document.getElementById(`noches-${id}`).value=(d2>d1)?Math.ceil((d2-d1)/86400000):'-'; } };
     window.calcularTotal = () => { let t=0; document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); dom.inputCostoTotal.value = t; dom.inputTarifaTotal.value = Math.round(t * 1.185); };
@@ -168,29 +229,99 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dom.userForm) { dom.userForm.addEventListener('submit', async (e) => { e.preventDefault(); showLoader(true); const email = document.getElementById('user-email-input').value.trim().toLowerCase(); const rol = document.getElementById('user-role-input').value; const fran = document.getElementById('user-franchise-input').value; try { await db.collection('usuarios').doc(email).set({ email, rol, franquicia: fran, fecha_modificacion: new Date() }, { merge: true }); await window.showAlert('Usuario guardado.', 'success'); document.getElementById('user-email-input').value = ''; document.getElementById('user-franchise-input').value = ''; loadUsersList(); } catch (e) { await window.showAlert('Error.', 'error'); } showLoader(false); }); }
     dom.btnAgregarServicio.addEventListener('click', () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } });
     
-    // BUILDERS SERVICIOS
-    function agregarModuloServicio(t,d=null){const c=dom.containerServicios;const x=c.querySelectorAll('.servicio-card');const h=Array.from(x).some(k=>k.dataset.tipo==='bus'||k.dataset.tipo==='crucero');if(!d){if(h&&t!=='adicional')return window.showAlert("Solo Adicionales.","error");if((t==='bus'||t==='crucero')&&x.length>0)return window.showAlert("Exclusivo.","error");}const id=Date.now()+Math.random();const v=document.createElement('div');v.className=`servicio-card ${t}`;v.dataset.id=id;v.dataset.tipo=t;let m=`<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove();window.calcularTotal()">×</button>`;
-    if(t==='aereo')m+=`<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas',0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Objeto Personal + Carry On</option><option>Objeto Personal + Bodega</option><option>Objeto Personal + Carry On + Bodega</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
-    else if(t==='hotel')m+=`<h4>🏨 Hotel</h4><div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div><div class="form-group"><label>Ubicación (Link)</label><input type="url" name="hotel_link"></div><div class="form-group-row"><div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div><div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee;width:60px;"></div></div><div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
-    else if(t==='traslado')m+=`<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Hotel - Hotel</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
-    
-    // --- SEGURO (NUEVO CAMPO: PROVEEDOR + COBERTURA) ---
-    else if(t==='seguro')m+=`<h4>🛡️ Seguro</h4>
-        <div class="form-group-row">
-            <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
-            <div class="form-group"><label>Cobertura</label><input type="text" name="cobertura" required></div>
-        </div>
-        <div class="form-group-row">
-            <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
-        </div>`;
-    
-    else if(t==='adicional')m+=`<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
-    else if(t==='bus')m+=`<h4>🚌 Bus</h4><div class="form-group-row"><div class="form-group"><label>Noches</label><input type="number" name="bus_noches" required></div><div class="form-group"><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="bus_alojamiento" onchange="document.getElementById('br-${id}').style.display=this.checked?'block':'none'"> Alojamiento</label></div></div></div><div id="br-${id}" style="display:none;margin-bottom:10px;"><label>Régimen</label><select name="bus_regimen"><option>Sin Pensión</option><option>Desayuno</option><option>Media Pensión</option><option>Pensión Completa</option></select></div><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="bus_excursiones"> Excursiones</label><label class="checkbox-label"><input type="checkbox" name="bus_asistencia"> Asistencia</label></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
-    else if(t==='crucero')m+=`<h4>🚢 Crucero</h4><div class="form-group-row"><div class="form-group"><label>Naviera</label><input type="text" name="crucero_naviera" required></div><div class="form-group"><label>Noches</label><input type="number" name="crucero_noches" required></div></div><div class="form-group-row"><div class="form-group"><label>Salida</label><input type="text" name="crucero_puerto_salida" required></div><div class="form-group"><label>Recorrido</label><input type="text" name="crucero_recorrido" required></div></div><textarea name="crucero_info"></textarea><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
-    v.innerHTML=m;c.appendChild(v);
-    const minD = dom.inputFechaViaje.value || new Date().toISOString().split('T')[0];
-    v.querySelectorAll('input[type="date"]').forEach(i=>i.min=minD);
-    if(d){v.querySelectorAll('input, select, textarea').forEach(i=>{if(d[i.name]!==undefined){if(i.type==='checkbox'){i.checked=d[i.name];i.dispatchEvent(new Event('change'));}else if(i.type==='hidden'){i.parentElement.querySelector('.counter-value').innerText=d[i.name];i.value=d[i.name];}else{i.value=d[i.name];if(i.name==='checkin'||i.name==='checkout')window.calcularNoches(id);}}});}}
+    // GENERADOR DE FORMULARIOS (Expandido para evitar errores)
+    function agregarModuloServicio(t, d=null) {
+        const c = dom.containerServicios;
+        const x = c.querySelectorAll('.servicio-card');
+        const h = Array.from(x).some(k => k.dataset.tipo === 'bus' || k.dataset.tipo === 'crucero');
+        
+        if (!d) {
+            if (h && t !== 'adicional') return window.showAlert("Solo Adicionales.", "error");
+            if ((t === 'bus' || t === 'crucero') && x.length > 0) return window.showAlert("Exclusivo.", "error");
+        }
+        
+        const id = Date.now() + Math.random();
+        const v = document.createElement('div');
+        v.className = `servicio-card ${t}`;
+        v.dataset.id = id;
+        v.dataset.tipo = t;
+        
+        let m = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove();window.calcularTotal()">×</button>`;
+
+        if (t === 'aereo') {
+            m += `<h4>✈️ Aéreo</h4>
+            <div class="form-group-row">
+                <div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div>
+                <div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div>
+                <div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div>
+            </div>
+            <div class="form-group-row">
+                <div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas', 0)}</div>
+                <div class="form-group"><label>Equipaje</label>
+                    <select name="tipo_equipaje">
+                        <option>Objeto Personal</option>
+                        <option>Objeto Personal + Carry On</option>
+                        <option>Objeto Personal + Bodega</option>
+                        <option>Objeto Personal + Carry On + Bodega</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group-row">
+                <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
+                <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
+            </div>`;
+        } else if (t === 'hotel') {
+            m += `<h4>🏨 Hotel</h4>
+            <div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div>
+            <div class="form-group"><label>Ubicación (Link)</label><input type="url" name="hotel_link"></div>
+            <div class="form-group-row">
+                <div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div>
+                <div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div>
+                <div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee;width:60px;"></div>
+            </div>
+            <div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div>
+            <div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
+        } else if (t === 'traslado') {
+            m += `<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Hotel - Hotel</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
+        } else if (t === 'seguro') {
+            // SEGURO CON PROVEEDOR
+            m += `<h4>🛡️ Seguro</h4>
+            <div class="form-group-row">
+                <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
+                <div class="form-group"><label>Cobertura</label><input type="text" name="cobertura" required></div>
+            </div>
+            <div class="form-group-row">
+                <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
+            </div>`;
+        } else if (t === 'adicional') {
+            m += `<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
+        } else if (t === 'bus') {
+            m += `<h4>🚌 Bus</h4><div class="form-group-row"><div class="form-group"><label>Noches</label><input type="number" name="bus_noches" required></div><div class="form-group"><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="bus_alojamiento" onchange="document.getElementById('br-${id}').style.display=this.checked?'block':'none'"> Alojamiento</label></div></div></div><div id="br-${id}" style="display:none;margin-bottom:10px;"><label>Régimen</label><select name="bus_regimen"><option>Sin Pensión</option><option>Desayuno</option><option>Media Pensión</option><option>Pensión Completa</option></select></div><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="bus_excursiones"> Excursiones</label><label class="checkbox-label"><input type="checkbox" name="bus_asistencia"> Asistencia</label></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
+        } else if (t === 'crucero') {
+            m += `<h4>🚢 Crucero</h4><div class="form-group-row"><div class="form-group"><label>Naviera</label><input type="text" name="crucero_naviera" required></div><div class="form-group"><label>Noches</label><input type="number" name="crucero_noches" required></div></div><div class="form-group-row"><div class="form-group"><label>Salida</label><input type="text" name="crucero_puerto_salida" required></div><div class="form-group"><label>Recorrido</label><input type="text" name="crucero_recorrido" required></div></div><textarea name="crucero_info"></textarea><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
+        }
+
+        v.innerHTML = m;
+        c.appendChild(v);
+        const minD = dom.inputFechaViaje.value || new Date().toISOString().split('T')[0];
+        v.querySelectorAll('input[type="date"]').forEach(i => i.min = minD);
+        if (d) {
+            v.querySelectorAll('input, select, textarea').forEach(i => {
+                if (d[i.name] !== undefined) {
+                    if (i.type === 'checkbox') {
+                        i.checked = d[i.name];
+                        i.dispatchEvent(new Event('change'));
+                    } else if (i.type === 'hidden') {
+                        i.parentElement.querySelector('.counter-value').innerText = d[i.name];
+                        i.value = d[i.name];
+                    } else {
+                        i.value = d[i.name];
+                        if (i.name === 'checkin' || i.name === 'checkout') window.calcularNoches(id);
+                    }
+                }
+            });
+        }
+    }
 
     function openModal(pkg) {
         if (typeof renderServiciosClienteHTML !== 'function') return alert("Error interno.");
