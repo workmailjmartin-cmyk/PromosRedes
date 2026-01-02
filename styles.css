@@ -270,3 +270,20 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     .user-info { order: 3; align-self: flex-end; }
     .logo { order: 1; align-self: center; }
 }
+/* =========================================
+   13. ESTRELLAS HOTEL
+   ========================================= */
+.star-rating {
+    display: flex;
+    gap: 5px;
+    font-size: 1.5em;
+    cursor: pointer;
+    margin-top: 5px;
+}
+.star-rating span {
+    color: #ccc; /* Gris por defecto */
+    transition: color 0.2s;
+}
+.star-rating span.filled {
+    color: #ef5a1a; /* Naranja Marca */
+}
