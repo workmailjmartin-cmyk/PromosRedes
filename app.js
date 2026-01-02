@@ -56,27 +56,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
     
-    // ARREGLO NOCHES: Prioriza Hoteles
     function getNoches(pkg) {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
+        
+        // 1. Prioridad: Hoteles
+        let totalHotel = 0; let hayHotel = false;
+        servicios.forEach(s => { if (s.tipo === 'hotel' && s.noches) { totalHotel += parseInt(s.noches) || 0; hayHotel = true; } });
+        if(hayHotel && totalHotel > 0) return totalHotel;
 
-        // 1. Sumar noches de hotel
-        let totalHotel = 0;
-        let hayHotel = false;
-        servicios.forEach(s => {
-            if (s.tipo === 'hotel' && s.noches) {
-                totalHotel += parseInt(s.noches) || 0;
-                hayHotel = true;
-            }
-        });
-        if (hayHotel && totalHotel > 0) return totalHotel;
-
-        // 2. Bus/Crucero
+        // 2. Prioridad: Bus/Crucero
         const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
         const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
         
-        // 3. Fechas
+        // 3. Fallback: Fechas
         if(!pkg['fecha_salida']) return 0;
         let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
         const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
@@ -94,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
-    // --- GENERADOR DE TEXTO ---
+    // --- GENERADOR DE TEXTO (WHATSAPP) - ACTUALIZADO ---
     function generarTextoPresupuesto(pkg) {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg);
@@ -103,6 +96,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let servicios = [];
         try { servicios = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {}
+
+        // Detectar si hay seguro para el mensaje final
+        const tieneSeguro = Array.isArray(servicios) && servicios.some(s => s.tipo === 'seguro');
 
         let texto = `*${pkg.destino.toUpperCase()}*\n\n`;
         texto += `📅 Salida: ${formatDateAR(pkg.fecha_salida)}\n`;
@@ -118,9 +114,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     texto += `✈️ AÉREO\n${s.aerolinea || 'Aerolínea'}\n${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
                     texto += `🔄 ${escalasTxt} | 🧳 ${s.tipo_equipaje || '-'}\n\n`;
                 } else if (s.tipo === 'hotel') {
-                    // ARREGLO HOTEL: Estrellas, Noches, Ingreso, Link
+                    // CAMBIO 1: Régimen abajo
                     let stars = ''; if(s.hotel_estrellas) { for(let i=0; i<s.hotel_estrellas; i++) stars += '⭐'; }
-                    texto += `🏨 HOTEL\n${s.hotel_nombre} ${stars} (${s.regimen || ''})\n`;
+                    texto += `🏨 HOTEL\n${s.hotel_nombre} ${stars}\n`;
+                    if(s.regimen) texto += `(${s.regimen})\n`;
+                    
                     if(s.noches) texto += `🌙 ${s.noches} Noches`;
                     if(s.checkin) texto += ` | 📥 Ingreso: ${formatDateAR(s.checkin)}`;
                     if(s.hotel_link) texto += `\n📍 Ubicación: ${s.hotel_link}`;
@@ -128,7 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (s.tipo === 'traslado') {
                     texto += `🚕 TRASLADO\n${s.tipo_trf || 'Incluido'}\n\n`;
                 } else if (s.tipo === 'seguro') {
-                    // ARREGLO SEGURO: Solo Cobertura
                     texto += `🛡️ SEGURO\n${s.cobertura || 'Asistencia al viajero'}\n\n`;
                 } else if (s.tipo === 'bus') {
                     texto += `🚌 BUS\n${s.bus_noches} Noches ${s.bus_regimen ? '('+s.bus_regimen+')' : ''}\n\n`;
@@ -151,14 +148,22 @@ document.addEventListener('DOMContentLoaded', () => {
         texto += `Información importante:\n`;
         texto += `-Tarifas y disponibilidad sujetas a cambio al momento de la reserva.\n`;
         texto += `-Cotización válida al ${fechaCotizacion}\n\n`;
-        texto += `ℹ Más info:\n(https://felizviaje.tur.ar/informacion-antes-de-contratar)\n\n`;
+        // CAMBIO 2: Link en la misma línea
+        texto += `ℹ Más info: (https://felizviaje.tur.ar/informacion-antes-de-contratar)\n\n`;
+        
         texto += `⚠¡Cupos limitados!\n`;
         texto += `-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n`;
         texto += `-Las plazas y precios pueden modificarse en cualquier momento según disponibilidad de vuelos y hotel.\n\n`;
         texto += `¿Encontraste una mejor oferta? ¡Compartila con nosotros y la mejoramos para vos!\n\n`;
         texto += `✈ Políticas generales de aerolíneas (tarifas económicas)\n`;
         texto += `-Equipaje y la selección de asientos no están incluidos (pueden tener costo adicional)\n\n`;
-        texto += `Asistencia al viajero no incluida. Puede añadirse al reservar o más adelante. Es requisito obligatorio en la mayoría de los destinos internacionales`;
+        
+        // CAMBIO 3: Mensaje condicional de seguro
+        if (tieneSeguro) {
+            texto += `Asistencia al viajero es requisito obligatorio en la mayoría de los destinos internacionales`;
+        } else {
+            texto += `Asistencia al viajero no incluida. Puede añadirse al reservar o más adelante. Es requisito obligatorio en la mayoría de los destinos internacionales`;
+        }
 
         return texto;
     }
@@ -173,7 +178,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- RENDERIZADO VISUAL ---
     function renderServiciosClienteHTML(rawJson) { 
         let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} 
         if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; 
@@ -190,24 +194,20 @@ document.addEventListener('DOMContentLoaded', () => {
             } 
             else if(x.tipo==='hotel'){
                 i='🏨';t='HOTEL';
-                // ARREGLO ESTRELLAS
-                let stars = ''; if(x.hotel_estrellas){ for(let k=0;k<x.hotel_estrellas;k++) stars+='⭐'; }
+                let stars = ''; if(x.hotel_estrellas) { for(let k=0; k<x.hotel_estrellas; k++) stars += '⭐'; }
                 l.push(`<b>${x.hotel_nombre}</b> <span style="color:#ef5a1a;">${stars}</span>`);
                 l.push(`(${x.regimen})`);
                 
-                // ARREGLO NOCHES E INGRESO
                 let det = [];
                 if(x.noches) det.push(`🌙 ${x.noches} Noches`);
                 if(x.checkin) det.push(`Ingreso: ${formatDateAR(x.checkin)}`);
                 if(det.length > 0) l.push(`<small>${det.join(' | ')}</small>`);
 
-                // ARREGLO LINK
                 if(x.hotel_link) l.push(`<a href="${x.hotel_link}" target="_blank" style="color:#ef5a1a;text-decoration:none;font-weight:bold;">📍 Ver Ubicación</a>`);
             } 
             else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} 
             else if(x.tipo==='seguro'){
                 i='🛡️';t='SEGURO';
-                // ARREGLO SEGURO VISUAL CLIENTE (Solo Cobertura)
                 if(x.cobertura) l.push(x.cobertura);
             } 
             else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} 
@@ -223,18 +223,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; 
         let h='<ul style="padding-left:15px;margin:0;">'; 
         s.forEach(x=>{ 
-            // ARREGLO COSTOS (Mostrar Proveedor Seguro)
             let texto = `${x.proveedor||x.tipo}: $${x.costo}`;
             h+=`<li>${texto}</li>`; 
         }); 
         return h+'</ul>'; 
     }
 
-    // --- ALERTAS (Indispensables) ---
+    // --- ALERTAS ---
     window.showAlert = (message, type = 'error') => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btn = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); if(btnCancel) btnCancel.style.display = 'none'; if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; } else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; } else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; } msg.innerText = message; overlay.style.display = 'flex'; btn.onclick = () => { overlay.style.display = 'none'; resolve(); }; }); };
     window.showConfirm = (message) => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btnOk = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); title.innerText = 'Confirmación'; title.style.color = '#11173d'; icon.innerHTML = '❓'; msg.innerText = message; if(btnCancel) btnCancel.style.display = 'inline-block'; overlay.style.display = 'flex'; btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); }; if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); }; }); };
 
-    // --- CORE (VARIABLES HOISTING CORREGIDAS) ---
+    // --- CORE ---
     if(dom.logoImg) dom.logoImg.addEventListener('click', () => { showLoader(true); window.location.reload(); });
 
     const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -261,41 +260,100 @@ document.addEventListener('DOMContentLoaded', () => {
         return processedList;
     }
 
+    // BADGE
     function updatePendingBadge() {
         const badge = document.getElementById('badge-gestion');
         if (!badge) return;
-        if (!userData || (userData.rol !== 'admin' && userData.rol !== 'editor')) { badge.style.display = 'none'; return; }
+        if (userData.rol !== 'admin' && userData.rol !== 'editor') { badge.style.display = 'none'; return; }
         const pendingCount = uniquePackages.filter(p => p.status === 'pending').length;
         if (pendingCount > 0) { badge.innerText = pendingCount; badge.style.display = 'inline-block'; } 
         else { badge.style.display = 'none'; }
     }
 
-    // --- COLA (MUTEX) ---
+    // --- SISTEMA DE COLA / MUTEX CON FIRESTORE ---
     async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
-        if (url === API_URL_SEARCH) return await _doFetch(url, body);
+        
+        // Si no es una operación de escritura (búsqueda), no usamos cola
+        if (url === API_URL_SEARCH) {
+            return await _doFetch(url, body);
+        }
+
+        // Si es escritura (subida), usamos el Mutex
         return await uploadWithMutex(url, body);
     }
+
     async function _doFetch(url, body) {
         const token = await currentUser.getIdToken(true);
-        const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, body:JSON.stringify(body), cache:'no-store' });
-        if (!res.ok) throw new Error(`API Error`);
-        const j = await res.json();
-        if (j.error || j.status === 'error' || (Array.isArray(j) && j.length === 0 && url === API_URL_UPLOAD)) throw new Error(j.message || "Error procesando.");
-        return j;
+        const res = await fetch(url, { 
+            method:'POST', 
+            headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`}, 
+            body:JSON.stringify(body), 
+            cache:'no-store' 
+        });
+        
+        if (!res.ok) throw new Error(`API HTTP Error: ${res.status}`);
+
+        const jsonResponse = await res.json();
+
+        // --- VALIDACIÓN DE RESPUESTA REAL ---
+        // Esto evita el "Falso Positivo" si n8n devuelve 200 OK pero con un error en el cuerpo
+        if (jsonResponse.error || jsonResponse.status === 'error' || (Array.isArray(jsonResponse) && jsonResponse.length === 0 && url === API_URL_UPLOAD)) {
+            throw new Error(jsonResponse.message || "Error procesando en n8n (Respuesta inválida).");
+        }
+
+        return jsonResponse;
     }
+
     async function uploadWithMutex(url, body) {
         const lockRef = db.collection('config').doc('upload_lock');
-        let acquired = false, attempts = 0;
-        while(!acquired && attempts < 20) {
-            try { await db.runTransaction(async (t) => { const doc = await t.get(lockRef); const now = Date.now(); if (!doc.exists) { t.set(lockRef, { locked: true, user: currentUser.email, timestamp: now }); return; } const data = doc.data(); if (data && data.locked && (now - data.timestamp < 15000)) { throw "LOCKED"; } t.set(lockRef, { locked: true, user: currentUser.email, timestamp: now }); }); acquired = true; } catch (e) { if (e === "LOCKED" || e.message === "LOCKED") { showLoader(true, `⏳ Esperando turno... (${attempts+1}/20)`); await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000)); attempts++; } else { throw e; } }
+        let acquired = false;
+        let attempts = 0;
+        
+        // Intentar adquirir el turno (lock)
+        while(!acquired && attempts < 20) { 
+            try {
+                await db.runTransaction(async (t) => {
+                    const doc = await t.get(lockRef);
+                    const data = doc.data();
+                    const now = Date.now();
+
+                    // Si está ocupado y el bloqueo es reciente (< 15 segundos), fallamos
+                    if (data && data.locked && (now - data.timestamp < 15000)) {
+                        throw "LOCKED";
+                    }
+
+                    // Si está libre o el bloqueo es muy viejo (se colgó), lo tomamos
+                    t.set(lockRef, { locked: true, user: currentUser.email, timestamp: now });
+                });
+                acquired = true;
+            } catch (e) {
+                if (e === "LOCKED" || e.message === "LOCKED") {
+                    showLoader(true, `⏳ Esperando turno de carga... (${attempts+1}/20)`);
+                    await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000)); // Esperar 2-3 seg
+                    attempts++;
+                } else {
+                    console.error("Error Transaction:", e);
+                    throw e; 
+                }
+            }
         }
-        if(!acquired) throw new Error("Sistema saturado. Intente en 1 min.");
-        try { showLoader(true, "🚀 Subiendo datos..."); return await _doFetch(url, body); } finally { await lockRef.set({ locked: false }); }
+
+        if(!acquired) throw new Error("El sistema está muy saturado. Por favor intenta en 1 minuto.");
+
+        // Tenemos el turno, hacemos la carga
+        try {
+            showLoader(true, "🚀 Subiendo datos...");
+            const result = await _doFetch(url, body);
+            return result;
+        } finally {
+            // SIEMPRE liberar el turno al terminar (éxito o error)
+            await lockRef.set({ locked: false });
+        }
     }
 
     async function fetchAndLoadPackages() { 
-        showLoader(true);
+        showLoader(true, "Cargando paquetes...");
         try { 
             let d = await secureFetch(API_URL_SEARCH, {}); 
             if (typeof d === 'string') d = JSON.parse(d); 
@@ -308,9 +366,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoader(false);
     }
 
-    // --- AUTH ---
     auth.onAuthStateChanged(async (u) => {
-        showLoader(true);
+        showLoader(true, "Iniciando...");
         if (u) {
             try {
                 const emailLimpio = u.email.trim().toLowerCase();
@@ -371,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     dom.btnAgregarServicio.addEventListener('click', () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } });
 
-    // ESTRELLAS (Global)
+    // --- ESTRELLAS ---
     window.setStars = (id, count) => {
         const container = document.querySelector(`.servicio-card[data-id="${id}"] .star-rating`);
         const input = document.getElementById(`stars-${id}`);
@@ -422,21 +479,23 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
         }
         else if(tipo==='hotel'){
-            // ARREGLO HOTEL: Estrellas + Link + Noches
+            // HOTEL CON ESTRELLAS Y LINK
             html+=`<h4>🏨 Hotel</h4>
             <div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div>
-            
             <div class="form-group"><label>Estrellas</label>
                 <div class="star-rating" data-id="${id}">
-                    <span onclick="setStars('${id}', 1)">★</span><span onclick="setStars('${id}', 2)">★</span><span onclick="setStars('${id}', 3)">★</span><span onclick="setStars('${id}', 4)">★</span><span onclick="setStars('${id}', 5)">★</span>
+                    <span onclick="setStars('${id}', 1)">★</span>
+                    <span onclick="setStars('${id}', 2)">★</span>
+                    <span onclick="setStars('${id}', 3)">★</span>
+                    <span onclick="setStars('${id}', 4)">★</span>
+                    <span onclick="setStars('${id}', 5)">★</span>
                 </div>
                 <input type="hidden" name="hotel_estrellas" id="stars-${id}" value="0">
             </div>
-
-            <div class="form-group"><label>Ubicación (Link)</label><input type="url" name="hotel_link" placeholder="http://googleusercontent.com/maps..."></div>
+            <div class="form-group"><label>Ubicación (Link)</label><input type="url" name="hotel_link" placeholder="https://maps.google.com/..."></div>
             <div class="form-group-row">
-                <div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches('${id}')" required></div>
-                <div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches('${id}')" required></div>
+                <div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div>
+                <div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div>
                 <div class="form-group"><label>Noches</label><input type="text" name="noches" id="noches-${id}" readonly style="background:#eee; width:60px;"></div>
             </div>
             <div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div>
@@ -444,15 +503,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         else if(tipo==='traslado'){html+=`<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Hotel - Hotel</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='seguro'){
-            // ARREGLO SEGURO: Proveedor y Cobertura
+            // SEGURO CON PROVEEDOR
             html+=`<h4>🛡️ Seguro</h4>
             <div class="form-group-row">
                 <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
                 <div class="form-group"><label>Cobertura</label><input type="text" name="cobertura" required></div>
             </div>
-            <div class="form-group-row">
-                <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
-            </div>`;
+            <div class="form-group-row"><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
         }
         else if(tipo==='adicional'){html+=`<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='bus'){html+=`<h4>🚌 Paquete Bus</h4><div class="form-group-row"><div class="form-group"><label>Cant. Noches</label><input type="number" name="bus_noches" required></div><div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:10px;"><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="bus_alojamiento" onchange="document.getElementById('bus-regimen-${id}').style.display=this.checked?'block':'none'"> Incluye Alojamiento</label></div></div></div><div id="bus-regimen-${id}" class="form-group" style="display:none;margin-top:-10px;margin-bottom:15px;background:#f9f9f9;padding:10px;border-radius:8px;"><label>Régimen</label><select name="bus_regimen"><option value="Sin Pensión">Sin Pensión</option><option value="Desayuno">Desayuno</option><option value="Media Pensión">Media Pensión</option><option value="Pensión Completa">Pensión Completa</option></select></div><div class="checkbox-group" style="margin-bottom:15px;"><label class="checkbox-label"><input type="checkbox" name="bus_excursiones"> Incluye Excursiones</label><label class="checkbox-label"><input type="checkbox" name="bus_asistencia"> Asistencia al Viajero</label></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
@@ -471,8 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         input.checked = data[input.name]; 
                         if (input.name === 'bus_alojamiento') input.dispatchEvent(new Event('change')); 
                     } else if (input.type === 'hidden') { 
-                        // Cargar Estrellas
-                        if(input.name === 'hotel_estrellas') window.setStars(id, data[input.name]);
+                        if(input.name === 'hotel_estrellas') { window.setStars(id, data[input.name]); }
                         else {
                             const counter = input.parentElement.querySelector('.counter-value'); 
                             if(counter) counter.innerText = data[input.name]; 
@@ -489,24 +545,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.crearContadorHTML = (n, v) => `<div class="counter-wrapper"><button type="button" class="counter-btn" onclick="this.nextElementSibling.innerText=Math.max(0,parseInt(this.nextElementSibling.innerText)-1)">-</button><span class="counter-value">${v}</span><button type="button" class="counter-btn" onclick="this.previousElementSibling.innerText=parseInt(this.previousElementSibling.innerText)+1">+</button><input type="hidden" name="${n}" value="${v}"></div>`;
     
-    // CALCULO DE NOCHES DE HOTEL (Actualiza el input visible)
+    // CALCULO NOCHES (HOTEL)
     window.calcularNoches = (id) => { 
         const c=document.querySelector(`.servicio-card[data-id="${id}"]`); if(!c)return; 
         const i=c.querySelector('input[name="checkin"]'), o=c.querySelector('input[name="checkout"]'); 
         if(i&&o&&i.value&&o.value){ 
             const d1=new Date(i.value), d2=new Date(o.value); 
+            // Guardar en el input name="noches"
             const diff = (d2>d1)?Math.ceil((d2-d1)/86400000):0;
             const inputN = document.getElementById(`noches-${id}`);
             if(inputN) inputN.value = diff;
         } 
     };
     
-    // CALCULO 18.5%
+    // --- CALCULO AUTOMATICO 18.5% ---
     window.calcularTotal = () => { 
         let t=0; 
         document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); 
         dom.inputCostoTotal.value = t;
-        dom.inputTarifaTotal.value = Math.round(t * 1.185); 
+        // Agregar 18.5%
+        const tarifaSugerida = Math.round(t * 1.185);
+        dom.inputTarifaTotal.value = tarifaSugerida;
     };
 
     dom.uploadForm.addEventListener('submit', async (e) => {
@@ -518,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!fechaViajeStr) { showLoader(false); return window.showAlert("Falta fecha.", 'error'); }
         const cards = document.querySelectorAll('.servicio-card'); if (cards.length === 0) { showLoader(false); return window.showAlert("Agrega servicios.", 'error'); }
 
-        let serviciosData = []; for (let card of cards) { const serv = { tipo: card.dataset.tipo }; card.querySelectorAll('input, select, textarea').forEach(i => { if (i.type === 'checkbox') serv[i.name] = i.checked; else if (i.type === 'hidden') { if(i.name === 'hotel_estrellas') serv[i.name] = i.value; else serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value; } else serv[i.name] = i.value; }); serviciosData.push(serv); }
+        let serviciosData = []; for (let card of cards) { const serv = { tipo: card.dataset.tipo }; card.querySelectorAll('input, select, textarea').forEach(i => { if (i.type === 'checkbox') serv[i.name] = i.checked; else if (i.type === 'hidden') { if(i.name==='hotel_estrellas') serv[i.name] = i.value; else serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value; } else serv[i.name] = i.value; }); serviciosData.push(serv); }
 
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         
