@@ -355,6 +355,24 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
 .day-card:hover .btn-edit-day { opacity: 1; }
 .btn-edit-day:hover { background: #ef5a1a; color: white; border-color: #ef5a1a; transform: scale(1.1); }
 
+/* --- ESTRELLAS HOTEL --- */
+.star-rating {
+    display: flex;
+    gap: 5px;
+    font-size: 1.5em;
+    cursor: pointer;
+    margin-top: 5px;
+    margin-bottom: 10px;
+}
+.star-rating span {
+    color: #ccc; /* Gris por defecto */
+    transition: color 0.2s;
+}
+.star-rating span.filled {
+    color: #ef5a1a; /* NARANJA cuando está activa */
+}
+
+
 
 
 
