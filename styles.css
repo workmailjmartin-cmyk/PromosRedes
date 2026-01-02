@@ -371,3 +371,8 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
 /* Animación flecha */
 .rotate-icon { transform: rotate(-90deg); }
 
+textarea:focus {
+    outline: none;
+    border-color: #ef5a1a;
+    box-shadow: 0 0 0 3px rgba(239, 90, 26, 0.1);
+}
