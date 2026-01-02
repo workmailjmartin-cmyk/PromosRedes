@@ -1,8 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // ===========================================================
-    // 1. CONFIGURACIÓN Y VARIABLES
-    // ===========================================================
+    // 1. CONFIGURACIÓN
     const firebaseConfig = { apiKey: "AIzaSyCBiyH6HTatUxNxQ6GOxGp-xFWa7UfCMJk", authDomain: "feliz-viaje-43d02.firebaseapp.com", projectId: "feliz-viaje-43d02", storageBucket: "feliz-viaje-43d02.firebasestorage.app", messagingSenderId: "931689659600", appId: "1:931689659600:web:66dbce023705936f26b2d5", measurementId: "G-2PNDZR3ZS1" };
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
@@ -13,7 +11,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const provider = new firebase.auth.GoogleAuthProvider();
 
     let currentUser = null, userData = null, allPackages = [], uniquePackages = [], isEditingId = null, originalCreator = ''; 
-    let currentEditingDayKey = null; // Variable para saber qué día estamos editando en el calendario
+    let currentEditingDayKey = null; // Para el calendario
+
+    // Variables de fecha (Definidas AQUI para que no den error)
+    const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    const minGlobalDate = now.toISOString().split('T')[0];
 
     const dom = {
         views: { search: document.getElementById('view-search'), upload: document.getElementById('view-upload'), gestion: document.getElementById('view-gestion'), users: document.getElementById('view-users') },
@@ -29,15 +31,12 @@ document.addEventListener('DOMContentLoaded', () => {
         filtroOrden: document.getElementById('filtro-orden'), filtroCreador: document.getElementById('filtro-creador'), containerFiltroCreador: document.getElementById('container-filtro-creador'),
         logoImg: document.getElementById('app-logo'), loader: document.getElementById('loader-overlay'),
         badgeGestion: document.getElementById('badge-gestion'),
-        // Calendario
+        // Calendario Elements
         calendarContainer: document.getElementById('calendar-container'), calendarGrid: document.getElementById('calendar-grid'), btnToggleCalendar: document.getElementById('btn-toggle-calendar'),
-        // Modal Calendario
         modalCalendar: document.getElementById('modal-calendar'), modalCalendarTitle: document.getElementById('modal-calendar-title'), calendarInput: document.getElementById('calendar-input'), btnSaveCalendar: document.getElementById('btn-save-calendar'), btnCloseCalendar: document.getElementById('btn-close-calendar')
     };
 
-    // ===========================================================
-    // 2. UTILS
-    // ===========================================================
+    // 2. UTILS & ALERTAS (Globales)
     const showLoader = (show, text = null) => { 
         if(dom.loader) {
             dom.loader.style.display = show ? 'flex' : 'none';
@@ -52,17 +51,20 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showAlert = (message, type = 'error') => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btn = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); if(btnCancel) btnCancel.style.display = 'none'; if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; } else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; } else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; } msg.innerText = message; overlay.style.display = 'flex'; btn.onclick = () => { overlay.style.display = 'none'; resolve(); }; }); };
     window.showConfirm = (message) => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btnOk = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); title.innerText = 'Confirmación'; title.style.color = '#11173d'; icon.innerHTML = '❓'; msg.innerText = message; if(btnCancel) btnCancel.style.display = 'inline-block'; overlay.style.display = 'flex'; btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); }; if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); }; }); };
 
-    // ===========================================================
-    // 3. CALENDARIO SEMANAL (MEJORADO CON MODAL)
-    // ===========================================================
-    if(dom.btnToggleCalendar) {
-        dom.btnToggleCalendar.onclick = () => {
-            dom.calendarGrid.classList.toggle('collapsed');
-            const icon = dom.btnToggleCalendar;
-            icon.style.transform = dom.calendarGrid.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';
-        };
+    // 3. FUNCIONES DE USUARIOS (DEFINIR ANTES DE USAR)
+    async function loadUsersList() {
+        const list = dom.usersList; if(!list) return; list.innerHTML = 'Cargando...';
+        try { const snap = await db.collection('usuarios').get(); list.innerHTML = ''; snap.forEach(doc => { const u = doc.data(); const li = document.createElement('div'); li.className = 'user-item'; li.innerHTML = `<span><b>${u.email}</b><br><small>${u.rol.toUpperCase()} - ${u.franquicia}</small></span><div style="display:flex; gap:5px;"><button class="btn btn-secundario" style="padding:4px 10px;" onclick="window.editUser('${u.email}', '${u.rol}', '${u.franquicia}')">✏️</button><button class="btn btn-secundario" style="padding:4px 10px;" onclick="window.confirmDeleteUser('${u.email}')">🗑️</button></div>`; list.appendChild(li); }); } catch (e) { list.innerHTML = 'Error.'; }
     }
+    
+    // Funciones globales para botones HTML
+    window.editUser = (e, r, f) => { document.getElementById('user-email-input').value = e; document.getElementById('user-role-input').value = r; document.getElementById('user-franchise-input').value = f; window.scrollTo(0,0); window.showAlert(`Editando: ${e}`, 'info'); };
+    window.confirmDeleteUser = async (e) => { if(await window.showConfirm("¿Eliminar?")) try { showLoader(true); await db.collection('usuarios').doc(e).delete(); loadUsersList(); showLoader(false); } catch(x){alert('Error');} };
 
+    // 4. FUNCIONES DE CALENDARIO
+    if(dom.btnToggleCalendar) {
+        dom.btnToggleCalendar.onclick = () => { dom.calendarGrid.classList.toggle('collapsed'); const icon = dom.btnToggleCalendar; icon.style.transform = dom.calendarGrid.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)'; };
+    }
     async function loadCalendar() {
         if (!dom.calendarContainer) return;
         const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
@@ -71,67 +73,33 @@ document.addEventListener('DOMContentLoaded', () => {
             const doc = await db.collection('config').doc('weekly_calendar').get();
             const data = doc.exists ? doc.data() : {};
             dom.calendarGrid.innerHTML = '';
-            
             days.forEach((dayName, index) => {
-                const dayKey = `day_${index + 1}`;
-                const content = data[dayKey] || '';
-                const isActive = (todayIndex === index + 1); 
-                const card = document.createElement('div');
-                card.className = `day-card ${isActive ? 'today' : ''}`;
-                
-                let editBtn = '';
-                if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) {
-                    // Usamos openCalendarModal en vez del prompt
-                    editBtn = `<button class="btn-edit-day" onclick="openCalendarModal('${dayKey}', '${dayName}')" title="Editar">✏️</button>`;
-                }
+                const dayKey = `day_${index + 1}`; const content = data[dayKey] || ''; const isActive = (todayIndex === index + 1); 
+                const card = document.createElement('div'); card.className = `day-card ${isActive ? 'today' : ''}`;
+                let editBtn = ''; if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) { editBtn = `<button class="btn-edit-day" onclick="window.openCalendarModal('${dayKey}', '${dayName}')" title="Editar">✏️</button>`; }
                 let displayContent = content || (userData && userData.rol === 'usuario' ? '<span style="color:#ddd;">-</span>' : '<span style="color:#eee;">Clic para editar</span>');
-                
                 card.innerHTML = `${editBtn}<h4>${dayName}</h4><div class="day-content">${displayContent}</div>`;
                 dom.calendarGrid.appendChild(card);
             });
             dom.calendarContainer.style.display = 'block';
         } catch (e) { console.error("Error calendario:", e); }
     }
-
-    // ABRIR MODAL DE CALENDARIO
+    // Abrir Modal
     window.openCalendarModal = async (dayKey, dayName) => {
-        currentEditingDayKey = dayKey; // Guardar qué día editamos
-        dom.modalCalendarTitle.innerText = `Editar ${dayName}`;
-        
-        // Obtener valor actual
-        try {
-            const doc = await db.collection('config').doc('weekly_calendar').get();
-            const currentVal = doc.exists ? (doc.data()[dayKey] || "") : "";
-            dom.calendarInput.value = currentVal;
-            dom.modalCalendar.style.display = 'flex';
-        } catch(e) { window.showAlert("Error al cargar datos.", "error"); }
+        currentEditingDayKey = dayKey; dom.modalCalendarTitle.innerText = `Editar ${dayName}`;
+        try { const doc = await db.collection('config').doc('weekly_calendar').get(); const currentVal = doc.exists ? (doc.data()[dayKey] || "") : ""; dom.calendarInput.value = currentVal; dom.modalCalendar.style.display = 'flex'; } catch(e) { window.showAlert("Error al cargar.", "error"); }
     };
-
-    // GUARDAR CALENDARIO (BOTÓN DEL MODAL)
+    // Guardar & Cerrar
     if(dom.btnSaveCalendar) {
         dom.btnSaveCalendar.onclick = async () => {
-            const newVal = dom.calendarInput.value;
-            if(!currentEditingDayKey) return;
-            
+            const newVal = dom.calendarInput.value; if(!currentEditingDayKey) return;
             showLoader(true, "Guardando...");
-            try {
-                await db.collection('config').doc('weekly_calendar').set({ [currentEditingDayKey]: newVal }, { merge: true });
-                dom.modalCalendar.style.display = 'none';
-                await loadCalendar();
-                showLoader(false);
-            } catch (e) {
-                showLoader(false);
-                window.showAlert("Error al guardar calendario.", "error");
-            }
+            try { await db.collection('config').doc('weekly_calendar').set({ [currentEditingDayKey]: newVal }, { merge: true }); dom.modalCalendar.style.display = 'none'; await loadCalendar(); showLoader(false); } catch (e) { showLoader(false); window.showAlert("Error al guardar.", "error"); }
         };
     }
-    
-    // CERRAR MODAL CALENDARIO
     if(dom.btnCloseCalendar) dom.btnCloseCalendar.onclick = () => dom.modalCalendar.style.display = 'none';
 
-    // ===========================================================
-    // 4. LÓGICA PAQUETES
-    // ===========================================================
+    // 5. FUNCIONES DE PAQUETE (LOGICA + RENDER)
     function getNoches(pkg) {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
@@ -150,32 +118,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
     }
 
-    function getSummaryIcons(pkg) { 
-        let s = []; try { s = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {} 
-        if (!Array.isArray(s)) return ''; 
-        const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; 
-        return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
-    }
+    function getSummaryIcons(pkg) { let s = []; try { s = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {} if (!Array.isArray(s)) return ''; const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); }
 
     function generarTextoPresupuesto(pkg) {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2);
         let servicios = []; try { servicios = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {}
         const tieneSeguro = Array.isArray(servicios) && servicios.some(s => s.tipo === 'seguro');
-
         let texto = `*${pkg.destino.toUpperCase()}*\n\n📅 Salida: ${formatDateAR(pkg.fecha_salida)}\n📍 Desde: ${pkg.salida}\n${noches > 0 ? `🌙 Duración: ${noches} Noches\n` : ''}\n`;
         if (Array.isArray(servicios)) { servicios.forEach(s => { 
             if(s.tipo === 'aereo') { let es = (s.escalas == 0 || s.escalas == '0') ? "Directo" : (s.escalas == 1 ? "1 Escala" : `${s.escalas} Escalas`); texto += `✈️ AÉREO\n${s.aerolinea || 'Aerolínea'}\n${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n🔄 ${es} | 🧳 ${s.tipo_equipaje || '-'}\n\n`; }
             else if (s.tipo === 'hotel') { let stars = ''; if(s.hotel_estrellas) for(let i=0;i<s.hotel_estrellas;i++) stars+='⭐'; texto += `🏨 HOTEL\n${s.hotel_nombre} ${stars}\n${s.regimen ? '('+s.regimen+')\n' : ''}`; if(s.noches) texto += `🌙 ${s.noches} Noches`; if(s.checkin) texto += ` | 📥 Ingreso: ${formatDateAR(s.checkin)}`; if(s.hotel_link) texto += `\n📍 Ubicación: ${s.hotel_link}`; texto += `\n\n`; }
             else if (s.tipo === 'traslado') { texto += `🚕 TRASLADO\n${s.tipo_trf || 'Incluido'}\n\n`; }
-            else if (s.tipo === 'seguro') { texto += `🛡️ SEGURO\n${s.cobertura || 'Asistencia'}\n\n`; }
+            else if (s.tipo === 'seguro') { texto += `🛡️ SEGURO\n${s.cobertura || 'Asistencia al viajero'}\n\n`; }
             else if (s.tipo === 'bus') { texto += `🚌 BUS\n${s.bus_noches} Noches ${s.bus_regimen ? '('+s.bus_regimen+')' : ''}\n\n`; }
             else if (s.tipo === 'crucero') { texto += `🚢 CRUCERO\n${s.crucero_naviera} - ${s.crucero_recorrido}\n\n`; }
             else if (s.tipo === 'adicional') { texto += `➕ ADICIONAL\n${s.descripcion}\n\n`; }
         }); }
         texto += `💲*Tarifa final por Persona en Base Doble:*\n${pkg.moneda} $${formatMoney(tarifaDoble)}\n\n`;
         if(pkg.financiacion) texto += `💳 Financiación: ${pkg.financiacion}\n\n`;
-        
         texto += `--------------------------------------------\nInformación importante:\n-Tarifas y disponibilidad sujetas a cambio.\n-Cotización válida al ${fechaCotizacion}\n\nℹ Más info: (https://felizviaje.tur.ar/informacion-antes-de-contratar)\n\n⚠¡Cupos limitados!\n-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n-Las plazas y precios pueden modificarse en cualquier momento según disponibilidad.\n\n¿Encontraste una mejor oferta? ¡Compartila con nosotros y la mejoramos para vos!\n\n✈ Políticas generales de aerolíneas (tarifas económicas)\n-Equipaje y la selección de asientos no están incluidos (pueden tener costo adicional)\n\n`;
         if (tieneSeguro) texto += `Asistencia al viajero es requisito obligatorio en la mayoría de los destinos internacionales`;
         else texto += `Asistencia al viajero no incluida. Puede añadirse al reservar o más adelante. Es requisito obligatorio en la mayoría de los destinos internacionales`;
@@ -194,9 +155,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function renderCostosProveedoresHTML(rawJson) { let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; let h='<ul style="padding-left:15px;margin:0;">'; s.forEach(x=>{ h+=`<li>${x.proveedor||x.tipo}: $${x.costo}</li>`; }); return h+'</ul>'; }
 
-    // ===========================================================
-    // 5. CARGA DATOS
-    // ===========================================================
+    // 6. MODAL & UI (GLOBAL PARA EVITAR ERRORES)
+    window.openModal = function(pkg) {
+        if (typeof renderServiciosClienteHTML !== 'function') return alert("Error interno.");
+        const rawServicios = pkg['servicios'] || pkg['item.servicios']; const htmlCliente = renderServiciosClienteHTML(rawServicios); const htmlCostos = renderCostosProveedoresHTML(rawServicios); const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2); 
+        const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`; 
+        let adminTools = ''; const isOwner = pkg.editor_email === currentUser.email; const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
+        if (canEdit) { const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick='window.approvePackage(${JSON.stringify(pkg).replace(/'/g, "&#39;")})' style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : ''; adminTools = `<div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">${btnApprove}<button class="btn btn-secundario" onclick='window.startEditing(${JSON.stringify(pkg).replace(/'/g, "&#39;")})' style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button><button class="btn btn-secundario" onclick='window.deletePackage(${JSON.stringify(pkg).replace(/'/g, "&#39;")})' style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button></div>`; }
+        const btnCopiar = `<button class="btn" onclick='window.copiarPresupuesto(${JSON.stringify(pkg).replace(/'/g, "&#39;")})' style="background:#34495e; color:white; padding: 5px 15px; font-size:0.8em; display:flex; align-items:center; gap:5px;">📋 Copiar</button>`;
+        dom.modalBody.innerHTML = `${adminTools}<div class="modal-detalle-header" style="display:block; padding-bottom: 25px;"><div style="display:flex; justify-content:space-between; align-items:flex-start;"><h2 style="margin:0;font-size:2.2em;line-height:1.1;">${pkg['destino']}</h2></div><div style="margin-top:5px;"><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div></div><div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;"><div><h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>${htmlCliente}</div><div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;"><div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;"><h4 style="margin:0; color:#11173d;">Resumen</h4>${btnCopiar}</div><p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${formatDateAR(pkg['fecha_salida'])}</p><p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${pkg['salida']}</p><p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p><p style="margin:5px 0; font-size:0.9em;"><b>📅 Cargado el:</b> ${pkg['fecha_creacion'] || '-'}</p><div><h4 style="margin:20px 0 10px 0; color:#11173d; border-top:1px solid #eee; padding-top:15px;">Costos (Interno)</h4>${htmlCostos}</div>${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}</div></div><div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px;"><div style="display:flex; gap:30px;"><div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div><div><small style="opacity:0.7;">Tarifa Final</small><div style="font-size:1.2em; font-weight:bold; color:#ef5a1a;">${pkg['moneda']} $${formatMoney(tarifa)}</div></div><div><small style="opacity:0.7;">x Persona (Base Doble)</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div></div></div><div style="text-align:right;"><small style="opacity:0.7;">Cargado por:</small><div style="font-size:0.9em;">${pkg['creador']}</div></div></div>`;
+        dom.modal.style.display = 'flex';
+    };
+
+    function renderCards(list, targetGrid = dom.grid) {
+        targetGrid.innerHTML = ''; if (!list || list.length === 0) { targetGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;">No hay resultados.</p>'; return; }
+        list.forEach(pkg => {
+            if (!pkg.destino) return; 
+            const card = document.createElement('div'); const noches = getNoches(pkg); card.className = 'paquete-card'; const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; const summaryIcons = getSummaryIcons(pkg); 
+            let statusTag = ''; if (pkg.status === 'pending') statusTag = `<span style="background-color:#ffeaa7; color:#d35400; padding:2px 8px; border-radius:10px; font-size:0.7em; margin-left:5px;">⏳ En Revisión</span>`;
+            const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`;
+            // IMPORTANTE: ONCLICK GLOBAL
+            card.innerHTML = `<div class="card-clickable" onclick='window.openModal(${JSON.stringify(pkg).replace(/'/g, "&#39;")})'><div class="card-header"><div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;"><div style="max-width:75%; padding-right:30px;"><h3 style="margin:0;font-size:1.5em;line-height:1.2;color:#11173d;">${pkg['destino']} ${statusTag}</h3></div>${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:5px 10px;border-radius:12px;font-weight:bold;font-size:0.8em;white-space:nowrap;">🌙 ${noches}</div>` : ''}</div><div class="fecha">📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</div></div><div class="card-body"><div style="font-size:0.85em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div></div><div class="card-footer"><div><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div><div><p class="precio-valor">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar/2))}</p></div></div></div>`;
+            targetGrid.appendChild(card);
+        });
+    }
+
+    // 7. CARGA DE DATOS & COLA
     async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
         if (url === API_URL_SEARCH) return await _doFetch(url, body);
@@ -266,24 +250,24 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCards(result, dom.grid); if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) { const pendientes = uniquePackages.filter(p => p.status === 'pending'); renderCards(pendientes, dom.gridGestion); }
     }
 
-    function renderCards(list, targetGrid = dom.grid) {
-        targetGrid.innerHTML = ''; if (!list || list.length === 0) { targetGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;">No hay resultados.</p>'; return; }
-        list.forEach(pkg => {
-            if (!pkg.destino) return; 
-            const card = document.createElement('div'); const noches = getNoches(pkg); card.className = 'paquete-card'; const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; const summaryIcons = getSummaryIcons(pkg); 
-            let statusTag = ''; if (pkg.status === 'pending') statusTag = `<span style="background-color:#ffeaa7; color:#d35400; padding:2px 8px; border-radius:10px; font-size:0.7em; margin-left:5px;">⏳ En Revisión</span>`;
-            const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`;
-            card.innerHTML = `<div class="card-clickable"><div class="card-header"><div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;"><div style="max-width:75%; padding-right:30px;"><h3 style="margin:0;font-size:1.5em;line-height:1.2;color:#11173d;">${pkg['destino']} ${statusTag}</h3></div>${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:5px 10px;border-radius:12px;font-weight:bold;font-size:0.8em;white-space:nowrap;">🌙 ${noches}</div>` : ''}</div><div class="fecha">📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</div></div><div class="card-body"><div style="font-size:0.85em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div></div><div class="card-footer"><div><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div><div><p class="precio-valor">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar/2))}</p></div></div></div>`;
-            targetGrid.appendChild(card); 
-            
-            // CORRECCIÓN CRÍTICA: Asignar el click directamente en JS, no en HTML
-            card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
-        });
+    function configureUIByRole() {
+        if(!userData) return;
+        const rol = userData.rol;
+        dom.nav.gestion.style.display = (rol === 'editor' || rol === 'admin') ? 'inline-block' : 'none';
+        dom.nav.users.style.display = (rol === 'admin') ? 'inline-block' : 'none';
+        if(dom.containerFiltroCreador) dom.containerFiltroCreador.style.display = 'flex';
+        if (rol === 'admin') loadUsersList(); 
+        const selectPromo = document.getElementById('upload-promo');
+        if(selectPromo) {
+            // ADS PARA TODOS
+            selectPromo.innerHTML = rol === 'usuario' 
+                ? '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option><option value="ADS">ADS (Requiere Aprobación)</option>' 
+                : '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
+        }
+        updatePendingBadge(); 
     }
 
-    // ===========================================================
-    // 6. INICIALIZACIÓN FINAL (AUTH)
-    // ===========================================================
+    // 8. LOGICA AUTH & UI RESET
     auth.onAuthStateChanged(async (u) => {
         showLoader(true);
         if (u) {
@@ -293,43 +277,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentUser = u; userData = doc.data(); 
                     dom.loginContainer.style.display='none'; dom.appContainer.style.display='block';
                     if(dom.userEmail) dom.userEmail.innerHTML = `<b>${userData.franquicia||u.email}</b><br><small>${userData.rol.toUpperCase()}</small>`;
-                    configureUIByRole(); 
+                    configureUIByRole(); // AHORA SÍ EXISTE
                     await loadCalendar();
                     await fetchAndLoadPackages(); 
                     showView('search');
                 } else { await window.showAlert(`⛔ Sin permisos.`); auth.signOut(); }
-            } catch (e) { console.error("Auth Error", e); await window.showAlert("Error de conexión. Intente recargar."); }
+            } catch (e) { console.error(e); await window.showAlert("Error de conexión. Intente recargar."); }
         } else { currentUser = null; userData = null; dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none'; }
         showLoader(false);
     });
 
+    if(dom.logoImg) {
+        dom.logoImg.addEventListener('click', async () => {
+            if(currentUser) {
+                // RESET SUAVE
+                document.getElementById('filtro-destino').value = '';
+                if(dom.filtroCreador) dom.filtroCreador.value = '';
+                document.getElementById('filtro-promo').value = '';
+                if(dom.filtroOrden) dom.filtroOrden.value = 'reciente';
+                applyFilters();
+                showView('search');
+            } else {
+                window.location.reload(); 
+            }
+        });
+    }
+
     dom.btnLogin.addEventListener('click', () => { showLoader(true); auth.signInWithPopup(provider).catch(() => showLoader(false)); });
     dom.btnLogout.addEventListener('click', () => { showLoader(true); auth.signOut().then(() => window.location.reload()); });
 
-    // RESET SUAVE CON EL LOGO
-    if(dom.logoImg) dom.logoImg.addEventListener('click', async () => { 
-        if(currentUser) { 
-            // Limpiar filtros
-            document.getElementById('filtro-destino').value = '';
-            if(dom.filtroCreador) dom.filtroCreador.value = '';
-            document.getElementById('filtro-promo').value = '';
-            if(dom.filtroOrden) dom.filtroOrden.value = 'reciente';
-            
-            // Recargar datos sin F5
-            await fetchAndLoadPackages();
-            applyFilters();
-            showView('search'); 
-        } else { 
-            window.location.reload(); 
-        } 
-    });
-    
-    if(dom.inputFechaViaje) {
-        dom.inputFechaViaje.min = minGlobalDate; 
-        dom.inputFechaViaje.addEventListener('change', (e) => { const fechaSalida = e.target.value; if(fechaSalida && fechaSalida < minGlobalDate) { window.showAlert("⚠️ La fecha de salida no puede ser en el pasado."); dom.inputFechaViaje.value = ""; return; } if(fechaSalida) actualizarMinimosFechas(fechaSalida); });
-    }
-    function actualizarMinimosFechas(minDate) { const dateInputs = dom.containerServicios.querySelectorAll('input[type="date"]'); dateInputs.forEach(input => { input.min = minDate; if(input.value && input.value < minDate){ input.value = ''; input.style.borderColor = '#ef5a1a'; setTimeout(() => input.style.borderColor = '#ddd', 2000); } }); }
-
+    function showView(n) { Object.values(dom.views).forEach(v => v.classList.remove('active')); Object.values(dom.nav).forEach(b => b.classList.remove('active')); dom.views[n].classList.add('active'); dom.nav[n].classList.add('active'); }
+    dom.nav.search.onclick = () => showView('search');
+    dom.nav.upload.onclick = () => { isEditingId = null; originalCreator = ''; document.getElementById('upload-form').reset(); dom.containerServicios.innerHTML=''; showView('upload'); };
+    dom.nav.gestion.onclick = async () => { await fetchAndLoadPackages(); showView('gestion'); };
+    dom.nav.users.onclick = async () => { await loadUsersList(); showView('users'); };
+    dom.modalClose.onclick = () => dom.modal.style.display = 'none';
+    window.onclick = e => { if(e.target === dom.modal) dom.modal.style.display='none'; };
     dom.btnBuscar.addEventListener('click', applyFilters);
     dom.btnLimpiar.addEventListener('click', () => { document.getElementById('filtro-destino').value=''; if(dom.filtroCreador) dom.filtroCreador.value=''; document.getElementById('filtro-promo').value=''; if(dom.filtroOrden) dom.filtroOrden.value='reciente'; applyFilters(); });
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
@@ -352,10 +335,8 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault(); showLoader(true);
         const rol = userData.rol; const promoType = document.getElementById('upload-promo').value;
-        // NUEVA LÓGICA DE ADS: TAMBIÉN REQUIEREN APROBACIÓN PARA USUARIOS
         let status = 'approved'; 
         if (rol === 'usuario' && (promoType === 'FEED' || promoType === 'ADS')) status = 'pending';
-        
         const costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; const fechaViajeStr = dom.inputFechaViaje.value;
         if (tarifa < costo) { showLoader(false); return window.showAlert(`Error: Tarifa menor al costo.`, 'error'); }
         if (!fechaViajeStr) { showLoader(false); return window.showAlert("Falta fecha.", 'error'); }
@@ -367,22 +348,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try { await secureFetch(API_URL_UPLOAD, payload); await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success'); document.getElementById('upload-form').reset(); dom.containerServicios.innerHTML=''; dom.inputCostoTotal.value=''; dom.inputTarifaTotal.value=''; await fetchAndLoadPackages(); showView('search'); } catch(e) { window.showAlert(e.message || "Error al guardar.", 'error'); }
     });
 
-    function configureUIByRole() {
-        if(!userData) return;
-        const rol = userData.rol;
-        dom.nav.gestion.style.display = (rol === 'editor' || rol === 'admin') ? 'inline-block' : 'none';
-        dom.nav.users.style.display = (rol === 'admin') ? 'inline-block' : 'none';
-        if(dom.containerFiltroCreador) dom.containerFiltroCreador.style.display = 'flex';
-        if (rol === 'admin') loadUsersList(); 
-        const selectPromo = document.getElementById('upload-promo');
-        if(selectPromo) {
-            // AHORA EL USUARIO PUEDE VER 'ADS' TAMBIÉN
-            selectPromo.innerHTML = rol === 'usuario' 
-                ? '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option><option value="ADS">ADS (Requiere Aprobación)</option>' 
-                : '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
-        }
-        updatePendingBadge(); 
+    if(dom.inputFechaViaje) {
+        dom.inputFechaViaje.min = minGlobalDate; 
+        dom.inputFechaViaje.addEventListener('change', (e) => { const fechaSalida = e.target.value; if(fechaSalida && fechaSalida < minGlobalDate) { window.showAlert("⚠️ La fecha de salida no puede ser en el pasado."); dom.inputFechaViaje.value = ""; return; } if(fechaSalida) actualizarMinimosFechas(fechaSalida); });
     }
+    function actualizarMinimosFechas(minDate) { const dateInputs = dom.containerServicios.querySelectorAll('input[type="date"]'); dateInputs.forEach(input => { input.min = minDate; if(input.value && input.value < minDate){ input.value = ''; input.style.borderColor = '#ef5a1a'; setTimeout(() => input.style.borderColor = '#ddd', 2000); } }); }
 
     function agregarModuloServicio(t,d=null){const c=dom.containerServicios;const x=c.querySelectorAll('.servicio-card');const h=Array.from(x).some(k=>k.dataset.tipo==='bus'||k.dataset.tipo==='crucero');if(!d){if(h&&t!=='adicional')return window.showAlert("Solo Adicionales.","error");if((t==='bus'||t==='crucero')&&x.length>0)return window.showAlert("Exclusivo.","error");}const id=Date.now()+Math.random();const v=document.createElement('div');v.className=`servicio-card ${t}`;v.dataset.id=id;v.dataset.tipo=t;let m=`<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove();window.calcularTotal()">×</button>`;
     if(t==='aereo')m+=`<h4>✈️ Aéreo</h4><div class="form-group-row"><div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div><div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div><div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div></div><div class="form-group-row"><div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas',0)}</div><div class="form-group"><label>Equipaje</label><select name="tipo_equipaje"><option>Objeto Personal</option><option>Objeto Personal + Carry On</option><option>Objeto Personal + Bodega</option><option>Objeto Personal + Carry On + Bodega</option></select></div></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
