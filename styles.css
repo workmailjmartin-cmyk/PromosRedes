@@ -279,11 +279,13 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     font-size: 1.5em;
     cursor: pointer;
     margin-top: 5px;
+    margin-bottom: 10px;
 }
 .star-rating span {
-    color: #ccc; /* Gris por defecto */
+    color: #ccc; /* Gris (vacía) */
     transition: color 0.2s;
 }
 .star-rating span.filled {
-    color: #ef5a1a; /* Naranja Marca */
+    color: #ef5a1a; /* Naranja Marca (llena) */
 }
+
