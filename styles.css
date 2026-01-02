@@ -336,6 +336,22 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
 .star-rating span { color: #ccc; transition: color 0.2s; }
 .star-rating span.filled { color: #ef5a1a; }
 
+/* --- CORRECCIÓN DE CAPAS (Z-INDEX) --- */
+
+/* 1. Alertas: LO MÁS ALTO (Encima de todo) */
+#custom-alert-overlay {
+    z-index: 20000 !important; /* Prioridad absoluta */
+}
+
+/* 2. Modales de Edición/Calendario: NIVEL MEDIO */
+.modal-overlay {
+    z-index: 10000 !important; 
+}
+
+/* 3. Loader: NIVEL MEDIO-ALTO (Para tapar mientras carga) */
+#loader-overlay {
+    z-index: 15000 !important;
+}
 
 
 
