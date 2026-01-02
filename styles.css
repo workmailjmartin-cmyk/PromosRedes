@@ -272,23 +272,100 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
 }
 
 
-/* --- MODAL CALENDARIO (CORREGIDO) --- */
+/* --- CALENDARIO ESTILO TARJETAS --- */
+.calendar-grid {
+    display: grid; /* ESTO ES VITAL PARA QUE NO SE VEA COMO LISTA */
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 15px;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.calendar-grid.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    padding: 0;
+}
+
+.day-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 15px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+}
+
+.day-card h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    color: #999;
+    font-weight: 800;
+    letter-spacing: 1px;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 8px;
+}
+
+.day-content {
+    font-size: 1em;
+    font-weight: 600; /* Letra más gruesa */
+    color: #333;
+    white-space: pre-wrap; /* Respeta los Enter */
+    line-height: 1.4;
+    flex-grow: 1;
+}
+
+/* DÍA DE HOY (Destacado) */
+.day-card.today {
+    border: 2px solid #ef5a1a;
+    background-color: #fff8f5;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 15px rgba(239, 90, 26, 0.15);
+}
+.day-card.today h4 { color: #ef5a1a; border-color: rgba(239, 90, 26, 0.2); }
+
+/* BOTÓN LÁPIZ (Solo aparece al pasar el mouse) */
+.btn-edit-day {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 0.9em;
+    opacity: 0; /* Invisible por defecto */
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+    color: #555;
+    z-index: 5;
+}
+.day-card:hover .btn-edit-day { opacity: 1; }
+.btn-edit-day:hover { background: #ef5a1a; color: white; border-color: #ef5a1a; }
+
+/* --- MODAL (ARREGLADO PARA QUE NO TAPE) --- */
 .modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    /* Fondo BLANCO transparente */
-    background-color: rgba(255, 255, 255, 0.9); 
-    backdrop-filter: blur(5px); /* Efecto borroso */
-    display: none; /* <--- IMPORTANTE: Oculto por defecto */
+    background-color: rgba(255, 255, 255, 0.85); /* Blanco transparente */
+    backdrop-filter: blur(3px);
+    display: none; /* <--- IMPORTANTE: OCULTO POR DEFECTO */
     justify-content: center;
     align-items: center;
-    z-index: 10000;
+    z-index: 9999;
 }
 
-/* Clase para mostrarlo con JS */
+/* Solo se muestra si tiene esta clase */
 .modal-overlay.active {
     display: flex;
 }
@@ -296,54 +373,34 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
 .modal-content {
     background: #fff;
     padding: 25px;
-    border-radius: 15px;
+    border-radius: 12px;
     width: 90%;
     max-width: 500px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.2); /* Sombra fuerte para resaltar sobre blanco */
+    box-shadow: 0 15px 40px rgba(0,0,0,0.2);
     border: 1px solid #eee;
-    animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
 }
 
 .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;
 }
-
-.close-modal {
-    font-size: 30px;
-    cursor: pointer;
-    color: #888;
-    line-height: 20px;
-}
+.close-modal { font-size: 28px; cursor: pointer; color: #aaa; }
 .close-modal:hover { color: #ef5a1a; }
 
-/* Textarea mejorado */
 textarea {
     width: 100%;
-    padding: 15px;
+    padding: 12px;
     border: 1px solid #ddd;
-    border-radius: 10px;
+    border-radius: 8px;
     font-family: inherit;
-    font-size: 1.1em; /* Letra más grande */
-    color: #333;
+    font-size: 1em;
     resize: vertical;
-    background: #f9f9f9;
+    background: #fafafa;
 }
-textarea:focus { 
-    outline: none; 
-    border-color: #ef5a1a; 
-    background: #fff;
-    box-shadow: 0 0 0 4px rgba(239, 90, 26, 0.1); 
-}
+textarea:focus { outline: none; border-color: #ef5a1a; background: #fff; }
+
+.rotate-icon { transform: rotate(-90deg); }
+
 
 
 
