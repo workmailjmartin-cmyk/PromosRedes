@@ -59,8 +59,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function getNoches(pkg) {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
+        
+        // 1. Prioridad: Hoteles
+        let totalHotel = 0; let hayHotel = false;
+        servicios.forEach(s => { if (s.tipo === 'hotel' && s.noches) { totalHotel += parseInt(s.noches) || 0; hayHotel = true; } });
+        if(hayHotel && totalHotel > 0) return totalHotel;
+
+        // 2. Prioridad: Bus/Crucero
         const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
         const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
+        
+        // 3. Fallback: Fechas
         if(!pkg['fecha_salida']) return 0;
         let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
         const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
@@ -78,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
-    // --- GENERADOR DE TEXTO ---
+    // --- GENERADOR DE TEXTO (WHATSAPP) - ACTUALIZADO ---
     function generarTextoPresupuesto(pkg) {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg);
@@ -87,6 +96,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let servicios = [];
         try { servicios = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {}
+
+        // Detectar si hay seguro para el mensaje final
+        const tieneSeguro = Array.isArray(servicios) && servicios.some(s => s.tipo === 'seguro');
 
         let texto = `*${pkg.destino.toUpperCase()}*\n\n`;
         texto += `📅 Salida: ${formatDateAR(pkg.fecha_salida)}\n`;
@@ -102,13 +114,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     texto += `✈️ AÉREO\n${s.aerolinea || 'Aerolínea'}\n${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
                     texto += `🔄 ${escalasTxt} | 🧳 ${s.tipo_equipaje || '-'}\n\n`;
                 } else if (s.tipo === 'hotel') {
-                    texto += `🏨 HOTEL\n${s.hotel_nombre} (${s.regimen || ''})\n`;
-                    if(s.hotel_link) texto += `📍 Ubicación: ${s.hotel_link}\n`;
-                    texto += `\n`;
+                    // CAMBIO 1: Régimen abajo
+                    let stars = ''; if(s.hotel_estrellas) { for(let i=0; i<s.hotel_estrellas; i++) stars += '⭐'; }
+                    texto += `🏨 HOTEL\n${s.hotel_nombre} ${stars}\n`;
+                    if(s.regimen) texto += `(${s.regimen})\n`;
+                    
+                    if(s.noches) texto += `🌙 ${s.noches} Noches`;
+                    if(s.checkin) texto += ` | 📥 Ingreso: ${formatDateAR(s.checkin)}`;
+                    if(s.hotel_link) texto += `\n📍 Ubicación: ${s.hotel_link}`;
+                    texto += `\n\n`;
                 } else if (s.tipo === 'traslado') {
                     texto += `🚕 TRASLADO\n${s.tipo_trf || 'Incluido'}\n\n`;
                 } else if (s.tipo === 'seguro') {
-                    texto += `🛡️ SEGURO\n${s.proveedor || 'Asistencia al viajero'}\n\n`;
+                    texto += `🛡️ SEGURO\n${s.cobertura || 'Asistencia al viajero'}\n\n`;
                 } else if (s.tipo === 'bus') {
                     texto += `🚌 BUS\n${s.bus_noches} Noches ${s.bus_regimen ? '('+s.bus_regimen+')' : ''}\n\n`;
                 } else if (s.tipo === 'crucero') {
@@ -130,14 +148,22 @@ document.addEventListener('DOMContentLoaded', () => {
         texto += `Información importante:\n`;
         texto += `-Tarifas y disponibilidad sujetas a cambio al momento de la reserva.\n`;
         texto += `-Cotización válida al ${fechaCotizacion}\n\n`;
-        texto += `ℹ Más info:\n(https://felizviaje.tur.ar/informacion-antes-de-contratar)\n\n`;
+        // CAMBIO 2: Link en la misma línea
+        texto += `ℹ Más info: (https://felizviaje.tur.ar/informacion-antes-de-contratar)\n\n`;
+        
         texto += `⚠¡Cupos limitados!\n`;
         texto += `-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n`;
         texto += `-Las plazas y precios pueden modificarse en cualquier momento según disponibilidad de vuelos y hotel.\n\n`;
         texto += `¿Encontraste una mejor oferta? ¡Compartila con nosotros y la mejoramos para vos!\n\n`;
         texto += `✈ Políticas generales de aerolíneas (tarifas económicas)\n`;
         texto += `-Equipaje y la selección de asientos no están incluidos (pueden tener costo adicional)\n\n`;
-        texto += `Asistencia al viajero no incluida. Puede añadirse al reservar o más adelante. Es requisito obligatorio en la mayoría de los destinos internacionales`;
+        
+        // CAMBIO 3: Mensaje condicional de seguro
+        if (tieneSeguro) {
+            texto += `Asistencia al viajero es requisito obligatorio en la mayoría de los destinos internacionales`;
+        } else {
+            texto += `Asistencia al viajero no incluida. Puede añadirse al reservar o más adelante. Es requisito obligatorio en la mayoría de los destinos internacionales`;
+        }
 
         return texto;
     }
@@ -168,11 +194,22 @@ document.addEventListener('DOMContentLoaded', () => {
             } 
             else if(x.tipo==='hotel'){
                 i='🏨';t='HOTEL';
-                l.push(`<b>${x.hotel_nombre}</b> (${x.regimen})`);
-                if(x.hotel_link) l.push(`<a href="${x.hotel_link}" target="_blank" style="color:#ef5a1a;text-decoration:none;">📍 Ver Ubicación</a>`);
+                let stars = ''; if(x.hotel_estrellas) { for(let k=0; k<x.hotel_estrellas; k++) stars += '⭐'; }
+                l.push(`<b>${x.hotel_nombre}</b> <span style="color:#ef5a1a;">${stars}</span>`);
+                l.push(`(${x.regimen})`);
+                
+                let det = [];
+                if(x.noches) det.push(`🌙 ${x.noches} Noches`);
+                if(x.checkin) det.push(`Ingreso: ${formatDateAR(x.checkin)}`);
+                if(det.length > 0) l.push(`<small>${det.join(' | ')}</small>`);
+
+                if(x.hotel_link) l.push(`<a href="${x.hotel_link}" target="_blank" style="color:#ef5a1a;text-decoration:none;font-weight:bold;">📍 Ver Ubicación</a>`);
             } 
             else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} 
-            else if(x.tipo==='seguro'){i='🛡️';t='SEGURO';l.push(`${x.proveedor}`);} 
+            else if(x.tipo==='seguro'){
+                i='🛡️';t='SEGURO';
+                if(x.cobertura) l.push(x.cobertura);
+            } 
             else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} 
             else if(x.tipo==='bus'){i='🚌';t='BUS';l.push(`${x.bus_noches} Noches`);} 
             else if(x.tipo==='crucero'){i='🚢';t='CRUCERO';l.push(`${x.crucero_naviera} - ${x.crucero_recorrido}`);} 
@@ -185,7 +222,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} 
         if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; 
         let h='<ul style="padding-left:15px;margin:0;">'; 
-        s.forEach(x=>{ h+=`<li>${x.proveedor||x.tipo}: $${x.costo}</li>`; }); 
+        s.forEach(x=>{ 
+            let texto = `${x.proveedor||x.tipo}: $${x.costo}`;
+            h+=`<li>${texto}</li>`; 
+        }); 
         return h+'</ul>'; 
     }
 
@@ -388,6 +428,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     dom.btnAgregarServicio.addEventListener('click', () => { if (dom.selectorServicio.value) { agregarModuloServicio(dom.selectorServicio.value); dom.selectorServicio.value = ""; } });
 
+    // --- ESTRELLAS ---
+    window.setStars = (id, count) => {
+        const container = document.querySelector(`.servicio-card[data-id="${id}"] .star-rating`);
+        const input = document.getElementById(`stars-${id}`);
+        if(container && input) {
+            input.value = count;
+            const spans = container.querySelectorAll('span');
+            spans.forEach((span, idx) => {
+                if(idx < count) span.classList.add('filled');
+                else span.classList.remove('filled');
+            });
+        }
+    };
+
     function agregarModuloServicio(tipo, data = null) {
         const container = dom.containerServicios; const existingServices = container.querySelectorAll('.servicio-card');
         const hasExclusive = Array.from(existingServices).some(c => c.dataset.tipo === 'bus' || c.dataset.tipo === 'crucero');
@@ -425,19 +479,38 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
         }
         else if(tipo==='hotel'){
+            // HOTEL CON ESTRELLAS Y LINK
             html+=`<h4>🏨 Hotel</h4>
             <div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div>
+            <div class="form-group"><label>Estrellas</label>
+                <div class="star-rating" data-id="${id}">
+                    <span onclick="setStars('${id}', 1)">★</span>
+                    <span onclick="setStars('${id}', 2)">★</span>
+                    <span onclick="setStars('${id}', 3)">★</span>
+                    <span onclick="setStars('${id}', 4)">★</span>
+                    <span onclick="setStars('${id}', 5)">★</span>
+                </div>
+                <input type="hidden" name="hotel_estrellas" id="stars-${id}" value="0">
+            </div>
             <div class="form-group"><label>Ubicación (Link)</label><input type="url" name="hotel_link" placeholder="https://maps.google.com/..."></div>
             <div class="form-group-row">
                 <div class="form-group"><label>Check In</label><input type="date" name="checkin" onchange="window.calcularNoches(${id})" required></div>
                 <div class="form-group"><label>Check Out</label><input type="date" name="checkout" onchange="window.calcularNoches(${id})" required></div>
-                <div class="form-group"><label>Noches</label><input type="text" id="noches-${id}" readonly style="background:#eee; width:60px;"></div>
+                <div class="form-group"><label>Noches</label><input type="text" name="noches" id="noches-${id}" readonly style="background:#eee; width:60px;"></div>
             </div>
             <div class="form-group"><label>Régimen</label><select name="regimen"><option>Solo Habitación</option><option>Desayuno</option><option>Media Pensión</option><option>All Inclusive</option></select></div>
             <div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
         }
         else if(tipo==='traslado'){html+=`<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Hotel - Hotel</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
-        else if(tipo==='seguro'){html+=`<h4>🛡️ Seguro</h4><div class="form-group-row"><div class="form-group"><label>Cobertura</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
+        else if(tipo==='seguro'){
+            // SEGURO CON PROVEEDOR
+            html+=`<h4>🛡️ Seguro</h4>
+            <div class="form-group-row">
+                <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
+                <div class="form-group"><label>Cobertura</label><input type="text" name="cobertura" required></div>
+            </div>
+            <div class="form-group-row"><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
+        }
         else if(tipo==='adicional'){html+=`<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='bus'){html+=`<h4>🚌 Paquete Bus</h4><div class="form-group-row"><div class="form-group"><label>Cant. Noches</label><input type="number" name="bus_noches" required></div><div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:10px;"><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="bus_alojamiento" onchange="document.getElementById('bus-regimen-${id}').style.display=this.checked?'block':'none'"> Incluye Alojamiento</label></div></div></div><div id="bus-regimen-${id}" class="form-group" style="display:none;margin-top:-10px;margin-bottom:15px;background:#f9f9f9;padding:10px;border-radius:8px;"><label>Régimen</label><select name="bus_regimen"><option value="Sin Pensión">Sin Pensión</option><option value="Desayuno">Desayuno</option><option value="Media Pensión">Media Pensión</option><option value="Pensión Completa">Pensión Completa</option></select></div><div class="checkbox-group" style="margin-bottom:15px;"><label class="checkbox-label"><input type="checkbox" name="bus_excursiones"> Incluye Excursiones</label><label class="checkbox-label"><input type="checkbox" name="bus_asistencia"> Asistencia al Viajero</label></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='crucero'){html+=`<h4>🚢 Crucero</h4><div class="form-group-row"><div class="form-group"><label>Naviera</label><input type="text" name="crucero_naviera" required></div><div class="form-group"><label>Noches</label><input type="number" name="crucero_noches" required></div></div><div class="form-group-row"><div class="form-group"><label>Puerto Salida</label><input type="text" name="crucero_puerto_salida" required></div><div class="form-group"><label>Puertos que Recorre</label><input type="text" name="crucero_recorrido" required></div></div><div class="form-group"><label>Información Adicional</label><textarea name="crucero_info" rows="2"></textarea></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
@@ -448,17 +521,49 @@ document.addEventListener('DOMContentLoaded', () => {
         if(dom.inputFechaViaje.value) { const inputsFecha = div.querySelectorAll('input[type="date"]'); inputsFecha.forEach(i => i.min = dom.inputFechaViaje.value); }
         else { const inputsFecha = div.querySelectorAll('input[type="date"]'); const today = new Date(); today.setMinutes(today.getMinutes() - today.getTimezoneOffset()); inputsFecha.forEach(i => i.min = today.toISOString().split('T')[0]); }
 
-        if(data){ div.querySelectorAll('input, select, textarea').forEach(input => { if (data[input.name] !== undefined) { if (input.type === 'checkbox') { input.checked = data[input.name]; if (input.name === 'bus_alojamiento') input.dispatchEvent(new Event('change')); } else if (input.type === 'hidden') { const counter = input.parentElement.querySelector('.counter-value'); if(counter) counter.innerText = data[input.name]; input.value = data[input.name]; } else { input.value = data[input.name]; if (input.name === 'checkin' || input.name === 'checkout') window.calcularNoches(id); } } }); }
+        if(data){ 
+            div.querySelectorAll('input, select, textarea').forEach(input => { 
+                if (data[input.name] !== undefined) { 
+                    if (input.type === 'checkbox') { 
+                        input.checked = data[input.name]; 
+                        if (input.name === 'bus_alojamiento') input.dispatchEvent(new Event('change')); 
+                    } else if (input.type === 'hidden') { 
+                        if(input.name === 'hotel_estrellas') { window.setStars(id, data[input.name]); }
+                        else {
+                            const counter = input.parentElement.querySelector('.counter-value'); 
+                            if(counter) counter.innerText = data[input.name]; 
+                            input.value = data[input.name]; 
+                        }
+                    } else { 
+                        input.value = data[input.name]; 
+                        if (input.name === 'checkin' || input.name === 'checkout') window.calcularNoches(id); 
+                    } 
+                } 
+            }); 
+        }
     }
 
     window.crearContadorHTML = (n, v) => `<div class="counter-wrapper"><button type="button" class="counter-btn" onclick="this.nextElementSibling.innerText=Math.max(0,parseInt(this.nextElementSibling.innerText)-1)">-</button><span class="counter-value">${v}</span><button type="button" class="counter-btn" onclick="this.previousElementSibling.innerText=parseInt(this.previousElementSibling.innerText)+1">+</button><input type="hidden" name="${n}" value="${v}"></div>`;
-    window.calcularNoches = (id) => { const c=document.querySelector(`.servicio-card[data-id="${id}"]`); if(!c)return; const i=c.querySelector('input[name="checkin"]'), o=c.querySelector('input[name="checkout"]'); if(i&&o&&i.value&&o.value){ const d1=new Date(i.value), d2=new Date(o.value); document.getElementById(`noches-${id}`).value=(d2>d1)?Math.ceil((d2-d1)/86400000):'-'; } };
+    
+    // CALCULO NOCHES (HOTEL)
+    window.calcularNoches = (id) => { 
+        const c=document.querySelector(`.servicio-card[data-id="${id}"]`); if(!c)return; 
+        const i=c.querySelector('input[name="checkin"]'), o=c.querySelector('input[name="checkout"]'); 
+        if(i&&o&&i.value&&o.value){ 
+            const d1=new Date(i.value), d2=new Date(o.value); 
+            // Guardar en el input name="noches"
+            const diff = (d2>d1)?Math.ceil((d2-d1)/86400000):0;
+            const inputN = document.getElementById(`noches-${id}`);
+            if(inputN) inputN.value = diff;
+        } 
+    };
     
     // --- CALCULO AUTOMATICO 18.5% ---
     window.calcularTotal = () => { 
         let t=0; 
         document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); 
         dom.inputCostoTotal.value = t;
+        // Agregar 18.5%
         const tarifaSugerida = Math.round(t * 1.185);
         dom.inputTarifaTotal.value = tarifaSugerida;
     };
@@ -472,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!fechaViajeStr) { showLoader(false); return window.showAlert("Falta fecha.", 'error'); }
         const cards = document.querySelectorAll('.servicio-card'); if (cards.length === 0) { showLoader(false); return window.showAlert("Agrega servicios.", 'error'); }
 
-        let serviciosData = []; for (let card of cards) { const serv = { tipo: card.dataset.tipo }; card.querySelectorAll('input, select, textarea').forEach(i => { if (i.type === 'checkbox') serv[i.name] = i.checked; else if (i.type === 'hidden') serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value; else serv[i.name] = i.value; }); serviciosData.push(serv); }
+        let serviciosData = []; for (let card of cards) { const serv = { tipo: card.dataset.tipo }; card.querySelectorAll('input, select, textarea').forEach(i => { if (i.type === 'checkbox') serv[i.name] = i.checked; else if (i.type === 'hidden') { if(i.name==='hotel_estrellas') serv[i.name] = i.value; else serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value; } else serv[i.name] = i.value; }); serviciosData.push(serv); }
 
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         
