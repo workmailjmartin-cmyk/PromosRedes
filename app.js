@@ -383,11 +383,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if(dom.containerFiltroCreador) dom.containerFiltroCreador.style.display = 'flex';
 
         if (rol === 'admin') loadUsersList(); 
+        
+        // --- CAMBIO AQUÍ: Configuración de opciones para usuarios ---
         const selectPromo = document.getElementById('upload-promo');
         if(selectPromo) {
             selectPromo.innerHTML = '';
-            if (rol === 'usuario') selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
-            else selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
+            if (rol === 'usuario') {
+                selectPromo.innerHTML = `
+                    <option value="Solo X Hoy">Solo X Hoy</option>
+                    <option value="FEED">FEED (Requiere Aprobación)</option>
+                    <option value="ADS">ADS (Requiere Aprobación)</option>
+                `;
+            } else {
+                selectPromo.innerHTML = `
+                    <option value="FEED">FEED</option>
+                    <option value="Solo X Hoy">Solo X Hoy</option>
+                    <option value="ADS">ADS</option>
+                `;
+            }
         }
         updatePendingBadge();
         
@@ -557,7 +570,12 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault(); showLoader(true);
         const rol = userData.rol; const promoType = document.getElementById('upload-promo').value;
-        let status = 'approved'; if (rol === 'usuario' && promoType === 'FEED') status = 'pending';
+        
+        // --- CAMBIO AQUÍ: Lógica de aprobación ---
+        let status = 'approved'; 
+        // Si es usuario Y el tipo es FEED o ADS, pasa a pendiente
+        if (rol === 'usuario' && (promoType === 'FEED' || promoType === 'ADS')) status = 'pending';
+        
         const costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; const fechaViajeStr = dom.inputFechaViaje.value;
         if (tarifa < costo) { showLoader(false); return window.showAlert(`Error: Tarifa menor al costo.`, 'error'); }
         if (!fechaViajeStr) { showLoader(false); return window.showAlert("Falta fecha.", 'error'); }
@@ -742,9 +760,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (card) card.classList.remove('today');
         }
 
-        //const today = new Date();
-        //const dayIndex = today.getDay(); // 0 Dom, 1 Lun, ... 6 Sab
-        const dayIndex = 5;
+        const today = new Date();
+        const dayIndex = today.getDay(); // 0 Dom, 1 Lun, ... 6 Sab
 
         // Si es Lun(1) a Vie(5), resaltar
         if (dayIndex >= 1 && dayIndex <= 5) {
@@ -800,4 +817,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
-
