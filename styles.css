@@ -398,7 +398,7 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     padding: 8px;
     font-family: 'Poppins', sans-serif;
     font-size: 0.85em;
-    min-height: 80px;
+    min-height: 150px;
     background: #fafafa;
     color: #333;
     line-height: 1.4;
@@ -424,4 +424,5 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
         grid-template-columns: 1fr;
     }
 }
+
 
