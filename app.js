@@ -742,8 +742,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (card) card.classList.remove('today');
         }
 
-        const today = new Date();
-        const dayIndex = today.getDay(); // 0 Dom, 1 Lun, ... 6 Sab
+        //const today = new Date();
+        //const dayIndex = today.getDay(); // 0 Dom, 1 Lun, ... 6 Sab
+        const dayIndex = 5;
 
         // Si es Lun(1) a Vie(5), resaltar
         if (dayIndex >= 1 && dayIndex <= 5) {
@@ -799,3 +800,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
