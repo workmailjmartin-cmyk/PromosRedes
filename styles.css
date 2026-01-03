@@ -392,22 +392,34 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
 
 .day-textarea {
     width: 100%;
-    border: 1px solid #eee;
+    border: none; 
+    background: transparent; 
     border-radius: 6px;
     resize: vertical;
-    padding: 8px;
+    padding: 10px;
     font-family: 'Poppins', sans-serif;
-    font-size: 0.85em;
+    font-size: 0.95em;
     min-height: 150px;
-    background: #fafafa;
-    color: #333;
-    line-height: 1.4;
+    color: #11173d; 
+    font-weight: 600; 
+    line-height: 1.5;
 }
 
 .day-textarea:focus {
     outline: none;
-    border-color: var(--color-secundario);
-    background: #fff;
+    background: rgba(0,0,0,0.02); 
+}
+.day-textarea:disabled {
+    background-color: transparent;
+    color: #555;
+    cursor: default;
+    font-weight: 500; 
+}
+.day-card.today .day-title {
+    color: var(--color-acento); 
+    font-weight: 800; 
+    font-size: 1.1em;
+    text-shadow: 0px 0px 1px rgba(239, 90, 26, 0.2);
 }
 
 .planner-actions {
@@ -424,5 +436,6 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
         grid-template-columns: 1fr;
     }
 }
+
 
 
