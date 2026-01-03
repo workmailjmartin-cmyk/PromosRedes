@@ -14,7 +14,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
-    firebase.initializeApp(firebaseConfig);
+    // Inicializar Firebase solo si no existe ya
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
     const auth = firebase.auth();
     const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -44,6 +47,21 @@ document.addEventListener('DOMContentLoaded', () => {
         badgeGestion: document.getElementById('badge-gestion')
     };
 
+    // DOM DEL PLANIFICADOR SEMANAL
+    const domPlanner = {
+        container: document.getElementById('weekly-planner'),
+        header: document.getElementById('planner-header-btn'),
+        body: document.getElementById('planner-body-content'),
+        btnSave: document.getElementById('btn-save-planning'),
+        inputs: {
+            lunes: document.getElementById('note-lunes'),
+            martes: document.getElementById('note-martes'),
+            miercoles: document.getElementById('note-miercoles'),
+            jueves: document.getElementById('note-jueves'),
+            viernes: document.getElementById('note-viernes')
+        }
+    };
+
     // --- UTILS ---
     const showLoader = (show, text = null) => { 
         if(dom.loader) {
@@ -60,16 +78,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
         
-        // 1. Prioridad: Hoteles
         let totalHotel = 0; let hayHotel = false;
         servicios.forEach(s => { if (s.tipo === 'hotel' && s.noches) { totalHotel += parseInt(s.noches) || 0; hayHotel = true; } });
         if(hayHotel && totalHotel > 0) return totalHotel;
 
-        // 2. Prioridad: Bus/Crucero
         const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
         const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
         
-        // 3. Fallback: Fechas
         if(!pkg['fecha_salida']) return 0;
         let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
         const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
@@ -87,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
-    // --- GENERADOR DE TEXTO (WHATSAPP) ---
+    // --- GENERADOR DE TEXTO ---
     function generarTextoPresupuesto(pkg) {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg);
@@ -376,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updatePendingBadge();
         
-        // ** INICIAR PLANIFICADOR SEMANAL **
+        // INICIAR PLANIFICADOR SEMANAL
         initWeeklyPlanner();
     }
 
@@ -675,20 +690,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 14. LOGICA CALENDARIO SEMANAL
     // =========================================
     
-    const domPlanner = {
-        container: document.getElementById('weekly-planner'),
-        header: document.getElementById('planner-header-btn'),
-        body: document.getElementById('planner-body-content'),
-        btnSave: document.getElementById('btn-save-planning'),
-        inputs: {
-            lunes: document.getElementById('note-lunes'),
-            martes: document.getElementById('note-martes'),
-            miercoles: document.getElementById('note-miercoles'),
-            jueves: document.getElementById('note-jueves'),
-            viernes: document.getElementById('note-viernes')
-        }
-    };
-
     // Toggle Desplegable
     if(domPlanner.header) {
         domPlanner.header.addEventListener('click', () => {
@@ -697,8 +698,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Inicializar Calendario (Llamado al loguear si es admin/editor)
-   // Inicializar Calendario (Nueva lógica de permisos)
+    // Inicializar Calendario (Nueva lógica de permisos)
     async function initWeeklyPlanner() {
         // 1. Mostrar el calendario a TODOS los usuarios logueados
         if(domPlanner.container) {
@@ -729,10 +729,11 @@ document.addEventListener('DOMContentLoaded', () => {
             textareas.forEach(el => el.disabled = false);
             if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'inline-block';
         } else {
-            // NO ES STAFF (Usuario normal): Deshabilitar edición y ocultar botón
+            // NO ES STAFF: Deshabilitar edición y ocultar botón
             textareas.forEach(el => el.disabled = true);
             if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'none';
         }
+    }
 
     // Resaltar día actual
     function highlightCurrentDay() {
@@ -798,4 +799,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
-
