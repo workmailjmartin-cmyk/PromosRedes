@@ -376,7 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updatePendingBadge();
         
-        // ** NUEVO: INICIAR PLANIFICADOR SEMANAL **
+        // ** INICIAR PLANIFICADOR SEMANAL **
         initWeeklyPlanner();
     }
 
@@ -698,21 +698,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Inicializar Calendario (Llamado al loguear si es admin/editor)
+   // Inicializar Calendario (Nueva lógica de permisos)
     async function initWeeklyPlanner() {
-        if (!userData || (userData.rol !== 'admin' && userData.rol !== 'editor')) {
-            if(domPlanner.container) domPlanner.container.style.display = 'none';
-            return;
-        }
-
+        // 1. Mostrar el calendario a TODOS los usuarios logueados
         if(domPlanner.container) {
             domPlanner.container.style.display = 'block';
+            
+            // Abrirlo por defecto
             domPlanner.header.classList.add('open');
             domPlanner.body.classList.add('open');
             
             highlightCurrentDay();
             await loadPlanningData();
         }
-    }
+
+        // 2. Verificar Permisos de Edición
+        const isStaff = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+        
+        // Referencia a todos los textareas
+        const textareas = [
+            domPlanner.inputs.lunes,
+            domPlanner.inputs.martes,
+            domPlanner.inputs.miercoles,
+            domPlanner.inputs.jueves,
+            domPlanner.inputs.viernes
+        ];
+
+        if (isStaff) {
+            // ES STAFF: Habilitar edición y mostrar botón guardar
+            textareas.forEach(el => el.disabled = false);
+            if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'inline-block';
+        } else {
+            // NO ES STAFF (Usuario normal): Deshabilitar edición y ocultar botón
+            textareas.forEach(el => el.disabled = true);
+            if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'none';
+        }
 
     // Resaltar día actual
     function highlightCurrentDay() {
@@ -778,3 +798,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
