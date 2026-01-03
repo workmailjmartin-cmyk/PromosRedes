@@ -288,4 +288,140 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
 .star-rating span.filled {
     color: #ef5a1a; /* Naranja Marca (llena) */
 }
+/* =========================================
+   14. PLANIFICADOR SEMANAL (WEEKLY PLANNER)
+   ========================================= */
+.planner-wrapper {
+    background: #fff;
+    border-radius: var(--borde-radio);
+    box-shadow: var(--sombra-suave);
+    margin-bottom: 20px; /* Separación de los filtros */
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.planner-header {
+    background-color: #fff; /* O gris muy suave si prefieres */
+    padding: 15px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    border-bottom: 1px solid transparent;
+    transition: 0.2s;
+}
+
+.planner-header:hover {
+    background-color: #fcfcfc;
+}
+
+.planner-title {
+    font-weight: 700;
+    color: var(--color-base);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.1em;
+}
+
+.planner-toggle-icon {
+    font-size: 1.2em;
+    color: #777;
+    transition: transform 0.3s ease;
+}
+
+.planner-header.open .planner-toggle-icon {
+    transform: rotate(180deg);
+}
+
+.planner-header.open {
+    border-bottom: 1px solid #eee;
+}
+
+.planner-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out;
+    background-color: #f8f9fa; /* Fondo gris suave general */
+    padding: 0 25px; /* Padding lateral, el vertical lo maneja la transición */
+}
+
+.planner-body.open {
+    max-height: 1000px; /* Altura suficiente para mostrar contenido */
+    padding: 25px;
+}
+
+.planner-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.day-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    transition: 0.2s;
+}
+
+/* El día actual */
+.day-card.today {
+    border: 2px solid var(--color-acento); /* Naranja */
+    background: #fff5f0; /* Fondo naranja muy tenue */
+    box-shadow: 0 5px 15px rgba(239, 90, 26, 0.15);
+    transform: translateY(-2px);
+}
+
+.day-title {
+    font-weight: 700;
+    font-size: 0.9em;
+    color: #555;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.day-card.today .day-title {
+    color: var(--color-acento);
+}
+
+.day-textarea {
+    width: 100%;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    resize: vertical;
+    padding: 8px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.85em;
+    min-height: 80px;
+    background: #fafafa;
+    color: #333;
+    line-height: 1.4;
+}
+
+.day-textarea:focus {
+    outline: none;
+    border-color: var(--color-secundario);
+    background: #fff;
+}
+
+.planner-actions {
+    margin-top: 15px;
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+}
+
+/* Ocultar en móviles si se desea ahorrar espacio, o apilar */
+@media (max-width: 768px) {
+    .planner-grid {
+        grid-template-columns: 1fr;
+    }
+}
 
