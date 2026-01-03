@@ -14,7 +14,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
-    firebase.initializeApp(firebaseConfig);
+    // Inicializar Firebase solo si no existe ya
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
     const auth = firebase.auth();
     const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -27,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isEditingId = null; 
     let originalCreator = ''; 
 
-    // DOM
+    // DOM PRINCIPAL
     const dom = {
         views: { search: document.getElementById('view-search'), upload: document.getElementById('view-upload'), gestion: document.getElementById('view-gestion'), users: document.getElementById('view-users') },
         nav: { search: document.getElementById('nav-search'), upload: document.getElementById('nav-upload'), gestion: document.getElementById('nav-gestion'), users: document.getElementById('nav-users') },
@@ -42,6 +45,21 @@ document.addEventListener('DOMContentLoaded', () => {
         filtroOrden: document.getElementById('filtro-orden'), filtroCreador: document.getElementById('filtro-creador'), containerFiltroCreador: document.getElementById('container-filtro-creador'),
         logoImg: document.getElementById('app-logo'), loader: document.getElementById('loader-overlay'),
         badgeGestion: document.getElementById('badge-gestion')
+    };
+
+    // DOM DEL PLANIFICADOR SEMANAL
+    const domPlanner = {
+        container: document.getElementById('weekly-planner'),
+        header: document.getElementById('planner-header-btn'),
+        body: document.getElementById('planner-body-content'),
+        btnSave: document.getElementById('btn-save-planning'),
+        inputs: {
+            lunes: document.getElementById('note-lunes'),
+            martes: document.getElementById('note-martes'),
+            miercoles: document.getElementById('note-miercoles'),
+            jueves: document.getElementById('note-jueves'),
+            viernes: document.getElementById('note-viernes')
+        }
     };
 
     // --- UTILS ---
@@ -60,16 +78,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
         
-        // 1. Prioridad: Hoteles
         let totalHotel = 0; let hayHotel = false;
         servicios.forEach(s => { if (s.tipo === 'hotel' && s.noches) { totalHotel += parseInt(s.noches) || 0; hayHotel = true; } });
         if(hayHotel && totalHotel > 0) return totalHotel;
 
-        // 2. Prioridad: Bus/Crucero
         const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
         const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
         
-        // 3. Fallback: Fechas
         if(!pkg['fecha_salida']) return 0;
         let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
         const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
@@ -87,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
-    // --- GENERADOR DE TEXTO (WHATSAPP) - ACTUALIZADO ---
+    // --- GENERADOR DE TEXTO ---
     function generarTextoPresupuesto(pkg) {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg);
@@ -97,7 +112,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let servicios = [];
         try { servicios = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {}
 
-        // Detectar si hay seguro para el mensaje final
         const tieneSeguro = Array.isArray(servicios) && servicios.some(s => s.tipo === 'seguro');
 
         let texto = `*${pkg.destino.toUpperCase()}*\n\n`;
@@ -114,11 +128,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     texto += `✈️ AÉREO\n${s.aerolinea || 'Aerolínea'}\n${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
                     texto += `🔄 ${escalasTxt} | 🧳 ${s.tipo_equipaje || '-'}\n\n`;
                 } else if (s.tipo === 'hotel') {
-                    // CAMBIO 1: Régimen abajo
                     let stars = ''; if(s.hotel_estrellas) { for(let i=0; i<s.hotel_estrellas; i++) stars += '⭐'; }
                     texto += `🏨 HOTEL\n${s.hotel_nombre} ${stars}\n`;
                     if(s.regimen) texto += `(${s.regimen})\n`;
-                    
                     if(s.noches) texto += `🌙 ${s.noches} Noches`;
                     if(s.checkin) texto += ` | 📥 Ingreso: ${formatDateAR(s.checkin)}`;
                     if(s.hotel_link) texto += `\n📍 Ubicación: ${s.hotel_link}`;
@@ -139,31 +151,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         texto += `💲*Tarifa final por Persona en Base Doble:*\n`;
         texto += `${pkg.moneda} $${formatMoney(tarifaDoble)}\n\n`;
-
-        if (pkg.financiacion) {
-            texto += `💳 Financiación: ${pkg.financiacion}\n\n`;
-        }
-
+        if (pkg.financiacion) texto += `💳 Financiación: ${pkg.financiacion}\n\n`;
         texto += `--------------------------------------------\n`;
         texto += `Información importante:\n`;
         texto += `-Tarifas y disponibilidad sujetas a cambio al momento de la reserva.\n`;
         texto += `-Cotización válida al ${fechaCotizacion}\n\n`;
-        // CAMBIO 2: Link en la misma línea
         texto += `ℹ Más info: (https://felizviaje.tur.ar/informacion-antes-de-contratar)\n\n`;
-        
-        texto += `⚠¡Cupos limitados!\n`;
-        texto += `-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n`;
-        texto += `-Las plazas y precios pueden modificarse en cualquier momento según disponibilidad de vuelos y hotel.\n\n`;
+        texto += `⚠¡Cupos limitados!\n-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n-Las plazas y precios pueden modificarse en cualquier momento según disponibilidad de vuelos y hotel.\n\n`;
         texto += `¿Encontraste una mejor oferta? ¡Compartila con nosotros y la mejoramos para vos!\n\n`;
-        texto += `✈ Políticas generales de aerolíneas (tarifas económicas)\n`;
-        texto += `-Equipaje y la selección de asientos no están incluidos (pueden tener costo adicional)\n\n`;
+        texto += `✈ Políticas generales de aerolíneas (tarifas económicas)\n-Equipaje y la selección de asientos no están incluidos (pueden tener costo adicional)\n\n`;
         
-        // CAMBIO 3: Mensaje condicional de seguro
-        if (tieneSeguro) {
-            texto += `Asistencia al viajero es requisito obligatorio en la mayoría de los destinos internacionales`;
-        } else {
-            texto += `Asistencia al viajero no incluida. Puede añadirse al reservar o más adelante. Es requisito obligatorio en la mayoría de los destinos internacionales`;
-        }
+        if (tieneSeguro) texto += `Asistencia al viajero es requisito obligatorio en la mayoría de los destinos internacionales`;
+        else texto += `Asistencia al viajero no incluida. Puede añadirse al reservar o más adelante. Es requisito obligatorio en la mayoría de los destinos internacionales`;
 
         return texto;
     }
@@ -197,12 +196,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 let stars = ''; if(x.hotel_estrellas) { for(let k=0; k<x.hotel_estrellas; k++) stars += '⭐'; }
                 l.push(`<b>${x.hotel_nombre}</b> <span style="color:#ef5a1a;">${stars}</span>`);
                 l.push(`(${x.regimen})`);
-                
                 let det = [];
                 if(x.noches) det.push(`🌙 ${x.noches} Noches`);
                 if(x.checkin) det.push(`Ingreso: ${formatDateAR(x.checkin)}`);
                 if(det.length > 0) l.push(`<small>${det.join(' | ')}</small>`);
-
                 if(x.hotel_link) l.push(`<a href="${x.hotel_link}" target="_blank" style="color:#ef5a1a;text-decoration:none;font-weight:bold;">📍 Ver Ubicación</a>`);
             } 
             else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} 
@@ -295,9 +292,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!res.ok) throw new Error(`API HTTP Error: ${res.status}`);
 
         const jsonResponse = await res.json();
-
-        // --- VALIDACIÓN DE RESPUESTA REAL ---
-        // Esto evita el "Falso Positivo" si n8n devuelve 200 OK pero con un error en el cuerpo
         if (jsonResponse.error || jsonResponse.status === 'error' || (Array.isArray(jsonResponse) && jsonResponse.length === 0 && url === API_URL_UPLOAD)) {
             throw new Error(jsonResponse.message || "Error procesando en n8n (Respuesta inválida).");
         }
@@ -310,7 +304,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let acquired = false;
         let attempts = 0;
         
-        // Intentar adquirir el turno (lock)
         while(!acquired && attempts < 20) { 
             try {
                 await db.runTransaction(async (t) => {
@@ -318,19 +311,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = doc.data();
                     const now = Date.now();
 
-                    // Si está ocupado y el bloqueo es reciente (< 15 segundos), fallamos
                     if (data && data.locked && (now - data.timestamp < 15000)) {
                         throw "LOCKED";
                     }
-
-                    // Si está libre o el bloqueo es muy viejo (se colgó), lo tomamos
                     t.set(lockRef, { locked: true, user: currentUser.email, timestamp: now });
                 });
                 acquired = true;
             } catch (e) {
                 if (e === "LOCKED" || e.message === "LOCKED") {
                     showLoader(true, `⏳ Esperando turno de carga... (${attempts+1}/20)`);
-                    await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000)); // Esperar 2-3 seg
+                    await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000));
                     attempts++;
                 } else {
                     console.error("Error Transaction:", e);
@@ -341,13 +331,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if(!acquired) throw new Error("El sistema está muy saturado. Por favor intenta en 1 minuto.");
 
-        // Tenemos el turno, hacemos la carga
         try {
             showLoader(true, "🚀 Subiendo datos...");
             const result = await _doFetch(url, body);
             return result;
         } finally {
-            // SIEMPRE liberar el turno al terminar (éxito o error)
             await lockRef.set({ locked: false });
         }
     }
@@ -395,13 +383,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if(dom.containerFiltroCreador) dom.containerFiltroCreador.style.display = 'flex';
 
         if (rol === 'admin') loadUsersList(); 
+        
+        // --- CAMBIO AQUÍ: Configuración de opciones para usuarios ---
         const selectPromo = document.getElementById('upload-promo');
         if(selectPromo) {
             selectPromo.innerHTML = '';
-            if (rol === 'usuario') selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
-            else selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
+            if (rol === 'usuario') {
+                selectPromo.innerHTML = `
+                    <option value="Solo X Hoy">Solo X Hoy</option>
+                    <option value="FEED">FEED (Requiere Aprobación)</option>
+                    <option value="ADS">ADS (Requiere Aprobación)</option>
+                `;
+            } else {
+                selectPromo.innerHTML = `
+                    <option value="FEED">FEED</option>
+                    <option value="Solo X Hoy">Solo X Hoy</option>
+                    <option value="ADS">ADS</option>
+                `;
+            }
         }
-        updatePendingBadge(); 
+        updatePendingBadge();
+        
+        // INICIAR PLANIFICADOR SEMANAL
+        initWeeklyPlanner();
     }
 
     if (dom.userForm) {
@@ -479,7 +483,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
         }
         else if(tipo==='hotel'){
-            // HOTEL CON ESTRELLAS Y LINK
             html+=`<h4>🏨 Hotel</h4>
             <div class="form-group"><label>Alojamiento</label><input type="text" name="hotel_nombre" required></div>
             <div class="form-group"><label>Estrellas</label>
@@ -503,7 +506,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         else if(tipo==='traslado'){html+=`<h4>🚕 Traslado</h4><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="trf_in"> In</label><label class="checkbox-label"><input type="checkbox" name="trf_out"> Out</label><label class="checkbox-label"><input type="checkbox" name="trf_hah"> Hotel - Hotel</label></div><div class="form-group-row"><div class="form-group"><label>Tipo</label><select name="tipo_trf"><option>Compartido</option><option>Privado</option></select></div><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if(tipo==='seguro'){
-            // SEGURO CON PROVEEDOR
             html+=`<h4>🛡️ Seguro</h4>
             <div class="form-group-row">
                 <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
@@ -551,19 +553,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const i=c.querySelector('input[name="checkin"]'), o=c.querySelector('input[name="checkout"]'); 
         if(i&&o&&i.value&&o.value){ 
             const d1=new Date(i.value), d2=new Date(o.value); 
-            // Guardar en el input name="noches"
             const diff = (d2>d1)?Math.ceil((d2-d1)/86400000):0;
             const inputN = document.getElementById(`noches-${id}`);
             if(inputN) inputN.value = diff;
         } 
     };
     
-    // --- CALCULO AUTOMATICO 18.5% ---
     window.calcularTotal = () => { 
         let t=0; 
         document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); 
         dom.inputCostoTotal.value = t;
-        // Agregar 18.5%
         const tarifaSugerida = Math.round(t * 1.185);
         dom.inputTarifaTotal.value = tarifaSugerida;
     };
@@ -571,7 +570,12 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault(); showLoader(true);
         const rol = userData.rol; const promoType = document.getElementById('upload-promo').value;
-        let status = 'approved'; if (rol === 'usuario' && promoType === 'FEED') status = 'pending';
+        
+        // --- CAMBIO AQUÍ: Lógica de aprobación ---
+        let status = 'approved'; 
+        // Si es usuario Y el tipo es FEED o ADS, pasa a pendiente
+        if (rol === 'usuario' && (promoType === 'FEED' || promoType === 'ADS')) status = 'pending';
+        
         const costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; const fechaViajeStr = dom.inputFechaViaje.value;
         if (tarifa < costo) { showLoader(false); return window.showAlert(`Error: Tarifa menor al costo.`, 'error'); }
         if (!fechaViajeStr) { showLoader(false); return window.showAlert("Falta fecha.", 'error'); }
@@ -647,7 +651,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         dom.modalBody.innerHTML = `
             ${adminTools}
-            
             <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <h2 style="margin:0;font-size:2.2em;line-height:1.1;">${pkg['destino']}</h2>
@@ -660,7 +663,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>
                     ${htmlCliente}
                 </div>
-                
                 <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
                         <h4 style="margin:0; color:#11173d;">Resumen</h4>
@@ -675,7 +677,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h4 style="margin:20px 0 10px 0; color:#11173d; border-top:1px solid #eee; padding-top:15px;">Costos (Interno)</h4>
                         ${htmlCostos}
                     </div>
-                    
                     ${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}
                 </div>
             </div>
@@ -702,4 +703,117 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.btnLimpiar.addEventListener('click', () => { document.getElementById('filtro-destino').value=''; if(dom.filtroCreador) dom.filtroCreador.value=''; document.getElementById('filtro-promo').value=''; if(dom.filtroOrden) dom.filtroOrden.value='reciente'; applyFilters(); });
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
     if(dom.filtroCreador) dom.filtroCreador.addEventListener('change', applyFilters);
+
+    // =========================================
+    // 14. LOGICA CALENDARIO SEMANAL
+    // =========================================
+    
+    // Toggle Desplegable
+    if(domPlanner.header) {
+        domPlanner.header.addEventListener('click', () => {
+            domPlanner.header.classList.toggle('open');
+            domPlanner.body.classList.toggle('open');
+        });
+    }
+
+    // Inicializar Calendario (Nueva lógica de permisos)
+    async function initWeeklyPlanner() {
+        // 1. Mostrar el calendario a TODOS los usuarios logueados
+        if(domPlanner.container) {
+            domPlanner.container.style.display = 'block';
+            
+            // Abrirlo por defecto
+            domPlanner.header.classList.add('open');
+            domPlanner.body.classList.add('open');
+            
+            highlightCurrentDay();
+            await loadPlanningData();
+        }
+
+        // 2. Verificar Permisos de Edición
+        const isStaff = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+        
+        // Referencia a todos los textareas
+        const textareas = [
+            domPlanner.inputs.lunes,
+            domPlanner.inputs.martes,
+            domPlanner.inputs.miercoles,
+            domPlanner.inputs.jueves,
+            domPlanner.inputs.viernes
+        ];
+
+        if (isStaff) {
+            // ES STAFF: Habilitar edición y mostrar botón guardar
+            textareas.forEach(el => el.disabled = false);
+            if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'inline-block';
+        } else {
+            // NO ES STAFF: Deshabilitar edición y ocultar botón
+            textareas.forEach(el => el.disabled = true);
+            if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'none';
+        }
+    }
+
+    // Resaltar día actual
+    function highlightCurrentDay() {
+        for (let i = 1; i <= 5; i++) {
+            const card = document.getElementById(`day-card-${i}`);
+            if (card) card.classList.remove('today');
+        }
+
+        const today = new Date();
+        const dayIndex = today.getDay(); // 0 Dom, 1 Lun, ... 6 Sab
+
+        // Si es Lun(1) a Vie(5), resaltar
+        if (dayIndex >= 1 && dayIndex <= 5) {
+            const card = document.getElementById(`day-card-${dayIndex}`);
+            if (card) {
+                card.classList.add('today');
+                const span = document.getElementById(`date-${dayIndex}`);
+                if(span) span.innerText = `${today.getDate()}/${today.getMonth()+1}`;
+            }
+        }
+    }
+
+    // Cargar datos de Firestore
+    async function loadPlanningData() {
+        try {
+            const doc = await db.collection('config').doc('planning_weekly').get();
+            if (doc.exists) {
+                const data = doc.data();
+                domPlanner.inputs.lunes.value = data.lunes || '';
+                domPlanner.inputs.martes.value = data.martes || '';
+                domPlanner.inputs.miercoles.value = data.miercoles || '';
+                domPlanner.inputs.jueves.value = data.jueves || '';
+                domPlanner.inputs.viernes.value = data.viernes || '';
+            }
+        } catch (e) {
+            console.error("Error cargando planner:", e);
+        }
+    }
+
+    // Guardar datos
+    if(domPlanner.btnSave) {
+        domPlanner.btnSave.addEventListener('click', async () => {
+            showLoader(true, "Guardando agenda...");
+            try {
+                const payload = {
+                    lunes: domPlanner.inputs.lunes.value,
+                    martes: domPlanner.inputs.martes.value,
+                    miercoles: domPlanner.inputs.miercoles.value,
+                    jueves: domPlanner.inputs.jueves.value,
+                    viernes: domPlanner.inputs.viernes.value,
+                    last_update: new Date(),
+                    updated_by: currentUser.email
+                };
+
+                await db.collection('config').doc('planning_weekly').set(payload, { merge: true });
+                await window.showAlert("✅ Planificación actualizada.", "success");
+            } catch (e) {
+                console.error(e);
+                window.showAlert("Error al guardar planificación.", "error");
+            }
+            showLoader(false);
+        });
+    }
+
 });
