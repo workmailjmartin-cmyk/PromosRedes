@@ -14,7 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
     const auth = firebase.auth();
     const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -44,6 +46,21 @@ document.addEventListener('DOMContentLoaded', () => {
         badgeGestion: document.getElementById('badge-gestion')
     };
 
+    // DOM PLANNER
+    const domPlanner = {
+        container: document.getElementById('weekly-planner'),
+        header: document.getElementById('planner-header-btn'),
+        body: document.getElementById('planner-body-content'),
+        btnSave: document.getElementById('btn-save-planning'),
+        inputs: {
+            lunes: document.getElementById('note-lunes'),
+            martes: document.getElementById('note-martes'),
+            miercoles: document.getElementById('note-miercoles'),
+            jueves: document.getElementById('note-jueves'),
+            viernes: document.getElementById('note-viernes')
+        }
+    };
+
     // --- UTILS ---
     const showLoader = (show, text = null) => { 
         if(dom.loader) {
@@ -56,20 +73,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
     
+    // Función auxiliar para formatear texto de escalas
+    const formatEscalasTexto = (n) => {
+        n = parseInt(n) || 0;
+        if (n === 0) return "Directo";
+        if (n === 1) return "1 Escala";
+        return `${n} Escalas`;
+    };
+
     function getNoches(pkg) {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
         
-        // 1. Prioridad: Hoteles
         let totalHotel = 0; let hayHotel = false;
         servicios.forEach(s => { if (s.tipo === 'hotel' && s.noches) { totalHotel += parseInt(s.noches) || 0; hayHotel = true; } });
         if(hayHotel && totalHotel > 0) return totalHotel;
 
-        // 2. Prioridad: Bus/Crucero
         const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
         const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
         
-        // 3. Fallback: Fechas
         if(!pkg['fecha_salida']) return 0;
         let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
         const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
@@ -87,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
-    // --- GENERADOR DE TEXTO (WHATSAPP) ---
+    // --- GENERADOR DE TEXTO ---
     function generarTextoPresupuesto(pkg) {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg);
@@ -108,10 +130,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(servicios)) {
             servicios.forEach(s => {
                 if(s.tipo === 'aereo') {
-                    let escalasTxt = "Directo";
-                    if (s.escalas > 0) { escalasTxt = (s.escalas == 1) ? "1 Escala" : `${s.escalas} Escalas`; }
+                    // LÓGICA ESCALAS
+                    let eIda = (s.escalas_ida !== undefined) ? parseInt(s.escalas_ida) : (parseInt(s.escalas) || 0);
+                    let eVuelta = (s.escalas_vuelta !== undefined) ? parseInt(s.escalas_vuelta) : (parseInt(s.escalas) || 0);
+                    
+                    let escalasTxt = "";
+                    if (eIda === eVuelta) {
+                        escalasTxt = formatEscalasTexto(eIda);
+                    } else {
+                        escalasTxt = `IDA: ${formatEscalasTexto(eIda)} | REGRESO: ${formatEscalasTexto(eVuelta)}`;
+                    }
+
                     texto += `✈️ AÉREO\n${s.aerolinea || 'Aerolínea'}\n${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
                     texto += `🔄 ${escalasTxt} | 🧳 ${s.tipo_equipaje || '-'}\n\n`;
+
                 } else if (s.tipo === 'hotel') {
                     let stars = ''; if(s.hotel_estrellas) { for(let i=0; i<s.hotel_estrellas; i++) stars += '⭐'; }
                     texto += `🏨 HOTEL\n${s.hotel_nombre} ${stars}\n`;
@@ -172,8 +204,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 i='✈️';t='AÉREO';
                 l.push(`<b>${x.aerolinea}</b>`);
                 l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);
-                let escalasTxt = "Directo";
-                if (x.escalas > 0) { escalasTxt = (x.escalas == 1) ? "1 Escala" : `${x.escalas} Escalas`; }
+                
+                // LÓGICA VISUAL ESCALAS (IDA Y VUELTA)
+                let eIda = (x.escalas_ida !== undefined) ? parseInt(x.escalas_ida) : (parseInt(x.escalas) || 0);
+                let eVuelta = (x.escalas_vuelta !== undefined) ? parseInt(x.escalas_vuelta) : (parseInt(x.escalas) || 0);
+                
+                let escalasTxt = "";
+                if (eIda === eVuelta) {
+                    escalasTxt = formatEscalasTexto(eIda);
+                } else {
+                    escalasTxt = `<b>IDA:</b> ${formatEscalasTexto(eIda)} | <b>REG:</b> ${formatEscalasTexto(eVuelta)}`;
+                }
+
                 l.push(`🔄 ${escalasTxt} | 🧳 ${x.tipo_equipaje || '-'}`);
             } 
             else if(x.tipo==='hotel'){
@@ -233,6 +275,21 @@ document.addEventListener('DOMContentLoaded', () => {
         dateInputs.forEach(input => { input.min = minDate; if(input.value && input.value < minDate){ input.value = ''; input.style.borderColor = '#ef5a1a'; setTimeout(() => input.style.borderColor = '#ddd', 2000); } });
     }
 
+    // --- EVENTO PARA CALCULAR AUTOMÁTICAMENTE TARIFA X PERSONA ---
+    // Agregamos el Listener aquí mismo para asegurar que funcione siempre
+    if(dom.inputTarifaTotal) {
+        dom.inputTarifaTotal.addEventListener('input', () => {
+            const total = parseFloat(dom.inputTarifaTotal.value) || 0;
+            const porPersona = Math.round(total / 2);
+            
+            // Buscamos el input por ID
+            const inputPersona = document.getElementById('upload-tarifa-persona');
+            if(inputPersona) {
+                inputPersona.value = formatMoney(porPersona);
+            }
+        });
+    }
+
     function processPackageHistory(rawList) {
         if (!Array.isArray(rawList)) return [];
         const historyMap = new Map();
@@ -256,12 +313,9 @@ document.addEventListener('DOMContentLoaded', () => {
     async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
         
-        // Si no es una operación de escritura (búsqueda), no usamos cola
         if (url === API_URL_SEARCH) {
             return await _doFetch(url, body);
         }
-
-        // Si es escritura (subida), usamos el Mutex
         return await uploadWithMutex(url, body);
     }
 
@@ -368,15 +422,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if(dom.containerFiltroCreador) dom.containerFiltroCreador.style.display = 'flex';
 
         if (rol === 'admin') loadUsersList(); 
+        
         const selectPromo = document.getElementById('upload-promo');
         if(selectPromo) {
             selectPromo.innerHTML = '';
-            if (rol === 'usuario') selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
-            else selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
+            if (rol === 'usuario') {
+                selectPromo.innerHTML = `
+                    <option value="Solo X Hoy">Solo X Hoy</option>
+                    <option value="FEED">FEED (Requiere Aprobación)</option>
+                    <option value="ADS">ADS (Requiere Aprobación)</option>
+                `;
+            } else {
+                selectPromo.innerHTML = `
+                    <option value="FEED">FEED</option>
+                    <option value="Solo X Hoy">Solo X Hoy</option>
+                    <option value="ADS">ADS</option>
+                `;
+            }
         }
         updatePendingBadge();
         
-        // ** NUEVO: INICIAR PLANIFICADOR SEMANAL **
         initWeeklyPlanner();
     }
 
@@ -432,6 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
         if(tipo==='aereo'){
+            // MODIFICACIÓN: AHORA SÍ CON DOS CONTADORES (IDA y VUELTA) EXPLÍCITOS
             html+=`<h4>✈️ Aéreo</h4>
             <div class="form-group-row">
                 <div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div>
@@ -439,7 +505,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div>
             </div>
             <div class="form-group-row">
-                <div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas',0)}</div>
+                <div class="form-group"><label>Escalas Ida</label>${crearContadorHTML('escalas_ida',0)}</div>
+                <div class="form-group"><label>Escalas Vuelta</label>${crearContadorHTML('escalas_vuelta',0)}</div>
                 <div class="form-group"><label>Equipaje</label>
                     <select name="tipo_equipaje">
                         <option>Objeto Personal</option>
@@ -513,6 +580,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (input.name === 'checkin' || input.name === 'checkout') window.calcularNoches(id); 
                     } 
                 } 
+                // COMPATIBILIDAD CON DATOS VIEJOS
+                // Si existe 'escalas' pero no las nuevas, asignamos el valor viejo a ambas
+                if (input.name === 'escalas_ida' && data['escalas'] !== undefined && data['escalas_ida'] === undefined) {
+                     const counter = input.parentElement.querySelector('.counter-value');
+                     if(counter) counter.innerText = data['escalas'];
+                     input.value = data['escalas'];
+                }
+                if (input.name === 'escalas_vuelta' && data['escalas'] !== undefined && data['escalas_vuelta'] === undefined) {
+                     const counter = input.parentElement.querySelector('.counter-value');
+                     if(counter) counter.innerText = data['escalas'];
+                     input.value = data['escalas'];
+                }
             }); 
         }
     }
@@ -537,12 +616,18 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.inputCostoTotal.value = t;
         const tarifaSugerida = Math.round(t * 1.185);
         dom.inputTarifaTotal.value = tarifaSugerida;
+        
+        // Disparar evento manualmente por si acaso
+        dom.inputTarifaTotal.dispatchEvent(new Event('input'));
     };
 
     dom.uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault(); showLoader(true);
         const rol = userData.rol; const promoType = document.getElementById('upload-promo').value;
-        let status = 'approved'; if (rol === 'usuario' && promoType === 'FEED') status = 'pending';
+        
+        let status = 'approved'; 
+        if (rol === 'usuario' && (promoType === 'FEED' || promoType === 'ADS')) status = 'pending';
+        
         const costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; const fechaViajeStr = dom.inputFechaViaje.value;
         if (tarifa < costo) { showLoader(false); return window.showAlert(`Error: Tarifa menor al costo.`, 'error'); }
         if (!fechaViajeStr) { showLoader(false); return window.showAlert("Falta fecha.", 'error'); }
@@ -675,20 +760,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 14. LOGICA CALENDARIO SEMANAL
     // =========================================
     
-    const domPlanner = {
-        container: document.getElementById('weekly-planner'),
-        header: document.getElementById('planner-header-btn'),
-        body: document.getElementById('planner-body-content'),
-        btnSave: document.getElementById('btn-save-planning'),
-        inputs: {
-            lunes: document.getElementById('note-lunes'),
-            martes: document.getElementById('note-martes'),
-            miercoles: document.getElementById('note-miercoles'),
-            jueves: document.getElementById('note-jueves'),
-            viernes: document.getElementById('note-viernes')
-        }
-    };
-
     // Toggle Desplegable
     if(domPlanner.header) {
         domPlanner.header.addEventListener('click', () => {
@@ -697,34 +768,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Inicializar Calendario (Llamado al loguear si es admin/editor)
+    // Inicializar Calendario
     async function initWeeklyPlanner() {
-        if (!userData || (userData.rol !== 'admin' && userData.rol !== 'editor')) {
-            if(domPlanner.container) domPlanner.container.style.display = 'none';
-            return;
-        }
-
         if(domPlanner.container) {
             domPlanner.container.style.display = 'block';
             domPlanner.header.classList.add('open');
             domPlanner.body.classList.add('open');
-            
             highlightCurrentDay();
             await loadPlanningData();
         }
+
+        const isStaff = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+        const textareas = [domPlanner.inputs.lunes, domPlanner.inputs.martes, domPlanner.inputs.miercoles, domPlanner.inputs.jueves, domPlanner.inputs.viernes];
+
+        if (isStaff) {
+            textareas.forEach(el => el.disabled = false);
+            if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'inline-block';
+        } else {
+            textareas.forEach(el => el.disabled = true);
+            if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'none';
+        }
     }
 
-    // Resaltar día actual
     function highlightCurrentDay() {
         for (let i = 1; i <= 5; i++) {
             const card = document.getElementById(`day-card-${i}`);
             if (card) card.classList.remove('today');
         }
-
         const today = new Date();
-        const dayIndex = today.getDay(); // 0 Dom, 1 Lun, ... 6 Sab
-
-        // Si es Lun(1) a Vie(5), resaltar
+        const dayIndex = today.getDay(); 
         if (dayIndex >= 1 && dayIndex <= 5) {
             const card = document.getElementById(`day-card-${dayIndex}`);
             if (card) {
@@ -735,7 +807,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Cargar datos de Firestore
     async function loadPlanningData() {
         try {
             const doc = await db.collection('config').doc('planning_weekly').get();
@@ -752,7 +823,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Guardar datos
     if(domPlanner.btnSave) {
         domPlanner.btnSave.addEventListener('click', async () => {
             showLoader(true, "Guardando agenda...");
@@ -766,7 +836,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     last_update: new Date(),
                     updated_by: currentUser.email
                 };
-
                 await db.collection('config').doc('planning_weekly').set(payload, { merge: true });
                 await window.showAlert("✅ Planificación actualizada.", "success");
             } catch (e) {
