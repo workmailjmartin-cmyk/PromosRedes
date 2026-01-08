@@ -147,8 +147,18 @@
                         </div>
 
                         <div class="totals-section form-group-row">
-                            <div class="form-group"><label>Costo Total (Interno)</label><input type="number" id="upload-costo-total" readonly></div>
-                            <div class="form-group"><label>Tarifa de Venta (Cliente)</label><input type="number" id="upload-tarifa-total" required></div>
+                            <div class="form-group">
+                                <label>Costo Total (Interno)</label>
+                                <input type="number" id="upload-costo-total" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>Tarifa de Venta (Total)</label>
+                                <input type="number" id="upload-tarifa-total" required oninput="window.calcularPorPersona()">
+                            </div>
+                            <div class="form-group">
+                                <label>x Persona (Base Doble)</label>
+                                <input type="text" id="upload-tarifa-persona" readonly style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #4caf50; font-weight: bold; cursor: default;">
+                            </div>
                         </div>
 
                         <div class="finance-section">
@@ -217,5 +227,6 @@
     <script src="app.js"></script>
 </body>
 </html>
+
 
 
