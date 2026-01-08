@@ -14,10 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
-    // Inicializar Firebase solo si no existe ya
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
+    firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -47,21 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
         badgeGestion: document.getElementById('badge-gestion')
     };
 
-    // DOM DEL PLANIFICADOR SEMANAL
-    const domPlanner = {
-        container: document.getElementById('weekly-planner'),
-        header: document.getElementById('planner-header-btn'),
-        body: document.getElementById('planner-body-content'),
-        btnSave: document.getElementById('btn-save-planning'),
-        inputs: {
-            lunes: document.getElementById('note-lunes'),
-            martes: document.getElementById('note-martes'),
-            miercoles: document.getElementById('note-miercoles'),
-            jueves: document.getElementById('note-jueves'),
-            viernes: document.getElementById('note-viernes')
-        }
-    };
-
     // --- UTILS ---
     const showLoader = (show, text = null) => { 
         if(dom.loader) {
@@ -78,13 +60,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
         
+        // 1. Prioridad: Hoteles
         let totalHotel = 0; let hayHotel = false;
         servicios.forEach(s => { if (s.tipo === 'hotel' && s.noches) { totalHotel += parseInt(s.noches) || 0; hayHotel = true; } });
         if(hayHotel && totalHotel > 0) return totalHotel;
 
+        // 2. Prioridad: Bus/Crucero
         const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
         const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
         
+        // 3. Fallback: Fechas
         if(!pkg['fecha_salida']) return 0;
         let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
         const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
@@ -102,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
-    // --- GENERADOR DE TEXTO ---
+    // --- GENERADOR DE TEXTO (WHATSAPP) ---
     function generarTextoPresupuesto(pkg) {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg);
@@ -383,28 +368,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if(dom.containerFiltroCreador) dom.containerFiltroCreador.style.display = 'flex';
 
         if (rol === 'admin') loadUsersList(); 
-        
-        // --- CAMBIO AQUÍ: Configuración de opciones para usuarios ---
         const selectPromo = document.getElementById('upload-promo');
         if(selectPromo) {
             selectPromo.innerHTML = '';
-            if (rol === 'usuario') {
-                selectPromo.innerHTML = `
-                    <option value="Solo X Hoy">Solo X Hoy</option>
-                    <option value="FEED">FEED (Requiere Aprobación)</option>
-                    <option value="ADS">ADS (Requiere Aprobación)</option>
-                `;
-            } else {
-                selectPromo.innerHTML = `
-                    <option value="FEED">FEED</option>
-                    <option value="Solo X Hoy">Solo X Hoy</option>
-                    <option value="ADS">ADS</option>
-                `;
-            }
+            if (rol === 'usuario') selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option>';
+            else selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
         }
         updatePendingBadge();
         
-        // INICIAR PLANIFICADOR SEMANAL
+        // ** NUEVO: INICIAR PLANIFICADOR SEMANAL **
         initWeeklyPlanner();
     }
 
@@ -570,12 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault(); showLoader(true);
         const rol = userData.rol; const promoType = document.getElementById('upload-promo').value;
-        
-        // --- CAMBIO AQUÍ: Lógica de aprobación ---
-        let status = 'approved'; 
-        // Si es usuario Y el tipo es FEED o ADS, pasa a pendiente
-        if (rol === 'usuario' && (promoType === 'FEED' || promoType === 'ADS')) status = 'pending';
-        
+        let status = 'approved'; if (rol === 'usuario' && promoType === 'FEED') status = 'pending';
         const costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; const fechaViajeStr = dom.inputFechaViaje.value;
         if (tarifa < costo) { showLoader(false); return window.showAlert(`Error: Tarifa menor al costo.`, 'error'); }
         if (!fechaViajeStr) { showLoader(false); return window.showAlert("Falta fecha.", 'error'); }
@@ -708,6 +675,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // 14. LOGICA CALENDARIO SEMANAL
     // =========================================
     
+    const domPlanner = {
+        container: document.getElementById('weekly-planner'),
+        header: document.getElementById('planner-header-btn'),
+        body: document.getElementById('planner-body-content'),
+        btnSave: document.getElementById('btn-save-planning'),
+        inputs: {
+            lunes: document.getElementById('note-lunes'),
+            martes: document.getElementById('note-martes'),
+            miercoles: document.getElementById('note-miercoles'),
+            jueves: document.getElementById('note-jueves'),
+            viernes: document.getElementById('note-viernes')
+        }
+    };
+
     // Toggle Desplegable
     if(domPlanner.header) {
         domPlanner.header.addEventListener('click', () => {
@@ -716,40 +697,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Inicializar Calendario (Nueva lógica de permisos)
+    // Inicializar Calendario (Llamado al loguear si es admin/editor)
     async function initWeeklyPlanner() {
-        // 1. Mostrar el calendario a TODOS los usuarios logueados
+        if (!userData || (userData.rol !== 'admin' && userData.rol !== 'editor')) {
+            if(domPlanner.container) domPlanner.container.style.display = 'none';
+            return;
+        }
+
         if(domPlanner.container) {
             domPlanner.container.style.display = 'block';
-            
-            // Abrirlo por defecto
             domPlanner.header.classList.add('open');
             domPlanner.body.classList.add('open');
             
             highlightCurrentDay();
             await loadPlanningData();
-        }
-
-        // 2. Verificar Permisos de Edición
-        const isStaff = userData && (userData.rol === 'admin' || userData.rol === 'editor');
-        
-        // Referencia a todos los textareas
-        const textareas = [
-            domPlanner.inputs.lunes,
-            domPlanner.inputs.martes,
-            domPlanner.inputs.miercoles,
-            domPlanner.inputs.jueves,
-            domPlanner.inputs.viernes
-        ];
-
-        if (isStaff) {
-            // ES STAFF: Habilitar edición y mostrar botón guardar
-            textareas.forEach(el => el.disabled = false);
-            if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'inline-block';
-        } else {
-            // NO ES STAFF: Deshabilitar edición y ocultar botón
-            textareas.forEach(el => el.disabled = true);
-            if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'none';
         }
     }
 
