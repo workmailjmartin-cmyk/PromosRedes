@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const auth = firebase.auth();
     const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
-    auth.getRedirectResult()
+   auth.getRedirectResult()
         .then((result) => {
             if (result.user) {
                 console.log("✅ Regreso exitoso de Google:", result.user.email);
@@ -831,5 +831,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
