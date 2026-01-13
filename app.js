@@ -15,7 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
     // Inicializar Firebase
-    if (!firebase.apps.length) {
+    if (firebase.apps.length > 0) {
+        firebase.app().delete().then(() => {
+            firebase.initializeApp(firebaseConfig);
+        });
+    } else {
         firebase.initializeApp(firebaseConfig);
     }
     const auth = firebase.auth();
@@ -624,3 +628,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
