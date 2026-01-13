@@ -21,6 +21,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const auth = firebase.auth();
     const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
+    auth.getRedirectResult()
+        .then((result) => {
+            if (result.user) {
+                console.log("✅ Regreso exitoso de Google:", result.user.email);
+            }
+        })
+        .catch((error) => {
+            console.error("❌ Error al volver de Google:", error);
+            showLoader(false);
+            window.showAlert("Error de acceso: " + error.message);
+        });
 
     // ESTADO GLOBAL
     let currentUser = null;
@@ -820,4 +831,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
