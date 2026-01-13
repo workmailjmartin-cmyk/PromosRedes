@@ -14,32 +14,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
+    // Inicializar Firebase
     if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
     }
-    // const auth = firebase.auth(); // ANULADO TEMPORALMENTE
+    const auth = firebase.auth();
     const db = firebase.firestore(); 
+    const provider = new firebase.auth.GoogleAuthProvider();
 
-    // ======================================================
-    // ⚙️ CONFIGURACIÓN DEL MODO DE PRUEBA (BYPASS)
-    // ======================================================
-    
-    // CAMBIA ESTO A 'admin' SI QUIERES PROBAR COMO ADMINISTRADOR
-    // CAMBIA ESTO A 'usuario' SI QUIERES PROBAR COMO USUARIO NORMAL
-    const ROL_SIMULADO = 'usuario'; 
-
-    // Datos simulados
-    let currentUser = {
-        email: "test-user@felizviaje.ar",
-        getIdToken: async () => "token_falso_bypass"
-    };
-    
-    let userData = {
-        rol: ROL_SIMULADO, 
-        franquicia: "Modo Prueba (" + ROL_SIMULADO.toUpperCase() + ")"
-    };
-
-    // ======================================================
+    // ESTADO GLOBAL
+    let currentUser = null;
+    let userData = null; 
+    let allPackages = [];
+    let uniquePackages = []; 
+    let isEditingId = null; 
+    let originalCreator = ''; 
 
     // DOM
     const dom = {
@@ -73,54 +62,111 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- UTILS ---
-    const showLoader = (show, text = null) => { if(dom.loader) dom.loader.style.display = show ? 'flex' : 'none'; };
+    const showLoader = (show, text = null) => { 
+        if(dom.loader) {
+            dom.loader.style.display = show ? 'flex' : 'none';
+            // Opcional: poner texto en el loader si hiciera falta
+        }
+    };
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
     const formatEscalasTexto = (n) => { n = parseInt(n) || 0; return (n === 0) ? "Directo" : (n === 1 ? "1 Escala" : `${n} Escalas`); };
 
+    // --- ALERTAS ---
     window.showAlert = (message, type = 'error') => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const btn = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); if(btnCancel) btnCancel.style.display = 'none'; title.innerText = type === 'success' ? '¡Éxito!' : 'Atención'; msg.innerText = message; overlay.style.display = 'flex'; btn.onclick = () => { overlay.style.display = 'none'; resolve(); }; }); };
     window.showConfirm = (message) => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const btnOk = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); title.innerText = 'Confirmación'; msg.innerText = message; if(btnCancel) btnCancel.style.display = 'inline-block'; overlay.style.display = 'flex'; btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); }; if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); }; }); };
 
-    // --- LÓGICA DE SIMULACIÓN DE LOGIN ---
-    
-    // Al hacer clic en "Iniciar con Google", simulamos el login
-    if(dom.btnLogin) {
-        dom.btnLogin.addEventListener('click', async () => {
-            showLoader(true, "Iniciando modo prueba...");
-            
-            // Simular retraso de red
-            await new Promise(r => setTimeout(r, 800));
+    // ============================================================
+    // 🔐 LÓGICA DE LOGIN ARREGLADA (PERSISTENCIA + REDIRECT)
+    // ============================================================
 
-            // Cargar App con los datos simulados (definidos arriba)
-            dom.loginContainer.style.display = 'none'; 
-            dom.appContainer.style.display = 'block';
-            
-            if(dom.userEmail) {
-                dom.userEmail.innerHTML = `<b>${userData.franquicia}</b><br><small>${userData.rol.toUpperCase()}</small>`;
+    // 1. Configurar persistencia LOCAL para evitar que la sesión se pierda al volver de Google
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+        .then(() => {
+            console.log("Persistencia de sesión configurada: LOCAL");
+        })
+        .catch((error) => {
+            console.error("Error configurando persistencia:", error);
+        });
+
+    // 2. Capturar el resultado del Redirect al cargar la página
+    auth.getRedirectResult()
+        .then((result) => {
+            if (result.user) {
+                console.log("✅ Regreso exitoso de Google (Redirect):", result.user.email);
+                // No hace falta hacer nada más aquí, onAuthStateChanged se disparará solo
             }
-            
-            configureUIByRole(); 
-            await fetchAndLoadPackages(); 
-            showView('search');
-            
+        })
+        .catch((error) => {
+            console.error("❌ Error al volver de Google:", error);
             showLoader(false);
+            window.showAlert("Error de acceso: " + error.message);
+        });
+
+    // 3. Listener principal de estado (Se dispara al iniciar o recargar)
+    auth.onAuthStateChanged(async (u) => {
+        showLoader(true);
+        if (u) {
+            console.log("Usuario autenticado:", u.email);
+            try {
+                const emailLimpio = u.email.trim().toLowerCase();
+                const doc = await db.collection('usuarios').doc(emailLimpio).get();
+                
+                if (doc.exists) {
+                    currentUser = u; 
+                    userData = doc.data(); 
+                    
+                    dom.loginContainer.style.display = 'none'; 
+                    dom.appContainer.style.display = 'block';
+                    
+                    const nombreMostrar = userData.franquicia || u.email;
+                    if(dom.userEmail) dom.userEmail.innerHTML = `<b>${nombreMostrar}</b><br><small>${userData.rol.toUpperCase()}</small>`;
+                    
+                    configureUIByRole(); 
+                    await fetchAndLoadPackages(); 
+                    showView('search');
+                } else { 
+                    await window.showAlert(`⛔ El usuario ${emailLimpio} no tiene permisos.`); 
+                    auth.signOut(); 
+                }
+            } catch (e) { 
+                console.error(e);
+                await window.showAlert("Error leyendo base de datos: " + e.message); 
+            }
+        } else { 
+            currentUser = null; 
+            userData = null; 
+            dom.loginContainer.style.display = 'flex'; 
+            dom.appContainer.style.display = 'none'; 
+        }
+        showLoader(false);
+    });
+
+    // 4. Botón de Iniciar Sesión (Usa Redirect para evitar bloqueo de popups)
+    if(dom.btnLogin) {
+        dom.btnLogin.addEventListener('click', () => { 
+            showLoader(true); 
+            // La clave es que la persistencia ya está en LOCAL (punto 1)
+            auth.signInWithRedirect(provider); 
         });
     }
 
-    // El botón salir solo recarga la página para volver al login
+    // 5. Botón Salir
     if(dom.btnLogout) {
-        dom.btnLogout.addEventListener('click', () => window.location.reload());
+        dom.btnLogout.addEventListener('click', () => { 
+            showLoader(true); 
+            auth.signOut().then(() => window.location.reload()); 
+        });
     }
 
-    // --- FUNCIONES DEL SISTEMA ---
+    // ============================================================
+
+    // --- FUNCIONES DEL SISTEMA (Sin cambios mayores) ---
 
     function configureUIByRole() {
         const rol = userData.rol;
-        
-        // Configurar visibilidad según el rol simulado
         dom.nav.gestion.style.display = (rol === 'editor' || rol === 'admin') ? 'inline-block' : 'none';
         dom.nav.users.style.display = (rol === 'admin') ? 'inline-block' : 'none';
-        
         if(dom.containerFiltroCreador) dom.containerFiltroCreador.style.display = 'flex';
         
         if (rol === 'admin') loadUsersList(); 
@@ -129,26 +175,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if(selectPromo) {
             selectPromo.innerHTML = '';
             if (rol === 'usuario') {
-                // Usuario ve opciones limitadas
-                selectPromo.innerHTML = `
-                    <option value="Solo X Hoy">Solo X Hoy</option>
-                    <option value="FEED">FEED (Requiere Aprobación)</option>
-                    <option value="ADS">ADS (Requiere Aprobación)</option>
-                `;
+                selectPromo.innerHTML = '<option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED (Requiere Aprobación)</option><option value="ADS">ADS (Requiere Aprobación)</option>';
             } else {
-                // Admin/Editor ven todo
-                selectPromo.innerHTML = `
-                    <option value="FEED">FEED</option>
-                    <option value="Solo X Hoy">Solo X Hoy</option>
-                    <option value="ADS">ADS</option>
-                `;
+                selectPromo.innerHTML = '<option value="FEED">FEED</option><option value="Solo X Hoy">Solo X Hoy</option><option value="ADS">ADS</option>';
             }
         }
         updatePendingBadge();
         initWeeklyPlanner();
     }
-
-    // --- (RESTO DE LA LÓGICA DE PAQUETES SE MANTIENE IGUAL) ---
 
     function getNoches(pkg) {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
@@ -301,11 +335,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pendingCount > 0) { badge.innerText = pendingCount; badge.style.display = 'inline-block'; } else { badge.style.display = 'none'; }
     }
 
-    // --- FETCH (SIMULADO EN PARTE) ---
+    // --- FETCH ---
     async function secureFetch(url, body) {
-        // En modo emergencia, no tenemos Auth real, así que secureFetch sigue funcionando
-        // pero enviará un token falso ("token_falso_bypass").
-        return await _doFetch(url, body);
+        if (!currentUser) throw new Error('No auth');
+        if (url === API_URL_SEARCH) return await _doFetch(url, body);
+        return await uploadWithMutex(url, body);
     }
 
     async function _doFetch(url, body) {
@@ -317,11 +351,29 @@ document.addEventListener('DOMContentLoaded', () => {
         return jsonResponse;
     }
 
-    // Mutex simplificado para Emergencia
     async function uploadWithMutex(url, body) {
-        try { showLoader(true, "🚀 Subiendo datos..."); const result = await _doFetch(url, body); return result; } 
-        catch(e) { console.error(e); throw e; }
-        finally { showLoader(false); }
+        const lockRef = db.collection('config').doc('upload_lock');
+        let acquired = false; let attempts = 0;
+        while(!acquired && attempts < 20) { 
+            try {
+                await db.runTransaction(async (t) => {
+                    const doc = await t.get(lockRef);
+                    const data = doc.data();
+                    const now = Date.now();
+                    if (data && data.locked && (now - data.timestamp < 15000)) throw "LOCKED";
+                    t.set(lockRef, { locked: true, user: currentUser.email, timestamp: now });
+                });
+                acquired = true;
+            } catch (e) {
+                if (e === "LOCKED" || e.message === "LOCKED") {
+                    showLoader(true, `⏳ Esperando turno de carga... (${attempts+1}/20)`);
+                    await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000));
+                    attempts++;
+                } else { console.error("Error Transaction:", e); throw e; }
+            }
+        }
+        if(!acquired) throw new Error("El sistema está saturado. Intenta en 1 minuto.");
+        try { showLoader(true, "🚀 Subiendo datos..."); const result = await _doFetch(url, body); return result; } finally { await lockRef.set({ locked: false }); }
     }
 
     async function fetchAndLoadPackages() { 
@@ -504,8 +556,8 @@ document.addEventListener('DOMContentLoaded', () => {
             highlightCurrentDay();
             await loadPlanningData();
         }
-        // En modo prueba, habilitamos según ROL_SIMULADO
-        const isStaff = userData.rol === 'admin' || userData.rol === 'editor';
+        
+        const isStaff = userData && (userData.rol === 'admin' || userData.rol === 'editor');
         const textareas = [domPlanner.inputs.lunes, domPlanner.inputs.martes, domPlanner.inputs.miercoles, domPlanner.inputs.jueves, domPlanner.inputs.viernes];
         if (isStaff) {
             textareas.forEach(el => el.disabled = false);
