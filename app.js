@@ -372,7 +372,10 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoader(false);
     });
 
-    dom.btnLogin.addEventListener('click', () => { showLoader(true); auth.signInWithPopup(provider).catch(() => showLoader(false)); });
+    dom.btnLogin.addEventListener('click', () => { 
+        showLoader(true); 
+        auth.signInWithRedirect(provider); 
+    });
     dom.btnLogout.addEventListener('click', () => { showLoader(true); auth.signOut().then(() => window.location.reload()); });
 
     function configureUIByRole() {
@@ -817,3 +820,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
