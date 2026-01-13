@@ -367,7 +367,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(dom.userEmail) dom.userEmail.innerHTML = `<b>${nombreMostrar}</b><br><small>${userData.rol.toUpperCase()}</small>`;
                     configureUIByRole(); await fetchAndLoadPackages(); showView('search');
                 } else { await window.showAlert(`⛔ Sin permisos.`); auth.signOut(); }
-            } catch (e) { await window.showAlert("Error de conexión."); }
+            } catch (e) { 
+                console.error("🔥 ERROR REAL DE FIRESTORE:", e); // <--- Esto mostrará el detalle en consola (F12)
+                console.log("Código de error:", e.code);
+                console.log("Mensaje:", e.message);
+                await window.showAlert("Error de conexión: " + e.message); // Verás el error en la pantalla
+            }
         } else { currentUser = null; userData = null; dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none'; }
         showLoader(false);
     });
@@ -817,3 +822,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
