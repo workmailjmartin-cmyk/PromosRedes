@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modal: document.getElementById('modal-detalle'), modalBody: document.getElementById('modal-body'), modalClose: document.getElementById('modal-cerrar'),
         containerServicios: document.getElementById('servicios-container'), btnAgregarServicio: document.getElementById('btn-agregar-servicio'), selectorServicio: document.getElementById('selector-servicio'),
         btnBuscar: document.getElementById('boton-buscar'), btnLimpiar: document.getElementById('boton-limpiar'),
-        filtroOrden: document.getElementById('filtro-orden'), filtroCreador: document.getElementById('filtro-creador'), containerFiltroCreador: document.getElementById('container-filtro-creador'),
+        filtroOrden: document.getElementById('filtro-orden'), filtroCreador: document.getElementById('filtro-creador'), filtroSalida: document.getElementById('filtro-salida'), containerFiltroCreador: document.getElementById('container-filtro-creador'),
         logoImg: document.getElementById('app-logo'), loader: document.getElementById('loader-overlay'),
         badgeGestion: document.getElementById('badge-gestion')
     };
@@ -646,7 +646,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function populateFranchiseFilter(packages) { const selector = dom.filtroCreador; if(!selector) return; const currentVal = selector.value; const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))]; selector.innerHTML = '<option value="">Todas las Franquicias</option>'; creadores.sort().forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt); }); selector.value = currentVal; }
+    function populateSalidaFilter(packages) {
+        const selector = dom.filtroSalida;
+        if (!selector) return;
 
+        const currentVal = selector.value; // Guardamos lo que estaba seleccionado
+        
+        // Extraemos las salidas únicas, limpiamos espacios y ordenamos alfabéticamente
+        const salidas = [...new Set(packages.map(p => p.salida ? p.salida.trim() : '').filter(Boolean))];
+        salidas.sort();
+
+        // Reconstruimos las opciones
+        selector.innerHTML = '<option value="">Todas las Salidas</option>';
+        salidas.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.innerText = s;
+            selector.appendChild(opt);
+        });
+
+        selector.value = currentVal; // Restauramos la selección si aun existe
+    }
     function applyFilters() {
         const fDestino = document.getElementById('filtro-destino').value.toLowerCase(); const fCreador = dom.filtroCreador ? dom.filtroCreador.value : ''; const fPromo = document.getElementById('filtro-promo').value; const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
         let result = uniquePackages.filter(pkg => { const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino)); const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador); const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo); if (!mDestino || !mCreador || !mPromo) return false; const isOwner = pkg.editor_email === currentUser.email; const isPending = pkg.status === 'pending'; if (isPending && !isOwner && userData.rol !== 'admin' && userData.rol !== 'editor') return false; return true; });
@@ -847,3 +867,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
