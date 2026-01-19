@@ -669,10 +669,46 @@ document.addEventListener('DOMContentLoaded', () => {
         selector.value = currentVal; // Restauramos la selección si aun existe
     }
     function applyFilters() {
-        const fDestino = document.getElementById('filtro-destino').value.toLowerCase(); const fCreador = dom.filtroCreador ? dom.filtroCreador.value : ''; const fPromo = document.getElementById('filtro-promo').value; const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
-        let result = uniquePackages.filter(pkg => { const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino)); const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador); const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo); if (!mDestino || !mCreador || !mPromo) return false; const isOwner = pkg.editor_email === currentUser.email; const isPending = pkg.status === 'pending'; if (isPending && !isOwner && userData.rol !== 'admin' && userData.rol !== 'editor') return false; return true; });
-        if (fOrden === 'reciente') { result.sort((a, b) => { const getTs = (id) => { if(!id || !id.startsWith('pkg_')) return 0; return parseInt(id.split('_')[1]) || 0; }; return getTs(b.id_paquete) - getTs(a.id_paquete); }); } else if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa)); else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
-        renderCards(result, dom.grid); if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) { const pendientes = uniquePackages.filter(p => p.status === 'pending'); renderCards(pendientes, dom.gridGestion); }
+        const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
+        const fCreador = dom.filtroCreador ? dom.filtroCreador.value : '';
+        const fPromo = document.getElementById('filtro-promo').value;
+        const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
+        
+        // NUEVO: Capturamos el valor del selector de salida
+        const fSalida = dom.filtroSalida ? dom.filtroSalida.value : '';
+
+        let result = uniquePackages.filter(pkg => {
+            const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
+            const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
+            const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
+            
+            // NUEVO: Comparamos si la salida coincide (si hay algo seleccionado)
+            const mSalida = !fSalida || (pkg.salida && pkg.salida === fSalida);
+
+            // Agregamos mSalida a la condición final
+            if (!mDestino || !mCreador || !mPromo || !mSalida) return false;
+
+            const isOwner = pkg.editor_email === currentUser.email;
+            const isPending = pkg.status === 'pending';
+            if (isPending && !isOwner && userData.rol !== 'admin' && userData.rol !== 'editor') return false;
+            
+            return true;
+        });
+
+        if (fOrden === 'reciente') {
+            result.sort((a, b) => {
+                const getTs = (id) => { if(!id || !id.startsWith('pkg_')) return 0; return parseInt(id.split('_')[1]) || 0; };
+                return getTs(b.id_paquete) - getTs(a.id_paquete);
+            });
+        } else if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa));
+        else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
+
+        renderCards(result, dom.grid);
+        
+        if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) {
+            const pendientes = uniquePackages.filter(p => p.status === 'pending');
+            renderCards(pendientes, dom.gridGestion);
+        }
     }
 
     function renderCards(list, targetGrid = dom.grid) {
@@ -867,6 +903,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 1. Activar el filtro cuando cambien la opción de salida
+    if(dom.filtroSalida) dom.filtroSalida.addEventListener('change', applyFilters);
+
+    // 2. Modificar el botón limpiar para que también borre la salida
+    dom.btnLimpiar.addEventListener('click', () => {
+        document.getElementById('filtro-destino').value='';
+        if(dom.filtroCreador) dom.filtroCreador.value='';
+        document.getElementById('filtro-promo').value='';
+        if(dom.filtroOrden) dom.filtroOrden.value='reciente';
+        
+        // NUEVO: Limpiar también el selector de salida
+        if(dom.filtroSalida) dom.filtroSalida.value = '';
+        
+        applyFilters();
+    });
+
 });
+
 
 
