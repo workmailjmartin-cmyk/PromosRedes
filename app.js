@@ -387,6 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
             allPackages = d; 
             uniquePackages = processPackageHistory(allPackages); 
             populateFranchiseFilter(uniquePackages); 
+            populateSalidaFilter(uniquePackages);
             applyFilters();
             updatePendingBadge(); 
         } catch(e){ console.error(e); }
@@ -867,4 +868,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
