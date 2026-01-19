@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let uniquePackages = []; 
     let isEditingId = null; 
     let originalCreator = ''; 
-    let currentModalPackage = null;
+    window.currentModalPackage = null;
 
     // DOM PRINCIPAL
     const dom = {
@@ -751,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.startEditing = async (pkg) => { if (!await window.showConfirm("Se abrirá el formulario de edición.")) return; isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; originalCreator = pkg.creador || ''; document.getElementById('upload-destino').value = pkg.destino; document.getElementById('upload-salida').value = pkg.salida; let fecha = pkg.fecha_salida; if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-'); dom.inputFechaViaje.value = fecha; document.getElementById('upload-moneda').value = pkg.moneda; document.getElementById('upload-promo').value = pkg.tipo_promo; document.getElementById('upload-financiacion').value = pkg.financiacion || ''; document.getElementById('upload-tarifa-total').value = pkg.tarifa; dom.containerServicios.innerHTML = ''; let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {} if (Array.isArray(servicios)) { servicios.forEach(s => agregarModuloServicio(s.tipo, s)); } window.calcularTotal(); dom.modal.style.display = 'none'; showView('upload'); window.scrollTo(0,0); window.showAlert("Modo Edición Activado.", "info"); };
 
     function openModal(pkg) {
-        currentModalPackage = pkg;
+        window.currentModalPackage = pkg;
         if (typeof renderServiciosClienteHTML !== 'function') return alert("Error interno.");
         const rawServicios = pkg['servicios'] || pkg['item.servicios']; const htmlCliente = renderServiciosClienteHTML(rawServicios); const htmlCostos = renderCostosProveedoresHTML(rawServicios); const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2); 
         const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`; 
@@ -922,6 +922,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 });
+
 
 
 
