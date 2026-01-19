@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let uniquePackages = []; 
     let isEditingId = null; 
     let originalCreator = ''; 
+    let currentModalPackage = null;
 
     // DOM PRINCIPAL
     const dom = {
@@ -750,13 +751,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.startEditing = async (pkg) => { if (!await window.showConfirm("Se abrirá el formulario de edición.")) return; isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; originalCreator = pkg.creador || ''; document.getElementById('upload-destino').value = pkg.destino; document.getElementById('upload-salida').value = pkg.salida; let fecha = pkg.fecha_salida; if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-'); dom.inputFechaViaje.value = fecha; document.getElementById('upload-moneda').value = pkg.moneda; document.getElementById('upload-promo').value = pkg.tipo_promo; document.getElementById('upload-financiacion').value = pkg.financiacion || ''; document.getElementById('upload-tarifa-total').value = pkg.tarifa; dom.containerServicios.innerHTML = ''; let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {} if (Array.isArray(servicios)) { servicios.forEach(s => agregarModuloServicio(s.tipo, s)); } window.calcularTotal(); dom.modal.style.display = 'none'; showView('upload'); window.scrollTo(0,0); window.showAlert("Modo Edición Activado.", "info"); };
 
     function openModal(pkg) {
+        currentModalPackage = pkg;
         if (typeof renderServiciosClienteHTML !== 'function') return alert("Error interno.");
         const rawServicios = pkg['servicios'] || pkg['item.servicios']; const htmlCliente = renderServiciosClienteHTML(rawServicios); const htmlCostos = renderCostosProveedoresHTML(rawServicios); const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2); 
         const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`; 
         let adminTools = ''; const isOwner = pkg.editor_email === currentUser.email; const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
         if (canEdit) { const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick='approvePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : ''; adminTools = `<div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">${btnApprove}<button class="btn btn-secundario" onclick='startEditing(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button><button class="btn btn-secundario" onclick='deletePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button></div>`; }
         
-        const btnCopiar = `<button class="btn" onclick='copiarPresupuesto(${JSON.stringify(pkg)})' style="background:#34495e; color:white; padding: 5px 15px; font-size:0.8em; display:flex; align-items:center; gap:5px;">📋 Copiar</button>`;
+        const btnCopiar = `<button class="btn" onclick='copiarPresupuesto(currentModalPackage)' style="background:#34495e; color:white; padding: 5px 15px; font-size:0.8em; display:flex; align-items:center; gap:5px;">📋 Copiar</button>`;
 
         dom.modalBody.innerHTML = `
             ${adminTools}
@@ -920,6 +922,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 });
+
 
 
 
