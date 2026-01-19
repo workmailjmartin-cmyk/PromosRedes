@@ -97,7 +97,31 @@
                     <div class="filter-group">
                         <label>📍 Salida desde</label>
                         <select id="filtro-salida" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
-                            <option value="">Todas</option>
+                            <option value="">Todas las Provincias</option>
+                            <option value="CABA">CABA (Ciudad Autónoma de Bs As)</option>
+                            <option value="Buenos Aires">Buenos Aires (Provincia)</option>
+                            <option value="Catamarca">Catamarca</option>
+                            <option value="Chaco">Chaco</option>
+                            <option value="Chubut">Chubut</option>
+                            <option value="Córdoba">Córdoba</option>
+                            <option value="Corrientes">Corrientes</option>
+                            <option value="Entre Ríos">Entre Ríos</option>
+                            <option value="Formosa">Formosa</option>
+                            <option value="Jujuy">Jujuy</option>
+                            <option value="La Pampa">La Pampa</option>
+                            <option value="La Rioja">La Rioja</option>
+                            <option value="Mendoza">Mendoza</option>
+                            <option value="Misiones">Misiones</option>
+                            <option value="Neuquén">Neuquén</option>
+                            <option value="Río Negro">Río Negro</option>
+                            <option value="Salta">Salta</option>
+                            <option value="San Juan">San Juan</option>
+                            <option value="San Luis">San Luis</option>
+                            <option value="Santa Cruz">Santa Cruz</option>
+                            <option value="Santa Fe">Santa Fe</option>
+                            <option value="Santiago del Estero">Santiago del Estero</option>
+                            <option value="Tierra del Fuego">Tierra del Fuego</option>
+                            <option value="Tucumán">Tucumán</option>
                         </select>
                     </div>
                     <div class="filtro-group" id="container-filtro-creador">
@@ -125,8 +149,41 @@
                     <h2 class="section-title" style="margin-top:0;">Información del Viaje</h2>
                     <form id="upload-form">
                         <div class="form-group-row">
-                            <div class="form-group"><label>Destino</label><input type="text" id="upload-destino" required></div>
-                            <div class="form-group"><label>Salida (Desde)</label><input type="text" id="upload-salida" required></div>
+                            <div class="form-group">
+                                <label>Destino</label>
+                                <input type="text" id="upload-destino" required>
+                            </div>
+                        
+                            <div class="form-group">
+                                <label>Provincia de Salida</label>
+                                <select id="upload-salida" required style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%;">
+                                    <option value="" disabled selected>Selecciona...</option>
+                                    <option value="CABA">CABA (Ciudad Autónoma de Bs As)</option>
+                                    <option value="Buenos Aires">Buenos Aires (Provincia)</option>
+                                    <option value="Catamarca">Catamarca</option>
+                                    <option value="Chaco">Chaco</option>
+                                    <option value="Chubut">Chubut</option>
+                                    <option value="Córdoba">Córdoba</option>
+                                    <option value="Corrientes">Corrientes</option>
+                                    <option value="Entre Ríos">Entre Ríos</option>
+                                    <option value="Formosa">Formosa</option>
+                                    <option value="Jujuy">Jujuy</option>
+                                    <option value="La Pampa">La Pampa</option>
+                                    <option value="La Rioja">La Rioja</option>
+                                    <option value="Mendoza">Mendoza</option>
+                                    <option value="Misiones">Misiones</option>
+                                    <option value="Neuquén">Neuquén</option>
+                                    <option value="Río Negro">Río Negro</option>
+                                    <option value="Salta">Salta</option>
+                                    <option value="San Juan">San Juan</option>
+                                    <option value="San Luis">San Luis</option>
+                                    <option value="Santa Cruz">Santa Cruz</option>
+                                    <option value="Santa Fe">Santa Fe</option>
+                                    <option value="Santiago del Estero">Santiago del Estero</option>
+                                    <option value="Tierra del Fuego">Tierra del Fuego</option>
+                                    <option value="Tucumán">Tucumán</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="form-group-row">
                             <div class="form-group"><label>Fecha Salida</label><input type="date" id="upload-fecha-salida" required></div>
@@ -233,6 +290,7 @@
     <script src="app.js"></script>
 </body>
 </html>
+
 
 
 
