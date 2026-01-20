@@ -510,10 +510,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="form-group"><label>Escalas Vuelta</label>${crearContadorHTML('escalas_vuelta',0)}</div>
                 <div class="form-group"><label>Equipaje</label>
                     <select name="tipo_equipaje">
-                        <option>Objeto Personal</option>
-                        <option>Objeto Personal + Carry On</option>
-                        <option>Objeto Personal + Bodega</option>
-                        <option>Objeto Personal + Carry On + Bodega</option>
+                        <option>Mochila</option>
+                        <option>Mochila + Carry On</option>
+                        <option>Mochila + Bodega</option>
+                        <option>Mochila + Carry On + Bodega</option>
                     </select>
                 </div>
             </div>
@@ -901,6 +901,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 });
+
 
 
 
