@@ -744,20 +744,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="fecha">📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</div>
                     </div>
                     
-                    <div class="card-body" style="display: flex; justify-content: space-between; align-items: flex-end; padding-top: 10px;">
-                        
-                        <div style="font-size:0.85em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">
-                            ${summaryIcons}
-                        </div>
-
-                        <div style="font-size: 0.85em; color: #666; font-weight: 600; text-align: right; margin-left: 10px;">
-                            📍 Desde ${pkg['salida']}
-                        </div>
+                    <div class="card-body">
+                        <div style="font-size:0.85em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div>
                     </div>
                     
-                    <div class="card-footer">
+                    <div class="card-footer" style="display:flex; justify-content:space-between; align-items:flex-end;">
                         <div><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
-                        <div><p class="precio-valor">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar/2))}</p></div>
+                        
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${pkg['salida']}</div>
+                            
+                            <p class="precio-valor" style="margin: 5px 0 0 0;">
+                                ${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar/2))}
+                            </p>
+                        </div>
                     </div>
                 </div>`;
             
@@ -943,6 +943,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 });
+
 
 
 
