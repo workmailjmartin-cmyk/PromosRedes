@@ -111,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- GENERADOR DE TEXTO ---
+    // --- GENERADOR DE TEXTO (NUEVO FORMATO) ---
     function generarTextoPresupuesto(pkg) {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg);
@@ -122,16 +123,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tieneSeguro = Array.isArray(servicios) && servicios.some(s => s.tipo === 'seguro');
 
-        let texto = `*${pkg.destino.toUpperCase()}*\n\n`;
+        // 1. ENCABEZADO
+        let texto = `*${pkg.destino.toUpperCase()}*\n`;
+        texto += `PAQUETE\n\n`; // Nuevo agregado
         texto += `📅 Salida: ${formatDateAR(pkg.fecha_salida)}\n`;
         texto += `📍 Desde: ${pkg.salida}\n`;
         if (noches > 0) texto += `🌙 Duración: ${noches} Noches\n`;
-        texto += `\n`;
+        
+        // 2. INTRODUCCIÓN SERVICIOS
+        texto += `\n✅ Servicios que incluye el paquete:\n\n`;
 
         if (Array.isArray(servicios)) {
             servicios.forEach(s => {
                 if(s.tipo === 'aereo') {
-                    // LÓGICA ESCALAS
+                    // LÓGICA ESCALAS (Mantenemos la inteligencia de Ida/Vuelta)
                     let eIda = (s.escalas_ida !== undefined) ? parseInt(s.escalas_ida) : (parseInt(s.escalas) || 0);
                     let eVuelta = (s.escalas_vuelta !== undefined) ? parseInt(s.escalas_vuelta) : (parseInt(s.escalas) || 0);
                     
@@ -142,42 +147,70 @@ document.addEventListener('DOMContentLoaded', () => {
                         escalasTxt = `IDA: ${formatEscalasTexto(eIda)} | REGRESO: ${formatEscalasTexto(eVuelta)}`;
                     }
 
-                    texto += `✈️ AÉREO\n${s.aerolinea || 'Aerolínea'}\n${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
-                    texto += `🔄 ${escalasTxt} | 🧳 ${s.tipo_equipaje || '-'}\n\n`;
+                    // FORMATO BLOQUE CITA
+                    texto += `> ✈️ *AÉREO*\n`;
+                    texto += `${s.aerolinea || 'Aerolínea'}\n`;
+                    texto += `${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
+                    texto += `${escalasTxt} | ${s.tipo_equipaje || '-'}\n\n`;
 
                 } else if (s.tipo === 'hotel') {
                     let stars = ''; if(s.hotel_estrellas) { for(let i=0; i<s.hotel_estrellas; i++) stars += '⭐'; }
-                    texto += `🏨 HOTEL\n${s.hotel_nombre} ${stars}\n`;
+                    
+                    texto += `> 🏨 *HOTEL*\n`;
+                    texto += `${s.hotel_nombre} ${stars}\n`;
                     if(s.regimen) texto += `(${s.regimen})\n`;
-                    if(s.noches) texto += `🌙 ${s.noches} Noches`;
-                    if(s.checkin) texto += ` | 📥 Ingreso: ${formatDateAR(s.checkin)}`;
-                    if(s.hotel_link) texto += `\n📍 Ubicación: ${s.hotel_link}`;
-                    texto += `\n\n`;
+                    if(s.noches) texto += `${s.noches} Noches`;
+                    // Agregamos ingreso si existe para dar más detalle
+                    if(s.checkin) texto += ` | Ingreso: ${formatDateAR(s.checkin)}`; 
+                    texto += `\n`;
+                    if(s.hotel_link) texto += `📍 Ubicación: ${s.hotel_link}\n`;
+                    texto += `\n`;
+
                 } else if (s.tipo === 'traslado') {
-                    texto += `🚕 TRASLADO\n${s.tipo_trf || 'Incluido'}\n\n`;
+                    texto += `> 🚗 *TRASLADO*\n`;
+                    texto += `${s.tipo_trf || 'Incluido'}\n\n`;
+
                 } else if (s.tipo === 'seguro') {
-                    texto += `🛡️ SEGURO\n${s.cobertura || 'Asistencia al viajero'}\n\n`;
+                    texto += `> 🛡️ *SEGURO*\n`;
+                    texto += `${s.cobertura || 'Asistencia al viajero'}\n\n`;
+
                 } else if (s.tipo === 'bus') {
-                    texto += `🚌 BUS\n${s.bus_noches} Noches ${s.bus_regimen ? '('+s.bus_regimen+')' : ''}\n\n`;
+                    texto += `> 🚌 *BUS*\n`;
+                    texto += `${s.bus_noches} Noches ${s.bus_regimen ? '('+s.bus_regimen+')' : ''}\n\n`;
+
                 } else if (s.tipo === 'crucero') {
-                    texto += `🚢 CRUCERO\n${s.crucero_naviera} - ${s.crucero_recorrido}\n\n`;
+                    texto += `> 🚢 *CRUCERO*\n`;
+                    texto += `${s.crucero_naviera}\n`;
+                    texto += `${s.crucero_recorrido}\n\n`;
+
                 } else if (s.tipo === 'adicional') {
-                    texto += `➕ ADICIONAL\n${s.descripcion}\n\n`;
+                    texto += `> ➕ *ADICIONAL*\n`;
+                    texto += `${s.descripcion}\n\n`;
                 }
             });
         }
 
+        // 3. PIE DE PAGINA (PRECIO Y LEGALES)
         texto += `💲*Tarifa final por Persona en Base Doble:*\n`;
         texto += `${pkg.moneda} $${formatMoney(tarifaDoble)}\n\n`;
+        
         if (pkg.financiacion) texto += `💳 Financiación: ${pkg.financiacion}\n\n`;
+        
         texto += `--------------------------------------------\n`;
         texto += `Información importante:\n`;
         texto += `-Tarifas y disponibilidad sujetas a cambio al momento de la reserva.\n`;
         texto += `-Cotización válida al ${fechaCotizacion}\n\n`;
+        
         texto += `ℹ Más info: (https://felizviaje.tur.ar/informacion-antes-de-contratar)\n\n`;
-        texto += `⚠¡Cupos limitados!\n-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n-Las plazas y precios pueden modificarse en cualquier momento según disponibilidad de vuelos y hotel.\n\n`;
+        
+        texto += `⚠¡Cupos limitados!\n`;
+        texto += `-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n`;
+        texto += `-Las plazas y precios pueden modificarse en cualquier momento según disponibilidad de vuelos y hotel.\n\n`;
+        
         texto += `¿Encontraste una mejor oferta? ¡Compartila con nosotros y la mejoramos para vos!\n\n`;
-        texto += `✈ Políticas generales de aerolíneas (tarifas económicas)\n-Equipaje y la selección de asientos no están incluidos (pueden tener costo adicional)\n\n`;
+        
+        texto += `✈ Políticas generales de aerolíneas (tarifas económicas)\n`;
+        texto += `-Equipaje y la selección de asientos no están incluidos (pueden tener costo adicional)\n\n`;
         
         if (tieneSeguro) texto += `Asistencia al viajero es requisito obligatorio en la mayoría de los destinos internacionales`;
         else texto += `Asistencia al viajero no incluida. Puede añadirse al reservar o más adelante. Es requisito obligatorio en la mayoría de los destinos internacionales`;
@@ -901,6 +934,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 });
+
 
 
 
