@@ -942,75 +942,76 @@ document.addEventListener('DOMContentLoaded', () => {
         
         applyFilters();
     });
-    // --- LIMPIEZA AUTOMÁTICA (1 VEZ AL DÍA) ---
+    // --- LIMPIEZA AUTOMÁTICA (MODO FILA INDIA) ---
     async function autoCleanupPackages(packages) {
-        // 1. SEGURIDAD: Solo Admins y Editores tienen permiso para limpiar
+        // 1. SEGURIDAD
         if (!userData || (userData.rol !== 'admin' && userData.rol !== 'editor')) return;
 
-        // 2. FRENO DE MANO: Verificar si ya se hizo hoy para no gastar recursos
-        const hoy = new Date().toISOString().split('T')[0]; // Fecha tipo "2026-01-20"
+        // 2. FRENO DE MANO (Diario)
+        const hoy = new Date().toISOString().split('T')[0];
         const ultimoChequeo = localStorage.getItem('ultimo_mantenimiento');
+        if (ultimoChequeo === hoy) return; 
 
-        if (ultimoChequeo === hoy) {
-            // Si las fechas coinciden, el sistema descansa.
-            return; 
-        }
-
-        // Si es la primera vez en el día, trabajamos:
-        console.log("🧹 Iniciando limpieza diaria...");
+        console.log("🧹 Buscando paquetes vencidos...");
         const now = new Date();
-        const deletionPromises = [];
-        let deletedCount = 0;
-
-        packages.forEach(pkg => {
-            // Validamos que tenga fecha y tipo
-            if (!pkg.fecha_creacion || !pkg.tipo_promo) return;
-
-            // Convertimos fecha "DD/MM/YYYY" a objeto matemático
+        
+        // 3. FILTRAR CANDIDATOS
+        const candidatos = packages.filter(pkg => {
+            if (!pkg.fecha_creacion || !pkg.tipo_promo) return false;
             const parts = pkg.fecha_creacion.split('/');
-            if (parts.length !== 3) return;
+            if (parts.length !== 3) return false;
             const fechaPkg = new Date(parts[2], parts[1] - 1, parts[0]);
-            
-            // Calculamos días pasados
-            const diffTime = Math.abs(now - fechaPkg);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            const diffDays = Math.ceil(Math.abs(now - fechaPkg) / (1000 * 60 * 60 * 24)); 
 
-            let shouldDelete = false;
-
-            // REGLA A: "Solo X Hoy" se borra a los 7 días
-            if (pkg.tipo_promo === 'Solo X Hoy' && diffDays > 7) shouldDelete = true;
-            
-            // REGLA B: "FEED" se borra a los 30 días
-            if (pkg.tipo_promo === 'FEED' && diffDays > 30) shouldDelete = true;
-
-            // Ejecutamos borrado
-            if (shouldDelete) {
-                console.log(`🗑️ Auto-eliminando: ${pkg.destino} (Antigüedad: ${diffDays} días)`);
-                const id = pkg.id_paquete || pkg.id || pkg['item.id'];
-                
-                // Disparamos la orden de borrar (sin frenar la pantalla)
-                deletionPromises.push(
-                    secureFetch(API_URL_UPLOAD, { 
-                        action_type: 'delete', 
-                        id_paquete: id, 
-                        status: 'deleted' 
-                    }).catch(e => console.error("Error auto-delete", e))
-                );
-                deletedCount++;
-            }
+            if (pkg.tipo_promo === 'Solo X Hoy' && diffDays > 7) return true;
+            if (pkg.tipo_promo === 'FEED' && diffDays > 30) return true;
+            return false;
         });
 
-        // 3. FIRMAR LA LIBRETA: "Ya cumplí por hoy"
-        localStorage.setItem('ultimo_mantenimiento', hoy);
+        if (candidatos.length === 0) {
+            localStorage.setItem('ultimo_mantenimiento', hoy);
+            return;
+        }
 
-        if (deletedCount > 0) {
-            // Esperamos a que termine de borrar para confirmar en consola
-            await Promise.all(deletionPromises);
-            console.log(`✅ Limpieza finalizada: ${deletedCount} paquetes borrados.`);
+        // 4. PROCESAR UNO POR UNO (Para evitar errores 400)
+        // Tomamos máximo 10 para no tener trabajando al navegador tanto tiempo
+        const LOTE_MAXIMO = 10; 
+        const aBorrar = candidatos.slice(0, LOTE_MAXIMO);
+
+        console.log(`🗑️ Iniciando borrado secuencial de ${aBorrar.length} paquetes...`);
+
+        let borradosExitosos = 0;
+
+        // BUCLE "FILA INDIA": Esperamos (await) a que termine uno para seguir con el otro
+        for (const pkg of aBorrar) {
+            const id = pkg.id_paquete || pkg.id || pkg['item.id'];
+            try {
+                await secureFetch(API_URL_UPLOAD, { 
+                    action_type: 'delete', 
+                    id_paquete: id, 
+                    status: 'deleted' 
+                });
+                console.log(`✅ Borrado OK: ${pkg.destino}`);
+                borradosExitosos++;
+            } catch (error) {
+                console.error(`❌ Error al borrar ${pkg.destino}:`, error);
+            }
+        }
+
+        console.log(`✨ Fin del ciclo. Se borraron ${borradosExitosos} de ${aBorrar.length}.`);
+
+        // Si ya no quedan más pendientes en la lista total, firmamos para hoy.
+        // Si quedan, NO firmamos, así la próxima vez borra otros 10.
+        if (candidatos.length <= LOTE_MAXIMO) {
+             localStorage.setItem('ultimo_mantenimiento', hoy);
+             console.log("🏆 Limpieza total del día completada.");
+        } else {
+             console.log(`⚠ Aún quedan ${candidatos.length - LOTE_MAXIMO} viejos. Se borrarán en la próxima recarga.`);
         }
     }
 
 });
+
 
 
 
