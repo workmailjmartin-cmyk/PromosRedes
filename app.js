@@ -388,7 +388,6 @@ document.addEventListener('DOMContentLoaded', () => {
             allPackages = d; 
             uniquePackages = processPackageHistory(allPackages); 
             populateFranchiseFilter(uniquePackages); 
-            populateSalidaFilter(uniquePackages);
             applyFilters();
             updatePendingBadge(); 
         } catch(e){ console.error(e); }
@@ -648,27 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function populateFranchiseFilter(packages) { const selector = dom.filtroCreador; if(!selector) return; const currentVal = selector.value; const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))]; selector.innerHTML = '<option value="">Todas las Franquicias</option>'; creadores.sort().forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt); }); selector.value = currentVal; }
-    function populateSalidaFilter(packages) {
-        const selector = dom.filtroSalida;
-        if (!selector) return;
-
-        const currentVal = selector.value; // Guardamos lo que estaba seleccionado
-        
-        // Extraemos las salidas únicas, limpiamos espacios y ordenamos alfabéticamente
-        const salidas = [...new Set(packages.map(p => p.salida ? p.salida.trim() : '').filter(Boolean))];
-        salidas.sort();
-
-        // Reconstruimos las opciones
-        selector.innerHTML = '<option value="">Todas las Salidas</option>';
-        salidas.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = s;
-            opt.innerText = s;
-            selector.appendChild(opt);
-        });
-
-        selector.value = currentVal; // Restauramos la selección si aun existe
-    }
+   
     function applyFilters() {
         const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
         const fCreador = dom.filtroCreador ? dom.filtroCreador.value : '';
@@ -922,6 +901,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 });
+
 
 
 
