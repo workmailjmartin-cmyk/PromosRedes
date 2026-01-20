@@ -421,6 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
             allPackages = d; 
             uniquePackages = processPackageHistory(allPackages); 
             populateFranchiseFilter(uniquePackages); 
+            autoCleanupPackages(uniquePackages);
             applyFilters();
             updatePendingBadge(); 
         } catch(e){ console.error(e); }
@@ -941,8 +942,76 @@ document.addEventListener('DOMContentLoaded', () => {
         
         applyFilters();
     });
+    // --- LIMPIEZA AUTOMÁTICA (1 VEZ AL DÍA) ---
+    async function autoCleanupPackages(packages) {
+        // 1. SEGURIDAD: Solo Admins y Editores tienen permiso para limpiar
+        if (!userData || (userData.rol !== 'admin' && userData.rol !== 'editor')) return;
+
+        // 2. FRENO DE MANO: Verificar si ya se hizo hoy para no gastar recursos
+        const hoy = new Date().toISOString().split('T')[0]; // Fecha tipo "2026-01-20"
+        const ultimoChequeo = localStorage.getItem('ultimo_mantenimiento');
+
+        if (ultimoChequeo === hoy) {
+            // Si las fechas coinciden, el sistema descansa.
+            return; 
+        }
+
+        // Si es la primera vez en el día, trabajamos:
+        console.log("🧹 Iniciando limpieza diaria...");
+        const now = new Date();
+        const deletionPromises = [];
+        let deletedCount = 0;
+
+        packages.forEach(pkg => {
+            // Validamos que tenga fecha y tipo
+            if (!pkg.fecha_creacion || !pkg.tipo_promo) return;
+
+            // Convertimos fecha "DD/MM/YYYY" a objeto matemático
+            const parts = pkg.fecha_creacion.split('/');
+            if (parts.length !== 3) return;
+            const fechaPkg = new Date(parts[2], parts[1] - 1, parts[0]);
+            
+            // Calculamos días pasados
+            const diffTime = Math.abs(now - fechaPkg);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+
+            let shouldDelete = false;
+
+            // REGLA A: "Solo X Hoy" se borra a los 7 días
+            if (pkg.tipo_promo === 'Solo X Hoy' && diffDays > 7) shouldDelete = true;
+            
+            // REGLA B: "FEED" se borra a los 30 días
+            if (pkg.tipo_promo === 'FEED' && diffDays > 30) shouldDelete = true;
+
+            // Ejecutamos borrado
+            if (shouldDelete) {
+                console.log(`🗑️ Auto-eliminando: ${pkg.destino} (Antigüedad: ${diffDays} días)`);
+                const id = pkg.id_paquete || pkg.id || pkg['item.id'];
+                
+                // Disparamos la orden de borrar (sin frenar la pantalla)
+                deletionPromises.push(
+                    secureFetch(API_URL_UPLOAD, { 
+                        action_type: 'delete', 
+                        id_paquete: id, 
+                        status: 'deleted' 
+                    }).catch(e => console.error("Error auto-delete", e))
+                );
+                deletedCount++;
+            }
+        });
+
+        // 3. FIRMAR LA LIBRETA: "Ya cumplí por hoy"
+        localStorage.setItem('ultimo_mantenimiento', hoy);
+
+        if (deletedCount > 0) {
+            // Esperamos a que termine de borrar para confirmar en consola
+            await Promise.all(deletionPromises);
+            console.log(`✅ Limpieza finalizada: ${deletedCount} paquetes borrados.`);
+        }
+    }
 
 });
+
 
 
 
