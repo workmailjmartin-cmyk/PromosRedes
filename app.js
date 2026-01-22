@@ -661,7 +661,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const rol = userData.rol; const promoType = document.getElementById('upload-promo').value;
         
         let status = 'approved'; 
-        if (rol === 'usuario' && (promoType === 'FEED' || promoType === 'ADS')) status = 'pending';
         
         const costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; const fechaViajeStr = dom.inputFechaViaje.value;
         if (tarifa < costo) { showLoader(false); return window.showAlert(`Error: Tarifa menor al costo.`, 'error'); }
@@ -1011,6 +1010,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
