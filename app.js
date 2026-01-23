@@ -841,7 +841,21 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.modal.style.display = 'flex';
     }
 
-    function showView(n) { Object.values(dom.views).forEach(v => v.classList.remove('active')); Object.values(dom.nav).forEach(b => b.classList.remove('active')); dom.views[n].classList.add('active'); dom.nav[n].classList.add('active'); }
+    function showView(n) {
+        // Protección para vistas: Si alguna es null, la ignoramos
+        Object.values(dom.views).forEach(v => { 
+            if (v) v.classList.remove('active'); 
+        });
+    
+        // Protección para botones: Si (como 'gestion') es null, no hacemos nada y no da error
+        Object.values(dom.nav).forEach(b => { 
+            if (b) b.classList.remove('active'); 
+        });
+    
+        // Activamos la vista y el botón solo si existen realmente
+        if (dom.views[n]) dom.views[n].classList.add('active');
+        if (dom.nav[n]) dom.nav[n].classList.add('active');
+    }
     dom.nav.search.onclick = () => showView('search');
     dom.nav.upload.onclick = () => { isEditingId = null; originalCreator = ''; document.getElementById('upload-form').reset(); dom.containerServicios.innerHTML=''; showView('upload'); };
     if (dom.nav.gestion) {
@@ -1032,6 +1046,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
