@@ -844,7 +844,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function showView(n) { Object.values(dom.views).forEach(v => v.classList.remove('active')); Object.values(dom.nav).forEach(b => b.classList.remove('active')); dom.views[n].classList.add('active'); dom.nav[n].classList.add('active'); }
     dom.nav.search.onclick = () => showView('search');
     dom.nav.upload.onclick = () => { isEditingId = null; originalCreator = ''; document.getElementById('upload-form').reset(); dom.containerServicios.innerHTML=''; showView('upload'); };
-    dom.nav.gestion.onclick = async () => { await fetchAndLoadPackages(); showView('gestion'); };
+    if (dom.nav.gestion) {
+        dom.nav.gestion.onclick = async () => { 
+            await fetchAndLoadPackages(); 
+            showView('gestion'); 
+        };
+    }
     dom.nav.users.onclick = async () => { await loadUsersList(); showView('users'); };
     dom.modalClose.onclick = () => dom.modal.style.display = 'none';
     window.onclick = e => { if(e.target === dom.modal) dom.modal.style.display='none'; };
@@ -1027,6 +1032,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
