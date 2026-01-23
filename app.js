@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         else if(tipo==='adicional'){html+=`<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         // --- VERSIÓN CORREGIDA PARA IF / ELSE IF ---
-            else if (tipo === 'bus') {
+        else if (tipo === 'bus') {
                 // 1. DEFINIMOS EL HTML
                 const htmlContent = `
                     <div class="card-header" style="background:#fff3cd; color:#856404; padding:10px; font-weight:bold; display:flex; justify-content:space-between; align-items:center;">
@@ -1157,6 +1157,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
