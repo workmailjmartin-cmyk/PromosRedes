@@ -456,15 +456,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function configureUIByRole() {
         const rol = userData.rol;
-        dom.nav.gestion.style.display = (rol === 'editor' || rol === 'admin') ? 'inline-block' : 'none';
-        dom.nav.users.style.display = (rol === 'admin') ? 'inline-block' : 'none';
-        
-        if(dom.containerFiltroCreador) dom.containerFiltroCreador.style.display = 'flex';
-
-        if (rol === 'admin') loadUsersList(); 
-        
+    
+        // --- 1. PROTECCIÓN DE BOTONES (El arreglo del error) ---
+        // Si existe el botón Gestión, lo configuramos. Si no, seguimos de largo.
+        if (dom.nav && dom.nav.gestion) {
+            dom.nav.gestion.style.display = (rol === 'editor' || rol === 'admin') ? 'inline-block' : 'none';
+        }
+    
+        // Lo mismo para el botón de Usuarios
+        if (dom.nav && dom.nav.users) {
+            dom.nav.users.style.display = (rol === 'admin') ? 'inline-block' : 'none';
+        }
+    
+        // --- 2. RESTO DE LA LÓGICA ---
+        if (dom.containerFiltroCreador) dom.containerFiltroCreador.style.display = 'flex';
+    
+        if (rol === 'admin' && typeof loadUsersList === 'function') loadUsersList();
+    
         const selectPromo = document.getElementById('upload-promo');
-        if(selectPromo) {
+        if (selectPromo) {
             selectPromo.innerHTML = '';
             if (rol === 'usuario') {
                 selectPromo.innerHTML = `
@@ -480,9 +490,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
         }
-        updatePendingBadge();
-        
-        initWeeklyPlanner();
+    
+        // --- 3. LO QUE FALTABA AL FINAL (Planificación y Badge) ---
+        // Agregamos un pequeño chequeo de seguridad también aquí por si acaso
+        if (typeof updatePendingBadge === 'function') updatePendingBadge();
+        if (typeof initWeeklyPlanner === 'function') initWeeklyPlanner();
     }
 
     if (dom.userForm) {
@@ -1015,6 +1027,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
