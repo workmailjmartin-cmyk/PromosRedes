@@ -606,8 +606,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         else if(tipo==='adicional'){html+=`<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if (tipo === 'bus') {
-                // 1. DEFINIMOS EL HTML (Con los campos ocultos y selectores)
-                const htmlContent = `
+                // Generamos un ID único para que los desplegables no se mezclen si agregas varios buses
+                const uniqueId = Date.now(); 
+
+                // Llenamos la variable 'html' directamente (así es como tu sistema lo espera)
+                html = `
                     <div class="card-header" style="background:#fff3cd; color:#856404; padding:10px; font-weight:bold; display:flex; justify-content:space-between; align-items:center;">
                         <span>🚌 PAQUETE BUS</span>
                         <span style="cursor:pointer; color:red; font-weight:bold;" onclick="this.closest('.servicio-card').remove(); window.calcularTotal ? window.calcularTotal() : null;">✖</span>
@@ -621,12 +624,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         <div style="margin-bottom:15px;">
                             <label style="display:flex; align-items:center; cursor:pointer;">
-                                <input type="checkbox" class="check-alojamiento" name="incluye_alojamiento" style="margin-right:10px; transform:scale(1.2);"> 
+                                <input type="checkbox" name="incluye_alojamiento" style="margin-right:10px; transform:scale(1.2);" 
+                                onchange="document.getElementById('hotel-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'"> 
                                 <strong>Incluye Alojamiento</strong>
                             </label>
                         </div>
 
-                        <div class="hotel-details" style="display:none; background:#f9f9f9; padding:10px; border-radius:6px; margin-bottom:15px; border:1px solid #eee;">
+                        <div id="hotel-box-${uniqueId}" style="display:none; background:#f9f9f9; padding:10px; border-radius:6px; margin-bottom:15px; border:1px solid #eee;">
                             
                             <div style="display:flex; gap:10px; margin-bottom:10px;">
                                 <input type="text" name="hotel_nombre" placeholder="Nombre del Hotel" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
@@ -656,12 +660,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         <div style="margin-bottom:10px;">
                             <label style="display:flex; align-items:center; cursor:pointer;">
-                                <input type="checkbox" class="check-excursiones" name="incluye_excursiones" style="margin-right:10px; transform:scale(1.2);"> 
+                                <input type="checkbox" name="incluye_excursiones" style="margin-right:10px; transform:scale(1.2);"
+                                onchange="document.getElementById('excursion-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'"> 
                                 <strong>Incluye Excursiones</strong>
                             </label>
                         </div>
 
-                        <div class="excursion-details" style="display:none; margin-bottom:15px;">
+                        <div id="excursion-box-${uniqueId}" style="display:none; margin-bottom:15px;">
                             <input type="text" name="excursion_adicional" placeholder="Describe las excursiones incluidas..." style="width:100%; padding:8px; border:1px solid #17a2b8; border-radius:4px; background:#f0fbff;">
                         </div>
 
@@ -684,36 +689,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                 `;
-
-                // 2. CREAMOS EL ELEMENTO (DIV) Y LO AGREGAMOS
-                const nuevoDiv = document.createElement('div');
-                nuevoDiv.className = 'servicio-card';
-                nuevoDiv.dataset.tipo = 'bus'; 
-                nuevoDiv.innerHTML = htmlContent;
-
-                const grilla = document.getElementById('grilla-paquetes') || document.querySelector('.grid-servicios');
-                if (grilla) grilla.appendChild(nuevoDiv);
-
-                // 3. ACTIVAMOS LA LÓGICA VISUAL (Mostrar/Ocultar campos)
-                setTimeout(() => {
-                    const chkAlojamiento = nuevoDiv.querySelector('.check-alojamiento');
-                    const boxHotel = nuevoDiv.querySelector('.hotel-details');
-                    const chkExcursiones = nuevoDiv.querySelector('.check-excursiones');
-                    const boxExcursion = nuevoDiv.querySelector('.excursion-details');
-
-                    if(chkAlojamiento) {
-                        chkAlojamiento.addEventListener('change', function() {
-                            boxHotel.style.display = this.checked ? 'block' : 'none';
-                        });
-                    }
-
-                    if(chkExcursiones) {
-                        chkExcursiones.addEventListener('change', function() {
-                            boxExcursion.style.display = this.checked ? 'block' : 'none';
-                        });
-                    }
-                }, 50);
-
             }
         else if(tipo==='crucero'){html+=`<h4>🚢 Crucero</h4><div class="form-group-row"><div class="form-group"><label>Naviera</label><input type="text" name="crucero_naviera" required></div><div class="form-group"><label>Noches</label><input type="number" name="crucero_noches" required></div></div><div class="form-group-row"><div class="form-group"><label>Puerto Salida</label><input type="text" name="crucero_puerto_salida" required></div><div class="form-group"><label>Puertos que Recorre</label><input type="text" name="crucero_recorrido" required></div></div><div class="form-group"><label>Información Adicional</label><textarea name="crucero_info" rows="2"></textarea></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
 
@@ -1155,6 +1130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
