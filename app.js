@@ -605,9 +605,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="form-group-row"><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
         }
         else if(tipo==='adicional'){html+=`<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
-        // --- VERSIÓN CORREGIDA PARA IF / ELSE IF ---
         else if (tipo === 'bus') {
-                // 1. DEFINIMOS EL HTML
+                // 1. DEFINIMOS EL HTML (Con los campos ocultos y selectores)
                 const htmlContent = `
                     <div class="card-header" style="background:#fff3cd; color:#856404; padding:10px; font-weight:bold; display:flex; justify-content:space-between; align-items:center;">
                         <span>🚌 PAQUETE BUS</span>
@@ -686,18 +685,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
 
-                // 2. CREAMOS EL ELEMENTO (DIV)
-                // Usamos 'const' nuevas para asegurarnos de que existan
+                // 2. CREAMOS EL ELEMENTO (DIV) Y LO AGREGAMOS
                 const nuevoDiv = document.createElement('div');
                 nuevoDiv.className = 'servicio-card';
                 nuevoDiv.dataset.tipo = 'bus'; 
                 nuevoDiv.innerHTML = htmlContent;
 
-                // 3. AGREGAMOS A LA GRILLA
                 const grilla = document.getElementById('grilla-paquetes') || document.querySelector('.grid-servicios');
                 if (grilla) grilla.appendChild(nuevoDiv);
 
-                // 4. LOGICA DE CHECKBOXES (Con pequeño retraso para asegurar que cargó)
+                // 3. ACTIVAMOS LA LÓGICA VISUAL (Mostrar/Ocultar campos)
                 setTimeout(() => {
                     const chkAlojamiento = nuevoDiv.querySelector('.check-alojamiento');
                     const boxHotel = nuevoDiv.querySelector('.hotel-details');
@@ -716,6 +713,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
                     }
                 }, 50);
+
             }
         else if(tipo==='crucero'){html+=`<h4>🚢 Crucero</h4><div class="form-group-row"><div class="form-group"><label>Naviera</label><input type="text" name="crucero_naviera" required></div><div class="form-group"><label>Noches</label><input type="number" name="crucero_noches" required></div></div><div class="form-group-row"><div class="form-group"><label>Puerto Salida</label><input type="text" name="crucero_puerto_salida" required></div><div class="form-group"><label>Puertos que Recorre</label><input type="text" name="crucero_recorrido" required></div></div><div class="form-group"><label>Información Adicional</label><textarea name="crucero_info" rows="2"></textarea></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
 
@@ -1157,6 +1155,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
