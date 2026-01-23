@@ -605,9 +605,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="form-group-row"><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
         }
         else if(tipo==='adicional'){html+=`<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
-        case 'bus':
-                // 1. CREAMOS LA TARJETA VISUAL
-                htmlContent = `
+        // --- VERSIÓN CORREGIDA PARA IF / ELSE IF ---
+            else if (tipo === 'bus') {
+                // 1. DEFINIMOS EL HTML
+                const htmlContent = `
                     <div class="card-header" style="background:#fff3cd; color:#856404; padding:10px; font-weight:bold; display:flex; justify-content:space-between; align-items:center;">
                         <span>🚌 PAQUETE BUS</span>
                         <span style="cursor:pointer; color:red; font-weight:bold;" onclick="this.closest('.servicio-card').remove(); window.calcularTotal ? window.calcularTotal() : null;">✖</span>
@@ -684,18 +685,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                 `;
-                
-                // 2. INYECTAMOS AL DOM
-                div.innerHTML = htmlContent;
-                grid.appendChild(div);
 
-                // 3. ACTIVAMOS LA INTELIGENCIA (Mostrar/Ocultar campos)
-                // Usamos setTimeout por si el DOM tarda un milisegundo en pintar
+                // 2. CREAMOS EL ELEMENTO (DIV)
+                // Usamos 'const' nuevas para asegurarnos de que existan
+                const nuevoDiv = document.createElement('div');
+                nuevoDiv.className = 'servicio-card';
+                nuevoDiv.dataset.tipo = 'bus'; 
+                nuevoDiv.innerHTML = htmlContent;
+
+                // 3. AGREGAMOS A LA GRILLA
+                const grilla = document.getElementById('grilla-paquetes') || document.querySelector('.grid-servicios');
+                if (grilla) grilla.appendChild(nuevoDiv);
+
+                // 4. LOGICA DE CHECKBOXES (Con pequeño retraso para asegurar que cargó)
                 setTimeout(() => {
-                    const chkAlojamiento = div.querySelector('.check-alojamiento');
-                    const boxHotel = div.querySelector('.hotel-details');
-                    const chkExcursiones = div.querySelector('.check-excursiones');
-                    const boxExcursion = div.querySelector('.excursion-details');
+                    const chkAlojamiento = nuevoDiv.querySelector('.check-alojamiento');
+                    const boxHotel = nuevoDiv.querySelector('.hotel-details');
+                    const chkExcursiones = nuevoDiv.querySelector('.check-excursiones');
+                    const boxExcursion = nuevoDiv.querySelector('.excursion-details');
 
                     if(chkAlojamiento) {
                         chkAlojamiento.addEventListener('change', function() {
@@ -708,9 +715,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             boxExcursion.style.display = this.checked ? 'block' : 'none';
                         });
                     }
-                }, 100);
-
-                break;
+                }, 50);
+            }
         else if(tipo==='crucero'){html+=`<h4>🚢 Crucero</h4><div class="form-group-row"><div class="form-group"><label>Naviera</label><input type="text" name="crucero_naviera" required></div><div class="form-group"><label>Noches</label><input type="number" name="crucero_noches" required></div></div><div class="form-group-row"><div class="form-group"><label>Puerto Salida</label><input type="text" name="crucero_puerto_salida" required></div><div class="form-group"><label>Puertos que Recorre</label><input type="text" name="crucero_recorrido" required></div></div><div class="form-group"><label>Información Adicional</label><textarea name="crucero_info" rows="2"></textarea></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
 
         div.innerHTML = html;
@@ -1151,6 +1157,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
