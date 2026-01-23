@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_URL_SEARCH = 'https://n8n.srv1097024.hstgr.cloud/webhook/83cb99e2-c474-4eca-b950-5d377bcf63fa';
     const API_URL_UPLOAD = 'https://n8n.srv1097024.hstgr.cloud/webhook/6ec970d0-9da4-400f-afcc-611d3e2d82eb';
 
-    // Inicializar Firebase solo si no existe ya
     if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
     }
@@ -29,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let uniquePackages = []; 
     let isEditingId = null; 
     let originalCreator = ''; 
+    window.currentModalPackage = null;
 
     // DOM PRINCIPAL
     const dom = {
@@ -42,12 +42,12 @@ document.addEventListener('DOMContentLoaded', () => {
         modal: document.getElementById('modal-detalle'), modalBody: document.getElementById('modal-body'), modalClose: document.getElementById('modal-cerrar'),
         containerServicios: document.getElementById('servicios-container'), btnAgregarServicio: document.getElementById('btn-agregar-servicio'), selectorServicio: document.getElementById('selector-servicio'),
         btnBuscar: document.getElementById('boton-buscar'), btnLimpiar: document.getElementById('boton-limpiar'),
-        filtroOrden: document.getElementById('filtro-orden'), filtroCreador: document.getElementById('filtro-creador'), containerFiltroCreador: document.getElementById('container-filtro-creador'),
+        filtroOrden: document.getElementById('filtro-orden'), filtroCreador: document.getElementById('filtro-creador'), filtroSalida: document.getElementById('filtro-salida'), containerFiltroCreador: document.getElementById('container-filtro-creador'),
         logoImg: document.getElementById('app-logo'), loader: document.getElementById('loader-overlay'),
         badgeGestion: document.getElementById('badge-gestion')
     };
 
-    // DOM DEL PLANIFICADOR SEMANAL
+    // DOM PLANNER
     const domPlanner = {
         container: document.getElementById('weekly-planner'),
         header: document.getElementById('planner-header-btn'),
@@ -74,6 +74,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
     
+    // Función auxiliar para formatear texto de escalas
+    const formatEscalasTexto = (n) => {
+        n = parseInt(n) || 0;
+        if (n === 0) return "Directo";
+        if (n === 1) return "1 Escala";
+        return `${n} Escalas`;
+    };
+
     function getNoches(pkg) {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
@@ -103,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- GENERADOR DE TEXTO ---
+    // --- GENERADOR DE TEXTO (NUEVO FORMATO) ---
     function generarTextoPresupuesto(pkg) {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg);
@@ -114,52 +123,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tieneSeguro = Array.isArray(servicios) && servicios.some(s => s.tipo === 'seguro');
 
-        let texto = `*${pkg.destino.toUpperCase()}*\n\n`;
+        // 1. ENCABEZADO
+        let texto = `*${pkg.destino.toUpperCase()}*\n`;
+        texto += `PAQUETE\n\n`; // Nuevo agregado
         texto += `📅 Salida: ${formatDateAR(pkg.fecha_salida)}\n`;
         texto += `📍 Desde: ${pkg.salida}\n`;
         if (noches > 0) texto += `🌙 Duración: ${noches} Noches\n`;
-        texto += `\n`;
+        
+        // 2. INTRODUCCIÓN SERVICIOS
+        texto += `\n✅ Servicios que incluye el paquete:\n\n`;
 
         if (Array.isArray(servicios)) {
             servicios.forEach(s => {
                 if(s.tipo === 'aereo') {
-                    let escalasTxt = "Directo";
-                    if (s.escalas > 0) { escalasTxt = (s.escalas == 1) ? "1 Escala" : `${s.escalas} Escalas`; }
-                    texto += `✈️ AÉREO\n${s.aerolinea || 'Aerolínea'}\n${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
-                    texto += `🔄 ${escalasTxt} | 🧳 ${s.tipo_equipaje || '-'}\n\n`;
+                    // LÓGICA ESCALAS (Mantenemos la inteligencia de Ida/Vuelta)
+                    let eIda = (s.escalas_ida !== undefined) ? parseInt(s.escalas_ida) : (parseInt(s.escalas) || 0);
+                    let eVuelta = (s.escalas_vuelta !== undefined) ? parseInt(s.escalas_vuelta) : (parseInt(s.escalas) || 0);
+                    
+                    let escalasTxt = "";
+                    if (eIda === eVuelta) {
+                        escalasTxt = formatEscalasTexto(eIda);
+                    } else {
+                        escalasTxt = `IDA: ${formatEscalasTexto(eIda)} | REGRESO: ${formatEscalasTexto(eVuelta)}`;
+                    }
+
+                    // FORMATO BLOQUE CITA
+                    texto += `> ✈️ *AÉREO*\n`;
+                    texto += `${s.aerolinea || 'Aerolínea'}\n`;
+                    texto += `${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
+                    texto += `${escalasTxt} | ${s.tipo_equipaje || '-'}\n\n`;
+
                 } else if (s.tipo === 'hotel') {
                     let stars = ''; if(s.hotel_estrellas) { for(let i=0; i<s.hotel_estrellas; i++) stars += '⭐'; }
-                    texto += `🏨 HOTEL\n${s.hotel_nombre} ${stars}\n`;
+                    
+                    texto += `> 🏨 *HOTEL*\n`;
+                    texto += `${s.hotel_nombre} ${stars}\n`;
                     if(s.regimen) texto += `(${s.regimen})\n`;
-                    if(s.noches) texto += `🌙 ${s.noches} Noches`;
-                    if(s.checkin) texto += ` | 📥 Ingreso: ${formatDateAR(s.checkin)}`;
-                    if(s.hotel_link) texto += `\n📍 Ubicación: ${s.hotel_link}`;
-                    texto += `\n\n`;
+                    if(s.noches) texto += `${s.noches} Noches`;
+                    // Agregamos ingreso si existe para dar más detalle
+                    if(s.checkin) texto += ` | Ingreso: ${formatDateAR(s.checkin)}`; 
+                    texto += `\n`;
+                    if(s.hotel_link) texto += `📍 Ubicación: ${s.hotel_link}\n`;
+                    texto += `\n`;
+
                 } else if (s.tipo === 'traslado') {
-                    texto += `🚕 TRASLADO\n${s.tipo_trf || 'Incluido'}\n\n`;
+                    texto += `> 🚗 *TRASLADO*\n`;
+                    texto += `${s.tipo_trf || 'Incluido'}\n\n`;
+
                 } else if (s.tipo === 'seguro') {
-                    texto += `🛡️ SEGURO\n${s.cobertura || 'Asistencia al viajero'}\n\n`;
+                    texto += `> 🛡️ *SEGURO*\n`;
+                    texto += `${s.cobertura || 'Asistencia al viajero'}\n\n`;
+
                 } else if (s.tipo === 'bus') {
-                    texto += `🚌 BUS\n${s.bus_noches} Noches ${s.bus_regimen ? '('+s.bus_regimen+')' : ''}\n\n`;
+                    texto += `> 🚌 *BUS*\n`;
+                    texto += `${s.bus_noches} Noches ${s.bus_regimen ? '('+s.bus_regimen+')' : ''}\n\n`;
+
                 } else if (s.tipo === 'crucero') {
-                    texto += `🚢 CRUCERO\n${s.crucero_naviera} - ${s.crucero_recorrido}\n\n`;
+                    texto += `> 🚢 *CRUCERO*\n`;
+                    texto += `${s.crucero_naviera}\n`;
+                    texto += `${s.crucero_recorrido}\n\n`;
+
                 } else if (s.tipo === 'adicional') {
-                    texto += `➕ ADICIONAL\n${s.descripcion}\n\n`;
+                    texto += `> ➕ *ADICIONAL*\n`;
+                    texto += `${s.descripcion}\n\n`;
                 }
             });
         }
 
+        // 3. PIE DE PAGINA (PRECIO Y LEGALES)
         texto += `💲*Tarifa final por Persona en Base Doble:*\n`;
         texto += `${pkg.moneda} $${formatMoney(tarifaDoble)}\n\n`;
+        
         if (pkg.financiacion) texto += `💳 Financiación: ${pkg.financiacion}\n\n`;
+        
         texto += `--------------------------------------------\n`;
         texto += `Información importante:\n`;
         texto += `-Tarifas y disponibilidad sujetas a cambio al momento de la reserva.\n`;
         texto += `-Cotización válida al ${fechaCotizacion}\n\n`;
+        
         texto += `ℹ Más info: (https://felizviaje.tur.ar/informacion-antes-de-contratar)\n\n`;
-        texto += `⚠¡Cupos limitados!\n-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n-Las plazas y precios pueden modificarse en cualquier momento según disponibilidad de vuelos y hotel.\n\n`;
+        
+        texto += `⚠¡Cupos limitados!\n`;
+        texto += `-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n`;
+        texto += `-Las plazas y precios pueden modificarse en cualquier momento según disponibilidad de vuelos y hotel.\n\n`;
+        
         texto += `¿Encontraste una mejor oferta? ¡Compartila con nosotros y la mejoramos para vos!\n\n`;
-        texto += `✈ Políticas generales de aerolíneas (tarifas económicas)\n-Equipaje y la selección de asientos no están incluidos (pueden tener costo adicional)\n\n`;
+        
+        texto += `✈ Políticas generales de aerolíneas (tarifas económicas)\n`;
+        texto += `-Equipaje y la selección de asientos no están incluidos (pueden tener costo adicional)\n\n`;
         
         if (tieneSeguro) texto += `Asistencia al viajero es requisito obligatorio en la mayoría de los destinos internacionales`;
         else texto += `Asistencia al viajero no incluida. Puede añadirse al reservar o más adelante. Es requisito obligatorio en la mayoría de los destinos internacionales`;
@@ -187,8 +238,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 i='✈️';t='AÉREO';
                 l.push(`<b>${x.aerolinea}</b>`);
                 l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);
-                let escalasTxt = "Directo";
-                if (x.escalas > 0) { escalasTxt = (x.escalas == 1) ? "1 Escala" : `${x.escalas} Escalas`; }
+                
+                // LÓGICA VISUAL ESCALAS (IDA Y VUELTA)
+                let eIda = (x.escalas_ida !== undefined) ? parseInt(x.escalas_ida) : (parseInt(x.escalas) || 0);
+                let eVuelta = (x.escalas_vuelta !== undefined) ? parseInt(x.escalas_vuelta) : (parseInt(x.escalas) || 0);
+                
+                let escalasTxt = "";
+                if (eIda === eVuelta) {
+                    escalasTxt = formatEscalasTexto(eIda);
+                } else {
+                    escalasTxt = `<b>IDA:</b> ${formatEscalasTexto(eIda)} | <b>REG:</b> ${formatEscalasTexto(eVuelta)}`;
+                }
+
                 l.push(`🔄 ${escalasTxt} | 🧳 ${x.tipo_equipaje || '-'}`);
             } 
             else if(x.tipo==='hotel'){
@@ -248,6 +309,21 @@ document.addEventListener('DOMContentLoaded', () => {
         dateInputs.forEach(input => { input.min = minDate; if(input.value && input.value < minDate){ input.value = ''; input.style.borderColor = '#ef5a1a'; setTimeout(() => input.style.borderColor = '#ddd', 2000); } });
     }
 
+    // --- EVENTO PARA CALCULAR AUTOMÁTICAMENTE TARIFA X PERSONA ---
+    // Agregamos el Listener aquí mismo para asegurar que funcione siempre
+    if(dom.inputTarifaTotal) {
+        dom.inputTarifaTotal.addEventListener('input', () => {
+            const total = parseFloat(dom.inputTarifaTotal.value) || 0;
+            const porPersona = Math.round(total / 2);
+            
+            // Buscamos el input por ID
+            const inputPersona = document.getElementById('upload-tarifa-persona');
+            if(inputPersona) {
+                inputPersona.value = formatMoney(porPersona);
+            }
+        });
+    }
+
     function processPackageHistory(rawList) {
         if (!Array.isArray(rawList)) return [];
         const historyMap = new Map();
@@ -271,12 +347,9 @@ document.addEventListener('DOMContentLoaded', () => {
     async function secureFetch(url, body) {
         if (!currentUser) throw new Error('No auth');
         
-        // Si no es una operación de escritura (búsqueda), no usamos cola
         if (url === API_URL_SEARCH) {
             return await _doFetch(url, body);
         }
-
-        // Si es escritura (subida), usamos el Mutex
         return await uploadWithMutex(url, body);
     }
 
@@ -348,6 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
             allPackages = d; 
             uniquePackages = processPackageHistory(allPackages); 
             populateFranchiseFilter(uniquePackages); 
+            autoCleanupPackages(uniquePackages);
             applyFilters();
             updatePendingBadge(); 
         } catch(e){ console.error(e); }
@@ -389,7 +463,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (rol === 'admin') loadUsersList(); 
         
-        // --- CAMBIO AQUÍ: Configuración de opciones para usuarios ---
         const selectPromo = document.getElementById('upload-promo');
         if(selectPromo) {
             selectPromo.innerHTML = '';
@@ -409,7 +482,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updatePendingBadge();
         
-        // INICIAR PLANIFICADOR SEMANAL
         initWeeklyPlanner();
     }
 
@@ -465,6 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
         if(tipo==='aereo'){
+            // MODIFICACIÓN: AHORA SÍ CON DOS CONTADORES (IDA y VUELTA) EXPLÍCITOS
             html+=`<h4>✈️ Aéreo</h4>
             <div class="form-group-row">
                 <div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div>
@@ -472,13 +545,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div>
             </div>
             <div class="form-group-row">
-                <div class="form-group"><label>Escalas</label>${crearContadorHTML('escalas',0)}</div>
+                <div class="form-group"><label>Escalas Ida</label>${crearContadorHTML('escalas_ida',0)}</div>
+                <div class="form-group"><label>Escalas Vuelta</label>${crearContadorHTML('escalas_vuelta',0)}</div>
                 <div class="form-group"><label>Equipaje</label>
                     <select name="tipo_equipaje">
-                        <option>Objeto Personal</option>
-                        <option>Objeto Personal + Carry On</option>
-                        <option>Objeto Personal + Bodega</option>
-                        <option>Objeto Personal + Carry On + Bodega</option>
+                        <option>Mochila</option>
+                        <option>Mochila + Carry On</option>
+                        <option>Mochila + Bodega</option>
+                        <option>Mochila + Carry On + Bodega</option>
                     </select>
                 </div>
             </div>
@@ -546,6 +620,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (input.name === 'checkin' || input.name === 'checkout') window.calcularNoches(id); 
                     } 
                 } 
+                // COMPATIBILIDAD CON DATOS VIEJOS
+                // Si existe 'escalas' pero no las nuevas, asignamos el valor viejo a ambas
+                if (input.name === 'escalas_ida' && data['escalas'] !== undefined && data['escalas_ida'] === undefined) {
+                     const counter = input.parentElement.querySelector('.counter-value');
+                     if(counter) counter.innerText = data['escalas'];
+                     input.value = data['escalas'];
+                }
+                if (input.name === 'escalas_vuelta' && data['escalas'] !== undefined && data['escalas_vuelta'] === undefined) {
+                     const counter = input.parentElement.querySelector('.counter-value');
+                     if(counter) counter.innerText = data['escalas'];
+                     input.value = data['escalas'];
+                }
             }); 
         }
     }
@@ -570,16 +656,16 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.inputCostoTotal.value = t;
         const tarifaSugerida = Math.round(t * 1.185);
         dom.inputTarifaTotal.value = tarifaSugerida;
+        
+        // Disparar evento manualmente por si acaso
+        dom.inputTarifaTotal.dispatchEvent(new Event('input'));
     };
 
     dom.uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault(); showLoader(true);
         const rol = userData.rol; const promoType = document.getElementById('upload-promo').value;
         
-        // --- CAMBIO AQUÍ: Lógica de aprobación ---
         let status = 'approved'; 
-        // Si es usuario Y el tipo es FEED o ADS, pasa a pendiente
-        if (rol === 'usuario' && (promoType === 'FEED' || promoType === 'ADS')) status = 'pending';
         
         const costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; const fechaViajeStr = dom.inputFechaViaje.value;
         if (tarifa < costo) { showLoader(false); return window.showAlert(`Error: Tarifa menor al costo.`, 'error'); }
@@ -599,12 +685,48 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function populateFranchiseFilter(packages) { const selector = dom.filtroCreador; if(!selector) return; const currentVal = selector.value; const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))]; selector.innerHTML = '<option value="">Todas las Franquicias</option>'; creadores.sort().forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt); }); selector.value = currentVal; }
-
+   
     function applyFilters() {
-        const fDestino = document.getElementById('filtro-destino').value.toLowerCase(); const fCreador = dom.filtroCreador ? dom.filtroCreador.value : ''; const fPromo = document.getElementById('filtro-promo').value; const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
-        let result = uniquePackages.filter(pkg => { const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino)); const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador); const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo); if (!mDestino || !mCreador || !mPromo) return false; const isOwner = pkg.editor_email === currentUser.email; const isPending = pkg.status === 'pending'; if (isPending && !isOwner && userData.rol !== 'admin' && userData.rol !== 'editor') return false; return true; });
-        if (fOrden === 'reciente') { result.sort((a, b) => { const getTs = (id) => { if(!id || !id.startsWith('pkg_')) return 0; return parseInt(id.split('_')[1]) || 0; }; return getTs(b.id_paquete) - getTs(a.id_paquete); }); } else if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa)); else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
-        renderCards(result, dom.grid); if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) { const pendientes = uniquePackages.filter(p => p.status === 'pending'); renderCards(pendientes, dom.gridGestion); }
+        const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
+        const fCreador = dom.filtroCreador ? dom.filtroCreador.value : '';
+        const fPromo = document.getElementById('filtro-promo').value;
+        const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
+        
+        // NUEVO: Capturamos el valor del selector de salida
+        const fSalida = dom.filtroSalida ? dom.filtroSalida.value : '';
+
+        let result = uniquePackages.filter(pkg => {
+            const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
+            const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
+            const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
+            
+            // NUEVO: Comparamos si la salida coincide (si hay algo seleccionado)
+            const mSalida = !fSalida || (pkg.salida && pkg.salida === fSalida);
+
+            // Agregamos mSalida a la condición final
+            if (!mDestino || !mCreador || !mPromo || !mSalida) return false;
+
+            const isOwner = pkg.editor_email === currentUser.email;
+            const isPending = pkg.status === 'pending';
+            if (isPending && !isOwner && userData.rol !== 'admin' && userData.rol !== 'editor') return false;
+            
+            return true;
+        });
+
+        if (fOrden === 'reciente') {
+            result.sort((a, b) => {
+                const getTs = (id) => { if(!id || !id.startsWith('pkg_')) return 0; return parseInt(id.split('_')[1]) || 0; };
+                return getTs(b.id_paquete) - getTs(a.id_paquete);
+            });
+        } else if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa));
+        else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
+
+        renderCards(result, dom.grid);
+        
+        if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) {
+            const pendientes = uniquePackages.filter(p => p.status === 'pending');
+            renderCards(pendientes, dom.gridGestion);
+        }
     }
 
     function renderCards(list, targetGrid = dom.grid) {
@@ -631,12 +753,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-size:0.85em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div>
                     </div>
                     
-                    <div class="card-footer">
+                    <div class="card-footer" style="display:flex; justify-content:space-between; align-items:flex-end;">
                         <div><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
-                        <div><p class="precio-valor">${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar/2))}</p></div>
+                        
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${pkg['salida']}</div>
+                            
+                            <p class="precio-valor" style="margin: 5px 0 0 0;">
+                                ${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar/2))}
+                            </p>
+                        </div>
                     </div>
                 </div>`;
-            targetGrid.appendChild(card); card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
+            
+            targetGrid.appendChild(card); 
+            card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
         });
     }
 
@@ -646,13 +777,14 @@ document.addEventListener('DOMContentLoaded', () => {
     window.startEditing = async (pkg) => { if (!await window.showConfirm("Se abrirá el formulario de edición.")) return; isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; originalCreator = pkg.creador || ''; document.getElementById('upload-destino').value = pkg.destino; document.getElementById('upload-salida').value = pkg.salida; let fecha = pkg.fecha_salida; if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-'); dom.inputFechaViaje.value = fecha; document.getElementById('upload-moneda').value = pkg.moneda; document.getElementById('upload-promo').value = pkg.tipo_promo; document.getElementById('upload-financiacion').value = pkg.financiacion || ''; document.getElementById('upload-tarifa-total').value = pkg.tarifa; dom.containerServicios.innerHTML = ''; let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {} if (Array.isArray(servicios)) { servicios.forEach(s => agregarModuloServicio(s.tipo, s)); } window.calcularTotal(); dom.modal.style.display = 'none'; showView('upload'); window.scrollTo(0,0); window.showAlert("Modo Edición Activado.", "info"); };
 
     function openModal(pkg) {
+        window.currentModalPackage = pkg;
         if (typeof renderServiciosClienteHTML !== 'function') return alert("Error interno.");
         const rawServicios = pkg['servicios'] || pkg['item.servicios']; const htmlCliente = renderServiciosClienteHTML(rawServicios); const htmlCostos = renderCostosProveedoresHTML(rawServicios); const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2); 
         const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`; 
         let adminTools = ''; const isOwner = pkg.editor_email === currentUser.email; const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
         if (canEdit) { const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick='approvePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : ''; adminTools = `<div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">${btnApprove}<button class="btn btn-secundario" onclick='startEditing(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button><button class="btn btn-secundario" onclick='deletePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button></div>`; }
         
-        const btnCopiar = `<button class="btn" onclick='copiarPresupuesto(${JSON.stringify(pkg)})' style="background:#34495e; color:white; padding: 5px 15px; font-size:0.8em; display:flex; align-items:center; gap:5px;">📋 Copiar</button>`;
+        const btnCopiar = `<button class="btn" onclick='copiarPresupuesto(currentModalPackage)' style="background:#34495e; color:white; padding: 5px 15px; font-size:0.8em; display:flex; align-items:center; gap:5px;">📋 Copiar</button>`;
 
         dom.modalBody.innerHTML = `
             ${adminTools}
@@ -721,54 +853,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Inicializar Calendario (Nueva lógica de permisos)
+    // Inicializar Calendario
     async function initWeeklyPlanner() {
-        // 1. Mostrar el calendario a TODOS los usuarios logueados
         if(domPlanner.container) {
             domPlanner.container.style.display = 'block';
-            
-            // Abrirlo por defecto
             domPlanner.header.classList.add('open');
             domPlanner.body.classList.add('open');
-            
             highlightCurrentDay();
             await loadPlanningData();
         }
 
-        // 2. Verificar Permisos de Edición
         const isStaff = userData && (userData.rol === 'admin' || userData.rol === 'editor');
-        
-        // Referencia a todos los textareas
-        const textareas = [
-            domPlanner.inputs.lunes,
-            domPlanner.inputs.martes,
-            domPlanner.inputs.miercoles,
-            domPlanner.inputs.jueves,
-            domPlanner.inputs.viernes
-        ];
+        const textareas = [domPlanner.inputs.lunes, domPlanner.inputs.martes, domPlanner.inputs.miercoles, domPlanner.inputs.jueves, domPlanner.inputs.viernes];
 
         if (isStaff) {
-            // ES STAFF: Habilitar edición y mostrar botón guardar
             textareas.forEach(el => el.disabled = false);
             if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'inline-block';
         } else {
-            // NO ES STAFF: Deshabilitar edición y ocultar botón
             textareas.forEach(el => el.disabled = true);
             if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'none';
         }
     }
 
-    // Resaltar día actual
     function highlightCurrentDay() {
         for (let i = 1; i <= 5; i++) {
             const card = document.getElementById(`day-card-${i}`);
             if (card) card.classList.remove('today');
         }
-
         const today = new Date();
-        const dayIndex = today.getDay(); // 0 Dom, 1 Lun, ... 6 Sab
-
-        // Si es Lun(1) a Vie(5), resaltar
+        const dayIndex = today.getDay(); 
         if (dayIndex >= 1 && dayIndex <= 5) {
             const card = document.getElementById(`day-card-${dayIndex}`);
             if (card) {
@@ -779,7 +892,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Cargar datos de Firestore
     async function loadPlanningData() {
         try {
             const doc = await db.collection('config').doc('planning_weekly').get();
@@ -796,7 +908,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Guardar datos
     if(domPlanner.btnSave) {
         domPlanner.btnSave.addEventListener('click', async () => {
             showLoader(true, "Guardando agenda...");
@@ -810,7 +921,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     last_update: new Date(),
                     updated_by: currentUser.email
                 };
-
                 await db.collection('config').doc('planning_weekly').set(payload, { merge: true });
                 await window.showAlert("✅ Planificación actualizada.", "success");
             } catch (e) {
@@ -821,5 +931,101 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 1. Activar el filtro cuando cambien la opción de salida
+    if(dom.filtroSalida) dom.filtroSalida.addEventListener('change', applyFilters);
+
+    // 2. Modificar el botón limpiar para que también borre la salida
+    dom.btnLimpiar.addEventListener('click', () => {
+        document.getElementById('filtro-destino').value='';
+        if(dom.filtroCreador) dom.filtroCreador.value='';
+        document.getElementById('filtro-promo').value='';
+        if(dom.filtroOrden) dom.filtroOrden.value='reciente';
+        
+        // NUEVO: Limpiar también el selector de salida
+        if(dom.filtroSalida) dom.filtroSalida.value = '';
+        
+        applyFilters();
+    });
+    // --- LIMPIEZA AUTOMÁTICA (MODO FILA INDIA) ---
+    async function autoCleanupPackages(packages) {
+        // 1. SEGURIDAD
+        if (!userData || (userData.rol !== 'admin' && userData.rol !== 'editor')) return;
+
+        // 2. FRENO DE MANO (Diario)
+        const hoy = new Date().toISOString().split('T')[0];
+        const ultimoChequeo = localStorage.getItem('ultimo_mantenimiento');
+        if (ultimoChequeo === hoy) return; 
+
+        console.log("🧹 Buscando paquetes vencidos...");
+        const now = new Date();
+        
+        // 3. FILTRAR CANDIDATOS
+        const candidatos = packages.filter(pkg => {
+            if (!pkg.fecha_creacion || !pkg.tipo_promo) return false;
+            const parts = pkg.fecha_creacion.split('/');
+            if (parts.length !== 3) return false;
+            const fechaPkg = new Date(parts[2], parts[1] - 1, parts[0]);
+            const diffDays = Math.ceil(Math.abs(now - fechaPkg) / (1000 * 60 * 60 * 24)); 
+
+            if (pkg.tipo_promo === 'Solo X Hoy' && diffDays > 7) return true;
+            if (pkg.tipo_promo === 'FEED' && diffDays > 30) return true;
+            return false;
+        });
+
+        if (candidatos.length === 0) {
+            localStorage.setItem('ultimo_mantenimiento', hoy);
+            return;
+        }
+
+        // 4. PROCESAR UNO POR UNO (Para evitar errores 400)
+        // Tomamos máximo 10 para no tener trabajando al navegador tanto tiempo
+        const LOTE_MAXIMO = 10; 
+        const aBorrar = candidatos.slice(0, LOTE_MAXIMO);
+
+        console.log(`🗑️ Iniciando borrado secuencial de ${aBorrar.length} paquetes...`);
+
+        let borradosExitosos = 0;
+
+        // BUCLE "FILA INDIA": Esperamos (await) a que termine uno para seguir con el otro
+        for (const pkg of aBorrar) {
+            const id = pkg.id_paquete || pkg.id || pkg['item.id'];
+            try {
+                await secureFetch(API_URL_UPLOAD, { 
+                    action_type: 'delete', 
+                    id_paquete: id, 
+                    status: 'deleted' 
+                });
+                console.log(`✅ Borrado OK: ${pkg.destino}`);
+                borradosExitosos++;
+            } catch (error) {
+                console.error(`❌ Error al borrar ${pkg.destino}:`, error);
+            }
+        }
+
+        console.log(`✨ Fin del ciclo. Se borraron ${borradosExitosos} de ${aBorrar.length}.`);
+
+        // Si ya no quedan más pendientes en la lista total, firmamos para hoy.
+        // Si quedan, NO firmamos, así la próxima vez borra otros 10.
+        if (candidatos.length <= LOTE_MAXIMO) {
+             localStorage.setItem('ultimo_mantenimiento', hoy);
+             console.log("🏆 Limpieza total del día completada.");
+        } else {
+             console.log(`⚠ Aún quedan ${candidatos.length - LOTE_MAXIMO} viejos. Se borrarán en la próxima recarga.`);
+        }
+    }
+
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
 
