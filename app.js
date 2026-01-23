@@ -605,7 +605,112 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="form-group-row"><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
         }
         else if(tipo==='adicional'){html+=`<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
-        else if(tipo==='bus'){html+=`<h4>🚌 Paquete Bus</h4><div class="form-group-row"><div class="form-group"><label>Cant. Noches</label><input type="number" name="bus_noches" required></div><div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:10px;"><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="bus_alojamiento" onchange="document.getElementById('bus-regimen-${id}').style.display=this.checked?'block':'none'"> Incluye Alojamiento</label></div></div></div><div id="bus-regimen-${id}" class="form-group" style="display:none;margin-top:-10px;margin-bottom:15px;background:#f9f9f9;padding:10px;border-radius:8px;"><label>Régimen</label><select name="bus_regimen"><option value="Sin Pensión">Sin Pensión</option><option value="Desayuno">Desayuno</option><option value="Media Pensión">Media Pensión</option><option value="Pensión Completa">Pensión Completa</option></select></div><div class="checkbox-group" style="margin-bottom:15px;"><label class="checkbox-label"><input type="checkbox" name="bus_excursiones"> Incluye Excursiones</label><label class="checkbox-label"><input type="checkbox" name="bus_asistencia"> Asistencia al Viajero</label></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
+        case 'bus':
+                // 1. CREAMOS LA TARJETA VISUAL
+                htmlContent = `
+                    <div class="card-header" style="background:#fff3cd; color:#856404; padding:10px; font-weight:bold; display:flex; justify-content:space-between; align-items:center;">
+                        <span>🚌 PAQUETE BUS</span>
+                        <span style="cursor:pointer; color:red; font-weight:bold;" onclick="this.closest('.servicio-card').remove(); window.calcularTotal ? window.calcularTotal() : null;">✖</span>
+                    </div>
+                    <div class="card-body" style="padding:15px;">
+                        
+                        <div class="form-group">
+                            <label style="display:block; margin-bottom:5px; font-weight:600;">Cant. Noches</label>
+                            <input type="number" name="noches" class="form-control" required style="width:100%; margin-bottom:15px; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                        </div>
+
+                        <div style="margin-bottom:15px;">
+                            <label style="display:flex; align-items:center; cursor:pointer;">
+                                <input type="checkbox" class="check-alojamiento" name="incluye_alojamiento" style="margin-right:10px; transform:scale(1.2);"> 
+                                <strong>Incluye Alojamiento</strong>
+                            </label>
+                        </div>
+
+                        <div class="hotel-details" style="display:none; background:#f9f9f9; padding:10px; border-radius:6px; margin-bottom:15px; border:1px solid #eee;">
+                            
+                            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                                <input type="text" name="hotel_nombre" placeholder="Nombre del Hotel" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                <input type="text" name="hotel_ubicacion" placeholder="Ubicación" style="flex:1; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                            </div>
+
+                            <div style="display:flex; gap:10px;">
+                                <div style="flex:2;">
+                                    <label style="font-size:0.85em; color:#666;">Régimen</label>
+                                    <select name="regimen" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                        <option value="Solo Alojamiento">Solo Alojamiento</option>
+                                        <option value="Desayuno">Desayuno</option>
+                                        <option value="Media Pensión">Media Pensión</option>
+                                        <option value="Pensión Completa">Pensión Completa</option>
+                                        <option value="All Inclusive">All Inclusive</option>
+                                    </select>
+                                </div>
+                                <div style="flex:1;">
+                                    <label style="font-size:0.85em; color:#666;">Bebidas</label>
+                                    <select name="bebidas" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                                        <option value="Sin Bebidas">Sin Bebidas 🚫</option>
+                                        <option value="Con Bebidas">Con Bebidas 🥤</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:10px;">
+                            <label style="display:flex; align-items:center; cursor:pointer;">
+                                <input type="checkbox" class="check-excursiones" name="incluye_excursiones" style="margin-right:10px; transform:scale(1.2);"> 
+                                <strong>Incluye Excursiones</strong>
+                            </label>
+                        </div>
+
+                        <div class="excursion-details" style="display:none; margin-bottom:15px;">
+                            <input type="text" name="excursion_adicional" placeholder="Describe las excursiones incluidas..." style="width:100%; padding:8px; border:1px solid #17a2b8; border-radius:4px; background:#f0fbff;">
+                        </div>
+
+                        <div style="margin-bottom:15px;">
+                            <label style="display:flex; align-items:center; cursor:pointer;">
+                                <input type="checkbox" name="asistencia" style="margin-right:10px; transform:scale(1.2);"> 
+                                Asistencia al Viajero
+                            </label>
+                        </div>
+
+                        <div style="display:flex; gap:10px;">
+                            <div style="flex:1;">
+                                <label style="display:block; font-weight:600;">Proveedor</label>
+                                <input type="text" name="proveedor" required class="form-control" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                            </div>
+                            <div style="flex:1;">
+                                <label style="display:block; font-weight:600;">Costo</label>
+                                <input type="number" name="costo" class="form-control input-costo" required onchange="window.calcularTotal && window.calcularTotal()" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;">
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // 2. INYECTAMOS AL DOM
+                div.innerHTML = htmlContent;
+                grid.appendChild(div);
+
+                // 3. ACTIVAMOS LA INTELIGENCIA (Mostrar/Ocultar campos)
+                // Usamos setTimeout por si el DOM tarda un milisegundo en pintar
+                setTimeout(() => {
+                    const chkAlojamiento = div.querySelector('.check-alojamiento');
+                    const boxHotel = div.querySelector('.hotel-details');
+                    const chkExcursiones = div.querySelector('.check-excursiones');
+                    const boxExcursion = div.querySelector('.excursion-details');
+
+                    if(chkAlojamiento) {
+                        chkAlojamiento.addEventListener('change', function() {
+                            boxHotel.style.display = this.checked ? 'block' : 'none';
+                        });
+                    }
+
+                    if(chkExcursiones) {
+                        chkExcursiones.addEventListener('change', function() {
+                            boxExcursion.style.display = this.checked ? 'block' : 'none';
+                        });
+                    }
+                }, 100);
+
+                break;
         else if(tipo==='crucero'){html+=`<h4>🚢 Crucero</h4><div class="form-group-row"><div class="form-group"><label>Naviera</label><input type="text" name="crucero_naviera" required></div><div class="form-group"><label>Noches</label><input type="number" name="crucero_noches" required></div></div><div class="form-group-row"><div class="form-group"><label>Puerto Salida</label><input type="text" name="crucero_puerto_salida" required></div><div class="form-group"><label>Puertos que Recorre</label><input type="text" name="crucero_recorrido" required></div></div><div class="form-group"><label>Información Adicional</label><textarea name="crucero_info" rows="2"></textarea></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
 
         div.innerHTML = html;
@@ -1046,6 +1151,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
