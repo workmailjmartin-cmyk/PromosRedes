@@ -175,8 +175,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     texto += `${s.cobertura || 'Asistencia al viajero'}\n\n`;
 
                 } else if (s.tipo === 'bus') {
-                    texto += `> 🚌 *BUS*\n`;
-                    texto += `${s.bus_noches} Noches ${s.bus_regimen ? '('+s.bus_regimen+')' : ''}\n\n`;
+            texto += `> 🚌 *PAQUETE BUS* (${s.noches || '?'} Noches)\n`;
+
+            // Si tiene alojamiento, mostramos los detalles
+            if (s.incluye_alojamiento) {
+                texto += `> 🏨 *Hotel:* ${s.hotel_nombre || 'A confirmar'}\n`;
+                if (s.hotel_ubicacion) texto += `> 📍 *Ubicación:* ${s.hotel_ubicacion}\n`;
+                texto += `> 🍽 *Régimen:* ${s.regimen || ''} ${s.bebidas === 'Si' ? '(🥤 Con Bebidas)' : '(🚫 Sin Bebidas)'}\n`;
+            }
+
+            // Si tiene excursiones
+            if (s.incluye_excursiones) {
+                texto += `> 🌲 *Excursiones:* ${s.excursion_adicional || 'Incluidas'}\n`;
+            }
+
+            // Si tiene asistencia
+            if (s.asistencia) {
+                texto += `> 🚑 *Asistencia al Viajero Incluida*\n`;
+            }
+
+            // Observaciones extra
+            if (s.observaciones) {
+                texto += `> 📝 *Nota:* ${s.observaciones}\n`;
+            }
+            
+            // Un salto de línea extra para separar del siguiente servicio
+            texto += `\n`;
 
                 } else if (s.tipo === 'crucero') {
                     texto += `> 🚢 *CRUCERO*\n`;
@@ -1159,6 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
