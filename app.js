@@ -606,109 +606,92 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         else if(tipo==='adicional'){html+=`<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
         else if (tipo === 'bus') {
-                const uniqueId = Date.now(); 
+                const uniqueId = Date.now(); // ID único para que los desplegables no se mezclen
 
-                // --- DISEÑO NATIVO (Usando tus clases .form-group-row) ---
-                html = `
-                    <div class="card-header" style="background:#fff3cd; color:#856404; padding:10px 15px; font-weight:bold; display:flex; justify-content:space-between; align-items:center;">
-                        <span>🚌 PAQUETE BUS</span>
-                        <span style="cursor:pointer; color:#dc3545; font-size:1.2em; font-weight:bold;" onclick="this.closest('.servicio-card').remove(); window.calcularTotal ? window.calcularTotal() : null;">&times;</span>
+                // Usamos html+= igual que en tu código de Hotel
+                html += `
+                    <div class="card-header-bus" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h4>🚌 Paquete Bus</h4>
+                        <span style="cursor:pointer; color:red; font-weight:bold; font-size:1.2em;" onclick="this.closest('.servicio-card').remove(); window.calcularTotal && window.calcularTotal()">✖</span>
                     </div>
 
-                    <div class="card-body" style="padding:15px;">
+                    <div class="form-group">
+                        <label>Cant. Noches</label>
+                        <input type="number" name="noches" required style="width: 100px;">
+                    </div>
+
+                    <div class="form-group">
+                        <label style="cursor:pointer; display:flex; align-items:center;">
+                            <input type="checkbox" name="incluye_alojamiento" style="margin-right:10px;"
+                            onchange="document.getElementById('hotel-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
+                            Incluye Alojamiento 🏨
+                        </label>
+                    </div>
+
+                    <div id="hotel-box-${uniqueId}" style="display:none; background:#f9f9f9; padding:10px; border-radius:5px; margin-bottom:15px; border:1px solid #ddd;">
                         
-                        <div class="form-group-row">
-                            <div class="form-group" style="max-width: 150px;">
-                                <label>Cant. Noches</label>
-                                <input type="number" name="noches" class="form-control" required>
-                            </div>
+                        <div class="form-group">
+                            <label>Nombre del Alojamiento</label>
+                            <input type="text" name="hotel_nombre" placeholder="Nombre...">
                         </div>
 
                         <div class="form-group-row">
                             <div class="form-group">
-                                <label style="cursor:pointer; font-weight:600; display:flex; align-items:center;">
-                                    <input type="checkbox" name="incluye_alojamiento" style="transform:scale(1.2); margin-right:10px;"
-                                    onchange="document.getElementById('hotel-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
-                                    Incluye Alojamiento 🏨
-                                </label>
+                                <label>Régimen</label>
+                                <select name="regimen">
+                                    <option>Solo Alojamiento</option>
+                                    <option>Desayuno</option>
+                                    <option>Media Pensión</option>
+                                    <option>Pensión Completa</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Bebidas</label>
+                                <select name="bebidas">
+                                    <option value="No">🚫 No incluye</option>
+                                    <option value="Si">🥤 Si incluye</option>
+                                </select>
                             </div>
                         </div>
 
-                        <div id="hotel-box-${uniqueId}" style="display:none; background:#f8f9fa; padding:15px; border-radius:8px; margin-bottom:15px; border:1px solid #dee2e6;">
-                            
-                            <div class="form-group-row">
-                                <div class="form-group">
-                                    <label>Nombre del Alojamiento</label>
-                                    <input type="text" name="hotel_nombre" class="form-control" placeholder="Nombre...">
-                                </div>
-                            </div>
-
-                            <div class="form-group-row">
-                                <div class="form-group">
-                                    <label>Régimen</label>
-                                    <select name="regimen" class="form-control">
-                                        <option value="Solo Alojamiento">Solo Alojamiento</option>
-                                        <option value="Desayuno">Desayuno</option>
-                                        <option value="Media Pensión">Media Pensión</option>
-                                        <option value="Pensión Completa">Pensión Completa</option>
-                                        <option value="All Inclusive">All Inclusive</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Bebidas</label>
-                                    <select name="bebidas" class="form-control">
-                                        <option value="Sin Bebidas">🚫 No incluye</option>
-                                        <option value="Con Bebidas">🥤 Si incluye</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="form-group-row">
-                                <div class="form-group">
-                                    <label>Ubicación</label>
-                                    <input type="text" name="hotel_ubicacion" class="form-control" placeholder="Ubicación exacta...">
-                                </div>
-                            </div>
+                        <div class="form-group">
+                            <label>Ubicación</label>
+                            <input type="text" name="hotel_ubicacion" placeholder="Ubicación exacta...">
                         </div>
+                    </div>
 
-                        <div class="form-group-row">
-                            <div class="form-group">
-                                <label style="cursor:pointer; font-weight:500; display:flex; align-items:center; margin-bottom:5px;">
-                                    <input type="checkbox" name="incluye_excursiones" style="transform:scale(1.2); margin-right:10px;"
-                                    onchange="document.getElementById('excursion-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
-                                    Incluye Excursiones 🌲
-                                </label>
-                                <div id="excursion-box-${uniqueId}" style="display:none; margin-top:5px;">
-                                    <input type="text" name="excursion_adicional" class="form-control" placeholder="¿Cuáles?">
-                                </div>
-                            </div>
-
-                            <div class="form-group">
-                                <label style="cursor:pointer; font-weight:500; display:flex; align-items:center; margin-top:5px;">
-                                    <input type="checkbox" name="asistencia" style="transform:scale(1.2); margin-right:10px;">
-                                    Asistencia al Viajero 🚑
-                                </label>
-                            </div>
+                    <div class="form-group">
+                        <label style="cursor:pointer; display:flex; align-items:center;">
+                            <input type="checkbox" name="incluye_excursiones" style="margin-right:10px;"
+                            onchange="document.getElementById('excursion-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
+                            Incluye Excursiones 🌲
+                        </label>
+                        <div id="excursion-box-${uniqueId}" style="display:none; margin-top:5px;">
+                            <input type="text" name="excursion_adicional" placeholder="¿Cuáles?">
                         </div>
+                    </div>
 
-                        <div class="form-group-row">
-                            <div class="form-group">
-                                <label>Proveedor</label>
-                                <input type="text" name="proveedor" class="form-control" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Costo Final</label>
-                                <input type="number" name="costo" class="form-control input-costo" required onchange="window.calcularTotal && window.calcularTotal()">
-                            </div>
+                    <div class="form-group">
+                        <label style="cursor:pointer; display:flex; align-items:center;">
+                            <input type="checkbox" name="asistencia" style="margin-right:10px;">
+                            Asistencia al Viajero 🚑
+                        </label>
+                    </div>
+
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label>Proveedor</label>
+                            <input type="text" name="proveedor" required>
                         </div>
-
-                        <div class="form-group-row">
-                            <div class="form-group">
-                                <label>Observaciones</label>
-                                <textarea name="observaciones" class="form-control" rows="2" placeholder="Notas adicionales..."></textarea>
-                            </div>
+                        <div class="form-group">
+                            <label>Costo</label>
+                            <input type="number" name="costo" class="input-costo" onchange="window.calcularTotal && window.calcularTotal()" required>
                         </div>
+                    </div>
 
+                    <div class="form-group">
+                        <label>Observaciones</label>
+                        <textarea name="observaciones" rows="2" placeholder="Notas adicionales..."></textarea>
                     </div>
                 `;
             }
@@ -1152,6 +1135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
