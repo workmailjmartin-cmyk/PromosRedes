@@ -620,7 +620,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <div class="form-group" style="border-bottom: 1px solid #eee; padding: 12px 0;">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <label style="margin:0; font-weight:500; color:#555; white-space: nowrap;">Incluye Alojamiento 🏨</label>
+                            <label style="margin:0; font-weight:500; color:#555; white-space: nowrap;">Incluye Alojamiento 🏨 </label>
                             <input type="checkbox" name="incluye_alojamiento" style="transform: scale(1.5); cursor: pointer; margin-left:15px;"
                             onchange="document.getElementById('hotel-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
                         </div>
@@ -657,7 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <div class="form-group" style="border-bottom: 1px solid #eee; padding: 12px 0;">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <label style="margin:0; font-weight:500; color:#555; white-space: nowrap;">Incluye Excursiones 🌲</label>
+                            <label style="margin:0; font-weight:500; color:#555; white-space: nowrap;">Incluye Excursiones 🌲  </label>
                             <input type="checkbox" name="incluye_excursiones" style="transform: scale(1.5); cursor: pointer; margin-left:15px;"
                             onchange="document.getElementById('excursion-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
                         </div>
@@ -1130,6 +1130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
