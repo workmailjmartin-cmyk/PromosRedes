@@ -619,14 +619,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <div class="form-group" style="border-bottom: 1px solid #eee; padding: 12px 0;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <label style="margin:0; font-weight:500; color:#555; white-space: nowrap;">Incluye Alojamiento 🏨 </label>
-                            <input type="checkbox" name="incluye_alojamiento" style="transform: scale(1.5); cursor: pointer; margin-left:15px;"
-                            onchange="document.getElementById('hotel-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
+                        <div style="display: flex; align-items: center; width: 100%;">
+                            <div style="flex: 1;">
+                                <label style="margin:0; font-weight:500; color:#555; cursor:pointer;" for="chk-aloj-${uniqueId}">
+                                    Incluye Alojamiento 🏨
+                                </label>
+                            </div>
+                            <div style="width: 40px; text-align: right;">
+                                <input type="checkbox" id="chk-aloj-${uniqueId}" name="incluye_alojamiento" style="transform: scale(1.5); cursor: pointer;"
+                                onchange="document.getElementById('hotel-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
+                            </div>
                         </div>
                     </div>
 
-                    <div id="hotel-box-${uniqueId}" style="display:none; background:#f9f9f9; padding:15px; border-radius:5px; margin-bottom:10px; border-left: 3px solid #007bff; margin-top:10px;">
+                    <div id="hotel-box-${uniqueId}" style="display:none; background:#f9f9f9; padding:15px; border-radius:5px; margin-bottom:10px; border-left: 3px solid #007bff; margin-top:5px;">
                         <div class="form-group">
                             <label>Nombre del Alojamiento</label>
                             <input type="text" name="hotel_nombre" class="form-control" placeholder="Nombre...">
@@ -656,10 +662,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <div class="form-group" style="border-bottom: 1px solid #eee; padding: 12px 0;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <label style="margin:0; font-weight:500; color:#555; white-space: nowrap;">Incluye Excursiones 🌲  </label>
-                            <input type="checkbox" name="incluye_excursiones" style="transform: scale(1.5); cursor: pointer; margin-left:15px;"
-                            onchange="document.getElementById('excursion-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
+                        <div style="display: flex; align-items: center; width: 100%;">
+                            <div style="flex: 1;">
+                                <label style="margin:0; font-weight:500; color:#555; cursor:pointer;" for="chk-exc-${uniqueId}">
+                                    Incluye Excursiones 🌲
+                                </label>
+                            </div>
+                            <div style="width: 40px; text-align: right;">
+                                <input type="checkbox" id="chk-exc-${uniqueId}" name="incluye_excursiones" style="transform: scale(1.5); cursor: pointer;"
+                                onchange="document.getElementById('excursion-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
+                            </div>
                         </div>
                         <div id="excursion-box-${uniqueId}" style="display:none; margin-top:10px;">
                             <input type="text" name="excursion_adicional" class="form-control" placeholder="Describir excursiones...">
@@ -667,9 +679,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <div class="form-group" style="border-bottom: 1px solid #eee; padding: 12px 0; margin-bottom: 20px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <label style="margin:0; font-weight:500; color:#555; white-space: nowrap;">Asistencia al Viajero 🚑</label>
-                            <input type="checkbox" name="asistencia" style="transform: scale(1.5); cursor: pointer; margin-left:15px;">
+                        <div style="display: flex; align-items: center; width: 100%;">
+                            <div style="flex: 1;">
+                                <label style="margin:0; font-weight:500; color:#555; cursor:pointer;" for="chk-assist-${uniqueId}">
+                                    Asistencia al Viajero 🚑
+                                </label>
+                            </div>
+                            <div style="width: 40px; text-align: right;">
+                                <input type="checkbox" id="chk-assist-${uniqueId}" name="asistencia" style="transform: scale(1.5); cursor: pointer;">
+                            </div>
                         </div>
                     </div>
 
@@ -1130,6 +1148,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
