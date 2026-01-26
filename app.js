@@ -608,7 +608,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (tipo === 'bus') {
                 const uniqueId = Date.now(); 
 
-                // --- DISEÑO "CASCADA" (Orden solicitado estricto) ---
+                // --- DISEÑO VERTICAL ESTRICTO (NIVEL POR NIVEL) ---
                 html = `
                     <div class="card-header" style="background:#fff3cd; color:#856404; padding:10px 15px; font-weight:bold; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ffeeba;">
                         <span>🚌 PAQUETE BUS</span>
@@ -618,13 +618,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="card-body" style="padding:15px;">
                         
                         <div style="margin-bottom:15px;">
-                            <label style="font-weight:600; font-size:0.9em; display:block; margin-bottom:5px;">Cant. Noches</label>
-                            <input type="number" name="noches" class="form-control" required style="width:150px; padding:8px; border:1px solid #ced4da; border-radius:4px;">
+                            <label style="font-weight:600; display:block; margin-bottom:5px;">Cant. Noches</label>
+                            <input type="number" name="noches" class="form-control" required style="width:100px; padding:8px; border:1px solid #ced4da; border-radius:4px;">
                         </div>
 
-                        <hr style="border:0; border-top:1px solid #eee; margin:10px 0;">
-
-                        <div style="margin-bottom:10px;">
+                        <div style="margin-bottom:10px; padding-top:10px; border-top:1px solid #eee;">
                             <label style="cursor:pointer; font-weight:600; display:flex; align-items:center;">
                                 <input type="checkbox" name="incluye_alojamiento" style="transform:scale(1.2); margin-right:10px;"
                                 onchange="document.getElementById('hotel-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
@@ -632,11 +630,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             </label>
                         </div>
 
-                        <div id="hotel-box-${uniqueId}" style="display:none; background:#f8f9fa; padding:15px; border-left:4px solid #007bff; border-radius:4px; margin-bottom:15px;">
+                        <div id="hotel-box-${uniqueId}" style="display:none; background:#f8f9fa; padding:15px; border-left:3px solid #007bff; border-radius:4px; margin-bottom:15px;">
                             
                             <div style="margin-bottom:10px;">
                                 <label style="font-size:0.85em; color:#666; display:block;">Nombre del Alojamiento</label>
-                                <input type="text" name="hotel_nombre" placeholder="Ej: Hotel Gran Playa" style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px;">
+                                <input type="text" name="hotel_nombre" placeholder="Nombre..." style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px;">
                             </div>
 
                             <div style="display:flex; gap:10px; margin-bottom:10px;">
@@ -653,21 +651,20 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div style="flex:1;">
                                     <label style="font-size:0.85em; color:#666; display:block;">Bebidas</label>
                                     <select name="bebidas" style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px;">
-                                        <option value="Sin Bebidas">🚫 Sin Bebidas</option>
-                                        <option value="Con Bebidas">🥤 Con Bebidas</option>
+                                        <option value="Sin Bebidas">🚫 No</option>
+                                        <option value="Con Bebidas">🥤 Si</option>
                                     </select>
                                 </div>
                             </div>
 
                             <div>
                                 <label style="font-size:0.85em; color:#666; display:block;">Ubicación</label>
-                                <input type="text" name="hotel_ubicacion" placeholder="Ej: Centro / Frente al mar" style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px;">
+                                <input type="text" name="hotel_ubicacion" placeholder="Ubicación exacta..." style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px;">
                             </div>
                         </div>
 
-                        <hr style="border:0; border-top:1px solid #eee; margin:10px 0;">
-
-                        <div style="margin-bottom:15px;">
+                        <div style="margin-bottom:15px; padding-top:10px; border-top:1px solid #eee;">
+                            
                             <div style="margin-bottom:10px;">
                                 <label style="cursor:pointer; font-weight:500; display:flex; align-items:center;">
                                     <input type="checkbox" name="incluye_excursiones" style="transform:scale(1.2); margin-right:10px;"
@@ -675,7 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     Incluye Excursiones 🌲
                                 </label>
                                 <div id="excursion-box-${uniqueId}" style="display:none; margin-top:5px; margin-left:25px;">
-                                    <input type="text" name="excursion_adicional" placeholder="Detalle (Ej: City Tour, Ruinas...)" style="width:100%; padding:8px; border:1px solid #28a745; border-radius:4px;">
+                                    <input type="text" name="excursion_adicional" placeholder="¿Cuáles excursiones?" style="width:100%; padding:8px; border:1px solid #28a745; border-radius:4px;">
                                 </div>
                             </div>
 
@@ -687,21 +684,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </div>
 
-                        <hr style="border:0; border-top:1px solid #eee; margin:10px 0;">
-
-                        <div style="display:flex; gap:15px; margin-bottom:15px;">
+                        <div style="display:flex; gap:15px; margin-bottom:15px; padding-top:10px; border-top:1px solid #eee;">
                             <div style="flex:1;">
-                                <label style="font-weight:600; font-size:0.9em; margin-bottom:5px; display:block;">Proveedor</label>
+                                <label style="font-weight:600; font-size:0.9em; display:block; margin-bottom:5px;">Proveedor</label>
                                 <input type="text" name="proveedor" required class="form-control" style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px;">
                             </div>
                             <div style="flex:1;">
-                                <label style="font-weight:600; font-size:0.9em; margin-bottom:5px; display:block;">Costo Final</label>
+                                <label style="font-weight:600; font-size:0.9em; display:block; margin-bottom:5px;">Costo Final</label>
                                 <input type="number" name="costo" class="form-control input-costo" required onchange="window.calcularTotal && window.calcularTotal()" style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px; font-weight:bold;">
                             </div>
                         </div>
 
                         <div>
-                            <label style="font-weight:600; font-size:0.9em; margin-bottom:5px; display:block;">Observaciones</label>
+                            <label style="font-weight:600; font-size:0.9em; display:block; margin-bottom:5px;">Observaciones</label>
                             <textarea name="observaciones" rows="2" placeholder="Notas adicionales..." style="width:100%; padding:8px; border:1px solid #ced4da; border-radius:4px; resize:vertical;"></textarea>
                         </div>
 
@@ -1148,6 +1143,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
