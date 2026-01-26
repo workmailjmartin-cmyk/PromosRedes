@@ -121,7 +121,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let servicios = [];
         try { servicios = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {}
 
-        const tieneSeguro = Array.isArray(servicios) && servicios.some(s => s.tipo === 'seguro');
+        const tieneSeguro = Array.isArray(servicios) && servicios.some(s => 
+            s.tipo === 'seguro' || (s.tipo === 'bus' && s.asistencia === true)
+        );
 
         // 1. ENCABEZADO
         let texto = `*${pkg.destino.toUpperCase()}*\n`;
@@ -299,21 +301,22 @@ document.addEventListener('DOMContentLoaded', () => {
             // 1. Noches
             if(x.noches) l.push(`🌙 <b>${x.noches} Noches</b>`);
 
-            // 2. Alojamiento (Si está incluido)
+            // 2. Alojamiento
             if(x.incluye_alojamiento){
-                // Nombre del Hotel
+                // Nombre y Link
                 l.push(`🏨 <b>Hotel:</b> ${x.hotel_nombre || 'A confirmar'}`);
-
-                // LINK DE UBICACIÓN (ESTILO IGUAL AL HOTEL)
-                // Si hay un link cargado, lo mostramos como "📍 Ver Ubicación" en naranja
                 if(x.hotel_ubicacion) {
                     l.push(`<a href="${x.hotel_ubicacion}" target="_blank" style="color:#ef5a1a;text-decoration:none;font-weight:bold; display:inline-block; margin-top:2px;">📍 Ver Ubicación</a>`);
                 }
                 
-                // Régimen y bebidas
+                // LÓGICA DE BEBIDAS: Solo mostrar si es Media Pensión o Pensión Completa
                 let infoComida = `🍽 <b>Régimen:</b> ${x.regimen || ''}`;
-                if(x.bebidas === 'Si') infoComida += ` <span style="color:#2ecc71; font-weight:bold;">(🥤 Con Bebidas)</span>`;
-                else if(x.bebidas === 'No') infoComida += ` <span style="color:#e74c3c;">(🚫 Sin Bebidas)</span>`;
+                
+                if (x.regimen === 'Media Pensión' || x.regimen === 'Pensión Completa') {
+                    if(x.bebidas === 'Si') infoComida += ` <span style="color:#2ecc71; font-weight:bold;">(🥤 Con Bebidas)</span>`;
+                    else if(x.bebidas === 'No') infoComida += ` <span style="color:#e74c3c;">(🚫 Sin Bebidas)</span>`;
+                }
+                
                 l.push(infoComida);
             }
 
@@ -1221,6 +1224,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
