@@ -299,12 +299,18 @@ document.addEventListener('DOMContentLoaded', () => {
             // 1. Noches
             if(x.noches) l.push(`🌙 <b>${x.noches} Noches</b>`);
 
-            // 2. Alojamiento
+            // 2. Alojamiento (Si está incluido)
             if(x.incluye_alojamiento){
-                let infoHotel = `🏨 <b>Hotel:</b> ${x.hotel_nombre || 'A confirmar'}`;
-                if(x.hotel_ubicacion) infoHotel += ` <small>(${x.hotel_ubicacion})</small>`;
-                l.push(infoHotel);
+                // Nombre del Hotel
+                l.push(`🏨 <b>Hotel:</b> ${x.hotel_nombre || 'A confirmar'}`);
+
+                // LINK DE UBICACIÓN (ESTILO IGUAL AL HOTEL)
+                // Si hay un link cargado, lo mostramos como "📍 Ver Ubicación" en naranja
+                if(x.hotel_ubicacion) {
+                    l.push(`<a href="${x.hotel_ubicacion}" target="_blank" style="color:#ef5a1a;text-decoration:none;font-weight:bold; display:inline-block; margin-top:2px;">📍 Ver Ubicación</a>`);
+                }
                 
+                // Régimen y bebidas
                 let infoComida = `🍽 <b>Régimen:</b> ${x.regimen || ''}`;
                 if(x.bebidas === 'Si') infoComida += ` <span style="color:#2ecc71; font-weight:bold;">(🥤 Con Bebidas)</span>`;
                 else if(x.bebidas === 'No') infoComida += ` <span style="color:#e74c3c;">(🚫 Sin Bebidas)</span>`;
@@ -325,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(x.observaciones){
                 l.push(`📝 <i>Nota: ${x.observaciones}</i>`);
             }
-        } 
+        }
             else if(x.tipo==='crucero'){i='🚢';t='CRUCERO';l.push(`${x.crucero_naviera} - ${x.crucero_recorrido}`);} 
             h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`; 
         }); 
@@ -1215,6 +1221,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
