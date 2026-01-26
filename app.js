@@ -1082,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LIMPIEZA AUTOMÁTICA (MODO FILA INDIA) ---
     async function autoCleanupPackages(packages) {
         // 1. SEGURIDAD
-        if (!userData || (userData.rol !== 'admin' && userData.rol !== 'editor')) return;
+        if (!userData || (userData.rol !== 'admin')) return;
 
         // 2. FRENO DE MANO (Diario)
         const hoy = new Date().toISOString().split('T')[0];
@@ -1148,6 +1148,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
