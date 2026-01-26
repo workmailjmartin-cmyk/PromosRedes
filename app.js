@@ -879,37 +879,108 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderCards(list, targetGrid = dom.grid) {
-        targetGrid.innerHTML = ''; if (!list || list.length === 0) { targetGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;">No hay resultados.</p>'; return; }
+        targetGrid.innerHTML = ''; 
+        if (!list || list.length === 0) { 
+            targetGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;">No hay resultados.</p>'; 
+            return; 
+        }
+
         list.forEach(pkg => {
             if (!pkg.destino) return; 
-            const card = document.createElement('div'); const noches = getNoches(pkg); card.className = 'paquete-card'; const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; const summaryIcons = getSummaryIcons(pkg); 
+            
+            const card = document.createElement('div'); 
+            card.className = 'paquete-card'; 
+            
+            // 1. Cálculos Básicos
+            const noches = getNoches(pkg); 
+            const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; 
+            const tarifaDoble = Math.round(tarifaMostrar/2);
+            
+            // 2. Estado (Pendiente/Aprobado)
+            let statusTag = ''; 
+            if (pkg.status === 'pending') statusTag = `<span style="background-color:#ffeaa7; color:#d35400; padding:2px 8px; border-radius:10px; font-size:0.6em; margin-left:5px; vertical-align: middle;">⏳ Revisión</span>`;
+            
+            // 3. Estilo de la etiqueta Promo
             const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`; 
-            let statusTag = ''; if (pkg.status === 'pending') statusTag = `<span style="background-color:#ffeaa7; color:#d35400; padding:2px 8px; border-radius:10px; font-size:0.7em; margin-left:5px;">⏳ En Revisión</span>`;
 
+            // 4. LÓGICA DE CONTENIDO DEL CUERPO (BODY)
+            let bodyContent = '';
+            
+            // Buscamos si hay un servicio de Bus
+            let servicios = [];
+            try { servicios = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {}
+            const busData = Array.isArray(servicios) ? servicios.find(s => s.tipo === 'bus') : null;
+
+            if (busData) {
+                // --- MODO BUS: Mostramos detalles específicos manteniendo limpieza ---
+                
+                // Alojamiento (Si existe)
+                if (busData.incluye_alojamiento) {
+                    const iconoBebida = busData.bebidas === 'Si' ? '🥤' : '🚫';
+                    bodyContent += `
+                        <div style="font-size:0.85em; color:#444; margin-bottom:4px; display:flex; align-items:flex-start;">
+                            <span style="margin-right:5px;">🏨</span>
+                            <div>
+                                <strong>${busData.hotel_nombre || 'Hotel'}</strong>
+                                <div style="font-size:0.9em; color:#666;">${busData.regimen || ''} ${busData.bebidas ? `(${iconoBebida})` : ''}</div>
+                            </div>
+                        </div>`;
+                }
+
+                // Excursiones (Si existe)
+                if (busData.incluye_excursiones) {
+                    bodyContent += `
+                        <div style="font-size:0.85em; color:#444; margin-bottom:4px; display:flex; align-items:flex-start;">
+                            <span style="margin-right:5px;">🌲</span>
+                            <div>${busData.excursion_adicional || 'Excursiones incluidas'}</div>
+                        </div>`;
+                }
+
+                // Asistencia (Si existe)
+                if (busData.asistencia) {
+                    bodyContent += `
+                        <div style="font-size:0.85em; color:#444; margin-bottom:4px;">
+                            <span style="margin-right:5px;">🚑</span> Asistencia al Viajero
+                        </div>`;
+                }
+
+                // Si por alguna razón no tiene nada de lo anterior, mostramos "Bus Semicama/Cama" o algo genérico
+                if (!bodyContent) {
+                     bodyContent = `<div style="font-size:0.85em; color:#555;">🚌 Pasaje en Bus</div>`;
+                }
+
+            } else {
+                // --- MODO ESTÁNDAR (Aéreos, etc): Mostramos los iconos de siempre ---
+                const summaryIcons = getSummaryIcons(pkg); 
+                bodyContent = `<div style="font-size:0.85em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div>`;
+            }
+
+            // 5. ARMADO DE LA TARJETA (ESTRUCTURA UNIFICADA)
+            // Usamos exactamente el mismo HTML para todos, solo cambia ${bodyContent}
             card.innerHTML = `
                 <div class="card-clickable">
                     <div class="card-header">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
-                            <div style="max-width:75%; padding-right:30px;">
-                                <h3 style="margin:0;font-size:1.5em;line-height:1.2;color:#11173d;">${pkg['destino']} ${statusTag}</h3>
+                            <div style="max-width:75%; padding-right:10px;">
+                                <h3 style="margin:0;font-size:1.3em;line-height:1.2;color:#11173d;">${pkg['destino']} ${statusTag}</h3>
                             </div>
-                            ${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:5px 10px;border-radius:12px;font-weight:bold;font-size:0.8em;white-space:nowrap;">🌙 ${noches}</div>` : ''}
+                            ${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:4px 8px;border-radius:12px;font-weight:bold;font-size:0.8em;white-space:nowrap;">🌙 ${noches}</div>` : ''}
                         </div>
-                        <div class="fecha">📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</div>
+                        <div class="fecha" style="margin-top:5px; font-size:0.85em; color:#888;">📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</div>
                     </div>
                     
-                    <div class="card-body">
-                        <div style="font-size:0.85em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div>
+                    <div class="card-body" style="padding: 10px 15px; min-height: 60px;">
+                        ${bodyContent}
                     </div>
                     
-                    <div class="card-footer" style="display:flex; justify-content:space-between; align-items:flex-end;">
+                    <div class="card-footer" style="display:flex; justify-content:space-between; align-items:flex-end; padding-top:10px; border-top:1px solid #f0f0f0;">
                         <div><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
                         
                         <div style="text-align: right;">
-                            <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${pkg['salida']}</div>
+                            <div style="font-size: 0.75em; color: #999; font-weight: 500; text-transform: uppercase;">Desde ${pkg['salida']}</div>
                             
-                            <p class="precio-valor" style="margin: 5px 0 0 0;">
-                                ${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar/2))}
+                            <p class="precio-valor" style="margin: 2px 0 0 0; font-size: 1.2em; font-weight: bold; color: #2ecc71;">
+                                ${pkg['moneda']} $${formatMoney(tarifaDoble)}
                             </p>
                         </div>
                     </div>
@@ -1183,6 +1254,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
