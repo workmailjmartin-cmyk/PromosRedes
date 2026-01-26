@@ -293,7 +293,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(x.cobertura) l.push(x.cobertura);
             } 
             else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} 
-            else if(x.tipo==='bus'){i='🚌';t='BUS';l.push(`${x.bus_noches} Noches`);} 
+            else if(x.tipo === 'bus'){
+            i='🚌'; t='PAQUETE BUS';
+            
+            // 1. Noches
+            if(x.noches) l.push(`🌙 <b>${x.noches} Noches</b>`);
+
+            // 2. Alojamiento
+            if(x.incluye_alojamiento){
+                let infoHotel = `🏨 <b>Hotel:</b> ${x.hotel_nombre || 'A confirmar'}`;
+                if(x.hotel_ubicacion) infoHotel += ` <small>(${x.hotel_ubicacion})</small>`;
+                l.push(infoHotel);
+                
+                let infoComida = `🍽 <b>Régimen:</b> ${x.regimen || ''}`;
+                if(x.bebidas === 'Si') infoComida += ` <span style="color:#2ecc71; font-weight:bold;">(🥤 Con Bebidas)</span>`;
+                else if(x.bebidas === 'No') infoComida += ` <span style="color:#e74c3c;">(🚫 Sin Bebidas)</span>`;
+                l.push(infoComida);
+            }
+
+            // 3. Excursiones
+            if(x.incluye_excursiones){
+                l.push(`🌲 <b>Excursiones:</b> ${x.excursion_adicional || 'Incluidas'}`);
+            }
+
+            // 4. Asistencia
+            if(x.asistencia){
+                l.push(`🚑 <b>Asistencia al Viajero:</b> Incluida`);
+            }
+
+            // 5. Observaciones
+            if(x.observaciones){
+                l.push(`📝 <i>Nota: ${x.observaciones}</i>`);
+            }
+        } 
             else if(x.tipo==='crucero'){i='🚢';t='CRUCERO';l.push(`${x.crucero_naviera} - ${x.crucero_recorrido}`);} 
             h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`; 
         }); 
@@ -1183,6 +1215,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
