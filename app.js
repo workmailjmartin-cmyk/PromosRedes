@@ -614,7 +614,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
 
                     <div class="form-group">
-                        <label style="font-weight:600;">Cant. Noches</label>
+                        <label style="font-weight:600;">Cant. Noches <span style="color:red">*</span></label>
                         <input type="number" name="noches" class="form-control" required style="width: 100px;">
                     </div>
 
@@ -627,20 +627,25 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <div style="width: 40px; text-align: right;">
                                 <input type="checkbox" id="chk-aloj-${uniqueId}" name="incluye_alojamiento" style="transform: scale(1.5); cursor: pointer;"
-                                onchange="document.getElementById('hotel-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
+                                onchange="
+                                    const box = document.getElementById('hotel-box-${uniqueId}');
+                                    box.style.display = this.checked ? 'block' : 'none';
+                                    box.querySelectorAll('input, select').forEach(el => el.required = this.checked);
+                                ">
                             </div>
                         </div>
                     </div>
 
                     <div id="hotel-box-${uniqueId}" style="display:none; background:#f9f9f9; padding:15px; border-radius:5px; margin-bottom:10px; border-left: 3px solid #007bff; margin-top:5px;">
                         <div class="form-group">
-                            <label>Nombre del Alojamiento</label>
+                            <label>Nombre del Alojamiento <span style="color:red">*</span></label>
                             <input type="text" name="hotel_nombre" class="form-control" placeholder="Nombre...">
                         </div>
                         <div class="form-group-row">
                             <div class="form-group">
-                                <label>Régimen</label>
+                                <label>Régimen <span style="color:red">*</span></label>
                                 <select name="regimen" class="form-control">
+                                    <option value="" disabled selected>-- Seleccionar --</option>
                                     <option>Solo Alojamiento</option>
                                     <option>Desayuno</option>
                                     <option>Media Pensión</option>
@@ -648,15 +653,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Bebidas</label>
+                                <label>Bebidas <span style="color:red">*</span></label>
                                 <select name="bebidas" class="form-control">
+                                    <option value="" disabled selected>-- Seleccionar --</option>
                                     <option value="No">🚫 No incluye</option>
                                     <option value="Si">🥤 Si incluye</option>
                                 </select>
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Ubicación</label>
+                            <label>Ubicación <span style="color:red">*</span></label>
                             <input type="text" name="hotel_ubicacion" class="form-control" placeholder="Ubicación exacta...">
                         </div>
                     </div>
@@ -670,10 +676,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <div style="width: 40px; text-align: right;">
                                 <input type="checkbox" id="chk-exc-${uniqueId}" name="incluye_excursiones" style="transform: scale(1.5); cursor: pointer;"
-                                onchange="document.getElementById('excursion-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
+                                onchange="
+                                    const box = document.getElementById('excursion-box-${uniqueId}');
+                                    box.style.display = this.checked ? 'block' : 'none';
+                                    box.querySelectorAll('input').forEach(el => el.required = this.checked);
+                                ">
                             </div>
                         </div>
                         <div id="excursion-box-${uniqueId}" style="display:none; margin-top:10px;">
+                            <label style="font-size:0.9em;">Detalle de excursiones <span style="color:red">*</span></label>
                             <input type="text" name="excursion_adicional" class="form-control" placeholder="Describir excursiones...">
                         </div>
                     </div>
@@ -693,11 +704,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <div class="form-group-row">
                         <div class="form-group">
-                            <label>Proveedor</label>
+                            <label>Proveedor <span style="color:red">*</span></label>
                             <input type="text" name="proveedor" class="form-control" required>
                         </div>
                         <div class="form-group">
-                            <label>Costo</label>
+                            <label>Costo <span style="color:red">*</span></label>
                             <input type="number" name="costo" class="form-control input-costo" onchange="window.calcularTotal && window.calcularTotal()" required>
                         </div>
                     </div>
@@ -1148,6 +1159,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
