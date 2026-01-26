@@ -618,15 +618,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="number" name="noches" class="form-control" required style="width: 100px;">
                     </div>
 
-                    <div class="form-group" style="border-bottom: 1px solid #eee; padding: 10px 0;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <label style="margin:0; font-weight:500; color:#555;">Incluye Alojamiento 🏨</label>
-                            <input type="checkbox" name="incluye_alojamiento" style="transform: scale(1.5); cursor: pointer;"
+                    <div class="form-group" style="border-bottom: 1px solid #eee; padding: 12px 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <label style="margin:0; font-weight:500; color:#555; white-space: nowrap;">Incluye Alojamiento 🏨</label>
+                            <input type="checkbox" name="incluye_alojamiento" style="transform: scale(1.5); cursor: pointer; margin-left:15px;"
                             onchange="document.getElementById('hotel-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
                         </div>
                     </div>
 
-                    <div id="hotel-box-${uniqueId}" style="display:none; background:#f9f9f9; padding:15px; border-radius:5px; margin-bottom:10px; border-left: 3px solid #007bff;">
+                    <div id="hotel-box-${uniqueId}" style="display:none; background:#f9f9f9; padding:15px; border-radius:5px; margin-bottom:10px; border-left: 3px solid #007bff; margin-top:10px;">
                         <div class="form-group">
                             <label>Nombre del Alojamiento</label>
                             <input type="text" name="hotel_nombre" class="form-control" placeholder="Nombre...">
@@ -655,10 +655,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
 
-                    <div class="form-group" style="border-bottom: 1px solid #eee; padding: 10px 0;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <label style="margin:0; font-weight:500; color:#555;">Incluye Excursiones 🌲</label>
-                            <input type="checkbox" name="incluye_excursiones" style="transform: scale(1.5); cursor: pointer;"
+                    <div class="form-group" style="border-bottom: 1px solid #eee; padding: 12px 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <label style="margin:0; font-weight:500; color:#555; white-space: nowrap;">Incluye Excursiones 🌲</label>
+                            <input type="checkbox" name="incluye_excursiones" style="transform: scale(1.5); cursor: pointer; margin-left:15px;"
                             onchange="document.getElementById('excursion-box-${uniqueId}').style.display = this.checked ? 'block' : 'none'">
                         </div>
                         <div id="excursion-box-${uniqueId}" style="display:none; margin-top:10px;">
@@ -666,10 +666,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
 
-                    <div class="form-group" style="border-bottom: 1px solid #eee; padding: 10px 0; margin-bottom: 20px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <label style="margin:0; font-weight:500; color:#555;">Asistencia al Viajero 🚑</label>
-                            <input type="checkbox" name="asistencia" style="transform: scale(1.5); cursor: pointer;">
+                    <div class="form-group" style="border-bottom: 1px solid #eee; padding: 12px 0; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <label style="margin:0; font-weight:500; color:#555; white-space: nowrap;">Asistencia al Viajero 🚑</label>
+                            <input type="checkbox" name="asistencia" style="transform: scale(1.5); cursor: pointer; margin-left:15px;">
                         </div>
                     </div>
 
@@ -1130,6 +1130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
 
 
 
