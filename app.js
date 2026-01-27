@@ -121,7 +121,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let servicios = [];
         try { servicios = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {}
 
-        const tieneSeguro = Array.isArray(servicios) && servicios.some(s => s.tipo === 'seguro');
+        const tieneSeguro = Array.isArray(servicios) && servicios.some(s => 
+            s.tipo === 'seguro' || (s.tipo === 'bus' && s.asistencia === true)
+        );
 
         // 1. ENCABEZADO
         let texto = `*${pkg.destino.toUpperCase()}*\n`;
@@ -175,8 +177,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     texto += `${s.cobertura || 'Asistencia al viajero'}\n\n`;
 
                 } else if (s.tipo === 'bus') {
-                    texto += `> 🚌 *BUS*\n`;
-                    texto += `${s.bus_noches} Noches ${s.bus_regimen ? '('+s.bus_regimen+')' : ''}\n\n`;
+                    texto += `> 🚌 *PAQUETE BUS* (${s.noches || '?'} Noches)\n`;
+        
+                    // Si tiene alojamiento, mostramos los detalles
+                    if (s.incluye_alojamiento) {
+                        texto += `> 🏨 *Hotel:* ${s.hotel_nombre || 'A confirmar'}\n`;
+                        
+                        // Ubicación (si existe)
+                        if (s.hotel_ubicacion) texto += `> 📍 *Ubicación:* ${s.hotel_ubicacion}\n`;
+                        
+                        // LÓGICA INTELIGENTE DE RÉGIMEN Y BEBIDAS
+                        texto += `> 🍽 *Régimen:* ${s.regimen || ''}`;
+                        
+                        // Solo agregamos el detalle de bebidas si es MP o PC
+                        if (s.regimen === 'Media Pensión' || s.regimen === 'Pensión Completa') {
+                            texto += ` ${s.bebidas === 'Si' ? '(🥤 Con Bebidas)' : '(🚫 Sin Bebidas)'}`;
+                        }
+                        texto += `\n`; // Cerramos el renglón
+                    }
+        
+                    // Si tiene excursiones
+                    if (s.incluye_excursiones) {
+                        texto += `> 🌲 *Excursiones:* ${s.excursion_adicional || 'Incluidas'}\n`;
+                    }
+        
+                    // Si tiene asistencia
+                    if (s.asistencia) {
+                        texto += `> 🚑 *Asistencia al Viajero Incluida*\n`;
+                    }
+        
+                    // Observaciones extra
+                    if (s.observaciones) {
+                        texto += `> 📝 *Nota:* ${s.observaciones}\n`;
+                    }
+                    
+                    // Un salto de línea extra para separar del siguiente servicio
+                    texto += `\n`;
 
                 } else if (s.tipo === 'crucero') {
                     texto += `> 🚢 *CRUCERO*\n`;
@@ -269,7 +305,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(x.cobertura) l.push(x.cobertura);
             } 
             else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} 
-            else if(x.tipo==='bus'){i='🚌';t='BUS';l.push(`${x.bus_noches} Noches`);} 
+            else if(x.tipo === 'bus'){
+            i='🚌'; t='PAQUETE BUS';
+            
+            // 1. Noches
+            if(x.noches) l.push(`🌙 <b>${x.noches} Noches</b>`);
+
+            // 2. Alojamiento
+            if(x.incluye_alojamiento){
+                // Nombre y Link
+                l.push(`🏨 <b>Hotel:</b> ${x.hotel_nombre || 'A confirmar'}`);
+                if(x.hotel_ubicacion) {
+                    l.push(`<a href="${x.hotel_ubicacion}" target="_blank" style="color:#ef5a1a;text-decoration:none;font-weight:bold; display:inline-block; margin-top:2px;">📍 Ver Ubicación</a>`);
+                }
+                
+                // LÓGICA DE BEBIDAS: Solo mostrar si es Media Pensión o Pensión Completa
+                let infoComida = `🍽 <b>Régimen:</b> ${x.regimen || ''}`;
+                
+                if (x.regimen === 'Media Pensión' || x.regimen === 'Pensión Completa') {
+                    if(x.bebidas === 'Si') infoComida += ` <span style="color:#2ecc71; font-weight:bold;">(🥤 Con Bebidas)</span>`;
+                    else if(x.bebidas === 'No') infoComida += ` <span style="color:#e74c3c;">(🚫 Sin Bebidas)</span>`;
+                }
+                
+                l.push(infoComida);
+            }
+
+            // 3. Excursiones
+            if(x.incluye_excursiones){
+                l.push(`🌲 <b>Excursiones:</b> ${x.excursion_adicional || 'Incluidas'}`);
+            }
+
+            // 4. Asistencia
+            if(x.asistencia){
+                l.push(`🚑 <b>Asistencia al Viajero:</b> Incluida`);
+            }
+
+            // 5. Observaciones
+            if(x.observaciones){
+                l.push(`📝 <i>Nota: ${x.observaciones}</i>`);
+            }
+        }
             else if(x.tipo==='crucero'){i='🚢';t='CRUCERO';l.push(`${x.crucero_naviera} - ${x.crucero_recorrido}`);} 
             h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`; 
         }); 
@@ -605,7 +680,120 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="form-group-row"><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;
         }
         else if(tipo==='adicional'){html+=`<h4>➕ Adicional</h4><div class="form-group"><label>Detalle</label><input type="text" name="descripcion" required></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
-        else if(tipo==='bus'){html+=`<h4>🚌 Paquete Bus</h4><div class="form-group-row"><div class="form-group"><label>Cant. Noches</label><input type="number" name="bus_noches" required></div><div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:10px;"><div class="checkbox-group"><label class="checkbox-label"><input type="checkbox" name="bus_alojamiento" onchange="document.getElementById('bus-regimen-${id}').style.display=this.checked?'block':'none'"> Incluye Alojamiento</label></div></div></div><div id="bus-regimen-${id}" class="form-group" style="display:none;margin-top:-10px;margin-bottom:15px;background:#f9f9f9;padding:10px;border-radius:8px;"><label>Régimen</label><select name="bus_regimen"><option value="Sin Pensión">Sin Pensión</option><option value="Desayuno">Desayuno</option><option value="Media Pensión">Media Pensión</option><option value="Pensión Completa">Pensión Completa</option></select></div><div class="checkbox-group" style="margin-bottom:15px;"><label class="checkbox-label"><input type="checkbox" name="bus_excursiones"> Incluye Excursiones</label><label class="checkbox-label"><input type="checkbox" name="bus_asistencia"> Asistencia al Viajero</label></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
+        else if (tipo === 'bus') {
+                const uniqueId = Date.now();
+
+                html += `
+                    <div style="margin-bottom:15px; border-bottom: 2px solid #f8f9fa; padding-bottom:10px;">
+                        <h4 style="margin:0; color:#333;">🚌 Paquete Bus</h4>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-weight:600;">Cant. Noches <span style="color:red">*</span></label>
+                        <input type="number" name="noches" class="form-control" required style="width: 100px;">
+                    </div>
+
+                    <div class="form-group" style="border-bottom: 1px solid #eee; padding: 12px 0;">
+                        <div style="display: flex; align-items: center; width: 100%;">
+                            <div style="flex: 1;">
+                                <label style="margin:0; font-weight:500; color:#555; cursor:pointer;" for="chk-aloj-${uniqueId}">
+                                    Incluye Alojamiento 🏨
+                                </label>
+                            </div>
+                            <div style="width: 40px; text-align: right;">
+                                <input type="checkbox" id="chk-aloj-${uniqueId}" name="incluye_alojamiento" style="transform: scale(1.5); cursor: pointer;"
+                                onchange="
+                                    const box = document.getElementById('hotel-box-${uniqueId}');
+                                    box.style.display = this.checked ? 'block' : 'none';
+                                    box.querySelectorAll('input, select').forEach(el => el.required = this.checked);
+                                ">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="hotel-box-${uniqueId}" style="display:none; background:#f9f9f9; padding:15px; border-radius:5px; margin-bottom:10px; border-left: 3px solid #007bff; margin-top:5px;">
+                        <div class="form-group">
+                            <label>Nombre del Alojamiento <span style="color:red">*</span></label>
+                            <input type="text" name="hotel_nombre" class="form-control" placeholder="Nombre...">
+                        </div>
+                        <div class="form-group-row">
+                            <div class="form-group">
+                                <label>Régimen <span style="color:red">*</span></label>
+                                <select name="regimen" class="form-control">
+                                    <option value="" disabled selected>-- Seleccionar --</option>
+                                    <option>Solo Alojamiento</option>
+                                    <option>Desayuno</option>
+                                    <option>Media Pensión</option>
+                                    <option>Pensión Completa</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Bebidas <span style="color:red">*</span></label>
+                                <select name="bebidas" class="form-control">
+                                    <option value="" disabled selected>-- Seleccionar --</option>
+                                    <option value="No">🚫 No incluye</option>
+                                    <option value="Si">🥤 Si incluye</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Ubicación <span style="color:red">*</span></label>
+                            <input type="text" name="hotel_ubicacion" class="form-control" placeholder="Ubicación exacta...">
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="border-bottom: 1px solid #eee; padding: 12px 0;">
+                        <div style="display: flex; align-items: center; width: 100%;">
+                            <div style="flex: 1;">
+                                <label style="margin:0; font-weight:500; color:#555; cursor:pointer;" for="chk-exc-${uniqueId}">
+                                    Incluye Excursiones 🌲
+                                </label>
+                            </div>
+                            <div style="width: 40px; text-align: right;">
+                                <input type="checkbox" id="chk-exc-${uniqueId}" name="incluye_excursiones" style="transform: scale(1.5); cursor: pointer;"
+                                onchange="
+                                    const box = document.getElementById('excursion-box-${uniqueId}');
+                                    box.style.display = this.checked ? 'block' : 'none';
+                                    box.querySelectorAll('input').forEach(el => el.required = this.checked);
+                                ">
+                            </div>
+                        </div>
+                        <div id="excursion-box-${uniqueId}" style="display:none; margin-top:10px;">
+                            <label style="font-size:0.9em;">Detalle de excursiones <span style="color:red">*</span></label>
+                            <input type="text" name="excursion_adicional" class="form-control" placeholder="Describir excursiones...">
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="border-bottom: 1px solid #eee; padding: 12px 0; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; width: 100%;">
+                            <div style="flex: 1;">
+                                <label style="margin:0; font-weight:500; color:#555; cursor:pointer;" for="chk-assist-${uniqueId}">
+                                    Asistencia al Viajero 🚑
+                                </label>
+                            </div>
+                            <div style="width: 40px; text-align: right;">
+                                <input type="checkbox" id="chk-assist-${uniqueId}" name="asistencia" style="transform: scale(1.5); cursor: pointer;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label>Proveedor <span style="color:red">*</span></label>
+                            <input type="text" name="proveedor" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Costo <span style="color:red">*</span></label>
+                            <input type="number" name="costo" class="form-control input-costo" onchange="window.calcularTotal && window.calcularTotal()" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Observaciones</label>
+                        <textarea name="observaciones" class="form-control" rows="2" placeholder="Notas adicionales..."></textarea>
+                    </div>
+                `;
+            }
         else if(tipo==='crucero'){html+=`<h4>🚢 Crucero</h4><div class="form-group-row"><div class="form-group"><label>Naviera</label><input type="text" name="crucero_naviera" required></div><div class="form-group"><label>Noches</label><input type="number" name="crucero_noches" required></div></div><div class="form-group-row"><div class="form-group"><label>Puerto Salida</label><input type="text" name="crucero_puerto_salida" required></div><div class="form-group"><label>Puertos que Recorre</label><input type="text" name="crucero_recorrido" required></div></div><div class="form-group"><label>Información Adicional</label><textarea name="crucero_info" rows="2"></textarea></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
 
         div.innerHTML = html;
@@ -980,7 +1168,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LIMPIEZA AUTOMÁTICA (MODO FILA INDIA) ---
     async function autoCleanupPackages(packages) {
         // 1. SEGURIDAD
-        if (!userData || (userData.rol !== 'admin' && userData.rol !== 'editor')) return;
+        if (!userData || (userData.rol !== 'admin')) return;
 
         // 2. FRENO DE MANO (Diario)
         const hoy = new Date().toISOString().split('T')[0];
@@ -1046,6 +1234,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
