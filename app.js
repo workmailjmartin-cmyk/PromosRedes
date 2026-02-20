@@ -249,7 +249,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 } else if (s.tipo === 'bus') {
                     texto += `> 🚌 *PAQUETE BUS* (${s.noches || '?'} Noches)\n`;
-        
+                    
+                    if (s.bus_salida) {
+                        texto += `> 📍 *Salida desde:* ${s.bus_salida}\n`;
+                    }
                     // Si tiene alojamiento, mostramos los detalles
                     if (s.incluye_alojamiento) {
                         texto += `> 🏨 *Hotel:* ${s.hotel_nombre || 'A confirmar'}\n`;
@@ -381,7 +384,10 @@ document.addEventListener('DOMContentLoaded', () => {
             else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} 
             else if(x.tipo === 'bus'){
             i='🚌'; t='PAQUETE BUS';
-            
+                
+            if(x.bus_salida) {
+                l.push(`📍 <b>Salida desde:</b> ${x.bus_salida}`);
+            }
             // 1. Noches
             if(x.noches) l.push(`🌙 <b>${x.noches} Noches</b>`);
 
@@ -770,9 +776,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h4 style="margin:0; color:#333;">🚌 Paquete Bus</h4>
                     </div>
 
-                    <div class="form-group">
-                        <label style="font-weight:600;">Cant. Noches <span style="color:red">*</span></label>
-                        <input type="number" name="noches" class="form-control" required style="width: 100px;">
+                   <div class="form-group-row">
+                        <div class="form-group" style="flex: 0 0 auto;">
+                            <label style="font-weight:600;">Cant. Noches <span style="color:red">*</span></label>
+                            <input type="number" name="noches" class="form-control" required style="width: 100px;">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label style="font-weight:600;">Ciudad de Salida (Opcional)</label>
+                            <input type="text" name="bus_salida" class="form-control" placeholder="Ej: Córdoba, Rosario...">
+                        </div>
                     </div>
 
                     <div class="form-group" style="border-bottom: 1px solid #eee; padding: 12px 0;">
@@ -1317,5 +1329,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
