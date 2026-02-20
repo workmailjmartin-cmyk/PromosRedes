@@ -344,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(x.tipo==='aereo'){
                 i='✈️';t='AÉREO';
                 if(x.aeropuerto_salida) {
-                    l.push(`🛫 <b>Salida:</b> ${x.aeropuerto_salida}`);
+                    l.push(`🛫 <b>Salida desde:</b> ${x.aeropuerto_salida}`);
                 }
                 l.push(`<b>${x.aerolinea}</b>`);
                 l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);
@@ -1317,4 +1317,5 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
