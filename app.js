@@ -21,6 +21,74 @@ document.addEventListener('DOMContentLoaded', () => {
     const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
 
+    // --- DICCIONARIO DE AEROPUERTOS POR PROVINCIA ---
+    const aeropuertosPorProvincia = {
+        "Buenos Aires": [
+            {nombre: "Ezeiza - Ministro Pistarini", sigla: "EZE"},
+            {nombre: "Aeroparque Jorge Newbery", sigla: "AEP"},
+            {nombre: "El Palomar", sigla: "EPA"},
+            {nombre: "Mar del Plata - Astor Piazzolla", sigla: "MDQ"},
+            {nombre: "Bahía Blanca - Comandante Espora", sigla: "BHI"},
+            {nombre: "San Fernando", sigla: "FDO"}
+        ],
+        "CABA": [{nombre: "Aeroparque Jorge Newbery", sigla: "AEP"}],
+        "Catamarca": [{nombre: "Catamarca - Felipe Varela", sigla: "CTC"}],
+        "Chaco": [{nombre: "Resistencia", sigla: "RES"}],
+        "Chubut": [
+            {nombre: "Comodoro Rivadavia", sigla: "CRV"}, {nombre: "Trelew", sigla: "REL"},
+            {nombre: "Puerto Madryn", sigla: "PMY"}, {nombre: "Esquel", sigla: "EQS"}
+        ],
+        "Córdoba": [
+            {nombre: "Córdoba - Ing. Taravella", sigla: "COR"},
+            {nombre: "Río Cuarto", sigla: "RCU"}
+        ],
+        "Corrientes": [{nombre: "Corrientes", sigla: "CNQ"}, {nombre: "Paso de los Libres", sigla: "AOL"}],
+        "Entre Ríos": [{nombre: "Paraná", sigla: "PRA"}],
+        "Formosa": [{nombre: "Formosa", sigla: "FMA"}],
+        "Jujuy": [{nombre: "Jujuy - Horacio Guzmán", sigla: "JUJ"}],
+        "La Pampa": [{nombre: "Santa Rosa", sigla: "RSA"}, {nombre: "General Pico", sigla: "GPO"}],
+        "La Rioja": [{nombre: "La Rioja", sigla: "IRJ"}],
+        "Mendoza": [
+            {nombre: "Mendoza - El Plumerillo", sigla: "MDZ"},
+            {nombre: "San Rafael", sigla: "AFA"}, {nombre: "Malargüe", sigla: "LGS"}
+        ],
+        "Misiones": [{nombre: "Iguazú", sigla: "IGR"}, {nombre: "Posadas", sigla: "PSS"}],
+        "Neuquén": [{nombre: "Neuquén", sigla: "NQN"}, {nombre: "San Martín de los Andes", sigla: "CPC"}],
+        "Río Negro": [{nombre: "Bariloche", sigla: "BRC"}, {nombre: "Viedma", sigla: "VDM"}],
+        "Salta": [{nombre: "Salta - Güemes", sigla: "SLA"}],
+        "San Juan": [{nombre: "San Juan", sigla: "UAQ"}],
+        "San Luis": [{nombre: "San Luis", sigla: "LUQ"}, {nombre: "Merlo", sigla: "RLO"}],
+        "Santa Cruz": [
+            {nombre: "El Calafate", sigla: "FTE"}, {nombre: "Río Gallegos", sigla: "RGL"},
+            {nombre: "Puerto Deseado", sigla: "PUD"}, {nombre: "Perito Moreno", sigla: "PMQ"}
+        ],
+        "Santa Fe": [{nombre: "Rosario", sigla: "ROS"}, {nombre: "Santa Fe", sigla: "SFN"}],
+        "Santiago del Estero": [{nombre: "Santiago del Estero", sigla: "SDE"}, {nombre: "Termas de Río Hondo", sigla: "RHD"}],
+        "Tierra del Fuego": [{nombre: "Ushuaia", sigla: "USH"}, {nombre: "Río Grande", sigla: "RGA"}],
+        "Tucumán": [{nombre: "Tucumán", sigla: "TUC"}]
+    };
+    
+    function actualizarAeropuertos(provinciaSeleccionada) {
+        const selectAeropuerto = document.querySelector('[name="aeropuerto_salida"]');
+        if(!selectAeropuerto) return;
+        selectAeropuerto.innerHTML = '<option value="">-- No especificar --</option>';
+        if (aeropuertosPorProvincia[provinciaSeleccionada]) {
+            aeropuertosPorProvincia[provinciaSeleccionada].forEach(aero => {
+                const option = document.createElement('option');
+                option.value = `${aero.nombre} (${aero.sigla})`;
+                option.textContent = `${aero.nombre} (${aero.sigla})`;
+                selectAeropuerto.appendChild(option);
+            });
+        }
+    }
+    
+    document.addEventListener('change', (e) => {
+        // Conectamos el filtro al campo de Salida de tu formulario principal
+        if (e.target.id === 'upload-salida') {
+            actualizarAeropuertos(e.target.value);
+        }
+    });
+
     // ESTADO GLOBAL
     let currentUser = null;
     let userData = null; 
@@ -648,47 +716,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <option>Mochila + Carry On + Bodega</option>
                     </select>
                 </div>
-            <div class="form-group">
-                <label>Aeropuerto de Salida (Opcional)</label>
-                <select name="aeropuerto_salida" class="form-control">
-                    <option value="">-- No especificar --</option>
-                    <option value="Buenos Aires (EZE)">Buenos Aires (EZE)</option> 
-                    <option value="Buenos Aires (AEP)">Buenos Aires (AEP)</option>
-                    <option value="Córdoba (COR)">Córdoba (COR)</option>
-                    <option value="Rosario (ROS)">Rosario (ROS)</option>
-                    <option value="Mendoza (MDZ)">Mendoza (MDZ)</option>
-                    <option value="Salta (SLA)">Salta (SLA)</option>
-                    <option value="Iguazú (IGR)">Iguazú (IGR)</option>
-                    <option value="Bariloche (BRC)">Bariloche (BRC)</option>
-                    <option value="Ushuaia (USH)">Ushuaia (USH)</option>
-                    <option value="El Calafate (FTE)">El Calafate (FTE)</option>
-                    <option value="Neuquén (NQN)">Neuquén (NQN)</option>
-                    <option value="Tucumán (TUC)">Tucumán (TUC)</option>
-                    <option value="Jujuy (JUJ)">Jujuy (JUJ)</option>
-                    <option value="Mar del Plata (MDQ)">Mar del Plata (MDQ)</option>
-                    <option value="Bahía Blanca (BHI)">Bahía Blanca (BHI)</option>
-                    <option value="Posadas (PSS)">Posadas (PSS)</option>
-                    <option value="Resistencia (RES)">Resistencia (RES)</option>
-                    <option value="Corrientes (CNQ)">Corrientes (CNQ)</option>
-                    <option value="Santiago del Estero (SDE)">Santiago del Estero (SDE)</option>
-                    <option value="Termas de Río Hondo (RHD)">Termas de Río Hondo (RHD)</option>
-                    <option value="San Juan (UAQ)">San Juan (UAQ)</option>
-                    <option value="San Luis (LUQ)">San Luis (LUQ)</option>
-                    <option value="Merlo (RLO)">Merlo (RLO)</option>
-                    <option value="San Rafael (AFA)">San Rafael (AFA)</option>
-                    <option value="La Rioja (IRJ)">La Rioja (IRJ)</option>
-                    <option value="Catamarca (CTC)">Catamarca (CTC)</option>
-                    <option value="Santa Rosa (RSA)">Santa Rosa (RSA)</option>
-                    <option value="Viedma (VDM)">Viedma (VDM)</option>
-                    <option value="Puerto Madryn (PMY)">Puerto Madryn (PMY)</option>
-                    <option value="Trelew (REL)">Trelew (REL)</option>
-                    <option value="Comodoro Rivadavia (CRV)">Comodoro Rivadavia (CRV)</option>
-                    <option value="Río Gallegos (RGL)">Río Gallegos (RGL)</option>
-                    <option value="Río Grande (RGA)">Río Grande (RGA)</option>
-                    <option value="San Martín de los Andes (CPC)">San Martín de los Andes (CPC)</option>
-                    <option value="Esquel (EQS)">Esquel (EQS)</option>
-                    <option value="Formosa (FMA)">Formosa (FMA)</option>
-                </select>
+            <div class="form-group-row">
+                <div class="form-group" style="flex: 1;">
+                    <label>🛫 Aeropuerto de Salida (Opcional)</label>
+                    <select name="aeropuerto_salida" class="form-control">
+                        <option value="">-- Selecciona una provincia de salida primero --</option>
+                    </select>
+                </div>
             </div>
             </div>
             <div class="form-group-row">
@@ -1280,5 +1314,7 @@ document.addEventListener('DOMContentLoaded', () => {
              console.log(`⚠ Aún quedan ${candidatos.length - LOTE_MAXIMO} viejos. Se borrarán en la próxima recarga.`);
         }
     }
+    
 
 });
+
