@@ -151,6 +151,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // FORMATO BLOQUE CITA
                     texto += `> ✈️ *AÉREO*\n`;
+                    if (s.aeropuerto_salida) {
+                        texto += `🛫 *Salida desde:* ${s.aeropuerto_salida}\n`;
+                    }
                     texto += `${s.aerolinea || 'Aerolínea'}\n`;
                     texto += `${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
                     texto += `${escalasTxt} | ${s.tipo_equipaje || '-'}\n\n`;
@@ -272,6 +275,9 @@ document.addEventListener('DOMContentLoaded', () => {
             let i='🔹',t='',l=[]; 
             if(x.tipo==='aereo'){
                 i='✈️';t='AÉREO';
+                if(x.aeropuerto_salida) {
+                    l.push(`🛫 <b>Salida:</b> ${x.aeropuerto_salida}`);
+                }
                 l.push(`<b>${x.aerolinea}</b>`);
                 l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);
                 
@@ -624,7 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
         if(tipo==='aereo'){
-            // MODIFICACIÓN: AHORA SÍ CON DOS CONTADORES (IDA y VUELTA) EXPLÍCITOS
+            // Inyeccion de aereos
             html+=`<h4>✈️ Aéreo</h4>
             <div class="form-group-row">
                 <div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div>
@@ -642,6 +648,48 @@ document.addEventListener('DOMContentLoaded', () => {
                         <option>Mochila + Carry On + Bodega</option>
                     </select>
                 </div>
+            <div class="form-group">
+                <label>Aeropuerto de Salida (Opcional)</label>
+                <select name="aeropuerto_salida" class="form-control">
+                    <option value="">-- No especificar --</option>
+                    <option value="Buenos Aires (EZE)">Buenos Aires (EZE)</option> 
+                    <option value="Buenos Aires (AEP)">Buenos Aires (AEP)</option>
+                    <option value="Córdoba (COR)">Córdoba (COR)</option>
+                    <option value="Rosario (ROS)">Rosario (ROS)</option>
+                    <option value="Mendoza (MDZ)">Mendoza (MDZ)</option>
+                    <option value="Salta (SLA)">Salta (SLA)</option>
+                    <option value="Iguazú (IGR)">Iguazú (IGR)</option>
+                    <option value="Bariloche (BRC)">Bariloche (BRC)</option>
+                    <option value="Ushuaia (USH)">Ushuaia (USH)</option>
+                    <option value="El Calafate (FTE)">El Calafate (FTE)</option>
+                    <option value="Neuquén (NQN)">Neuquén (NQN)</option>
+                    <option value="Tucumán (TUC)">Tucumán (TUC)</option>
+                    <option value="Jujuy (JUJ)">Jujuy (JUJ)</option>
+                    <option value="Mar del Plata (MDQ)">Mar del Plata (MDQ)</option>
+                    <option value="Bahía Blanca (BHI)">Bahía Blanca (BHI)</option>
+                    <option value="Posadas (PSS)">Posadas (PSS)</option>
+                    <option value="Resistencia (RES)">Resistencia (RES)</option>
+                    <option value="Corrientes (CNQ)">Corrientes (CNQ)</option>
+                    <option value="Santiago del Estero (SDE)">Santiago del Estero (SDE)</option>
+                    <option value="Termas de Río Hondo (RHD)">Termas de Río Hondo (RHD)</option>
+                    <option value="San Juan (UAQ)">San Juan (UAQ)</option>
+                    <option value="San Luis (LUQ)">San Luis (LUQ)</option>
+                    <option value="Merlo (RLO)">Merlo (RLO)</option>
+                    <option value="San Rafael (AFA)">San Rafael (AFA)</option>
+                    <option value="La Rioja (IRJ)">La Rioja (IRJ)</option>
+                    <option value="Catamarca (CTC)">Catamarca (CTC)</option>
+                    <option value="Santa Rosa (RSA)">Santa Rosa (RSA)</option>
+                    <option value="Viedma (VDM)">Viedma (VDM)</option>
+                    <option value="Puerto Madryn (PMY)">Puerto Madryn (PMY)</option>
+                    <option value="Trelew (REL)">Trelew (REL)</option>
+                    <option value="Comodoro Rivadavia (CRV)">Comodoro Rivadavia (CRV)</option>
+                    <option value="Río Gallegos (RGL)">Río Gallegos (RGL)</option>
+                    <option value="Río Grande (RGA)">Río Grande (RGA)</option>
+                    <option value="San Martín de los Andes (CPC)">San Martín de los Andes (CPC)</option>
+                    <option value="Esquel (EQS)">Esquel (EQS)</option>
+                    <option value="Formosa (FMA)">Formosa (FMA)</option>
+                </select>
+            </div>
             </div>
             <div class="form-group-row">
                 <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
@@ -1234,44 +1282,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
