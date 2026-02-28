@@ -69,17 +69,22 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     function actualizarAeropuertos(provinciaSeleccionada) {
-        const selectAeropuerto = document.querySelector('[name="aeropuerto_salida"]');
-        if(!selectAeropuerto) return;
-        selectAeropuerto.innerHTML = '<option value="">-- No especificar --</option>';
-        if (aeropuertosPorProvincia[provinciaSeleccionada]) {
-            aeropuertosPorProvincia[provinciaSeleccionada].forEach(aero => {
-                const option = document.createElement('option');
-                option.value = `${aero.nombre} (${aero.sigla})`;
-                option.textContent = `${aero.nombre} (${aero.sigla})`;
-                selectAeropuerto.appendChild(option);
-            });
-        }
+        const selectsAeropuerto = document.querySelectorAll('[name="aeropuerto_salida"]');
+        if(!selectsAeropuerto || selectsAeropuerto.length === 0) return;
+        
+        selectsAeropuerto.forEach(selectAeropuerto => {
+            const valorPrevio = selectAeropuerto.value; // Guardamos lo que ya estaba elegido
+            selectAeropuerto.innerHTML = '<option value="">-- No especificar --</option>';
+            if (aeropuertosPorProvincia[provinciaSeleccionada]) {
+                aeropuertosPorProvincia[provinciaSeleccionada].forEach(aero => {
+                    const option = document.createElement('option');
+                    option.value = `${aero.nombre} (${aero.sigla})`;
+                    option.textContent = `${aero.nombre} (${aero.sigla})`;
+                    selectAeropuerto.appendChild(option);
+                });
+            }
+            if (valorPrevio) selectAeropuerto.value = valorPrevio; // Lo volvemos a poner
+        });
     }
     
     document.addEventListener('change', (e) => {
@@ -1000,7 +1005,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         div.innerHTML = html;
         dom.containerServicios.appendChild(div);
-        
+        if (tipo === 'aereo') {
+            const selectProvinciaGlobal = document.getElementById('upload-salida');
+            if (selectProvinciaGlobal && selectProvinciaGlobal.value) {
+                actualizarAeropuertos(selectProvinciaGlobal.value);
+            }
+        }
         if(dom.inputFechaViaje.value) { const inputsFecha = div.querySelectorAll('input[type="date"]'); inputsFecha.forEach(i => i.min = dom.inputFechaViaje.value); }
         else { const inputsFecha = div.querySelectorAll('input[type="date"]'); const today = new Date(); today.setMinutes(today.getMinutes() - today.getTimezoneOffset()); inputsFecha.forEach(i => i.min = today.toISOString().split('T')[0]); }
 
@@ -1084,7 +1094,43 @@ document.addEventListener('DOMContentLoaded', () => {
         const cards = document.querySelectorAll('.servicio-card'); if (cards.length === 0) { showLoader(false); return window.showAlert("Agrega servicios.", 'error'); }
 
         let serviciosData = []; for (let card of cards) { const serv = { tipo: card.dataset.tipo }; card.querySelectorAll('input, select, textarea').forEach(i => { if (i.type === 'checkbox') serv[i.name] = i.checked; else if (i.type === 'hidden') { if(i.name==='hotel_estrellas') serv[i.name] = i.value; else serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value; } else serv[i.name] = i.value; }); serviciosData.push(serv); }
+        let fechaMaxRegresoAereo = null;
+        let aereoRegresoStr = "";
+        
+        // Buscamos si hay un vuelo con fecha de regreso
+        for (let serv of serviciosData) {
+            if (serv.tipo === 'aereo' && serv.fecha_regreso) {
+                fechaMaxRegresoAereo = new Date(serv.fecha_regreso + 'T00:00:00');
+                aereoRegresoStr = formatDateAR(serv.fecha_regreso);
+                break; 
+            }
+        }
 
+        // Si hay un regreso de vuelo, validamos que nadie se quede en destino
+        if (fechaMaxRegresoAereo) {
+            for (let serv of serviciosData) {
+                let endDateStr = null;
+                
+                // Calculamos el final de hoteles y cruceros
+                if ((serv.tipo === 'hotel' || serv.tipo === 'crucero') && serv.checkout) {
+                    endDateStr = serv.checkout;
+                } 
+                // Calculamos el final de los buses
+                else if (serv.tipo === 'bus' && serv.noches && fechaViajeStr) {
+                    const startBus = new Date(fechaViajeStr + 'T00:00:00');
+                    startBus.setDate(startBus.getDate() + parseInt(serv.noches));
+                    endDateStr = startBus.toISOString().split('T')[0];
+                }
+
+                if (endDateStr) {
+                    const endDate = new Date(endDateStr + 'T00:00:00');
+                    if (endDate > fechaMaxRegresoAereo) {
+                        showLoader(false);
+                        return window.showAlert(`⛔ Error: El servicio de ${serv.tipo.toUpperCase()} finaliza después de tu regreso en Vuelo (${aereoRegresoStr}). Revisa las fechas.`, 'error');
+                    }
+                }
+            }
+        }
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         
         let creadorFinal;
@@ -1467,6 +1513,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
