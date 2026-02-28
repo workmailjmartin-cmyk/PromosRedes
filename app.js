@@ -298,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Un salto de línea extra para separar del siguiente servicio
                     texto += `\n`;
 
-                } else if (s.tipo === 'crucero') {
+                } else if (s.tipo === 'crucero') { 
                     texto += `> 🚢 *CRUCERO ${s.crucero_naviera ? s.crucero_naviera.toUpperCase() : ''}* (${s.crucero_noches || '?'} Noches)\n`;
                     if (s.crucero_puerto_salida) texto += `> 📍 Puerto de Salida: ${s.crucero_puerto_salida}\n`;
                     if (s.checkin) texto += `> 📅 Fechas: ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
@@ -313,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (s.crucero_bebidas) texto += `> - Paquete de Bebidas\n`;
                     if (s.crucero_propinas) texto += `> - Propinas\n`;
                     texto += `\n`;
-            });
+                });
         }
 
         // 3. PIE DE PAGINA (PRECIO Y LEGALES)
@@ -1461,6 +1461,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
