@@ -734,11 +734,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function agregarModuloServicio(tipo, data = null) {
         const container = dom.containerServicios; const existingServices = container.querySelectorAll('.servicio-card');
-        const hasExclusive = Array.from(existingServices).some(c => c.dataset.tipo === 'bus' || c.dataset.tipo === 'crucero');
-        
+        const hasExclusive = Array.from(existingServices).some(c => c.dataset.tipo === 'bus');
         if (!data) { 
-            if (hasExclusive && tipo !== 'adicional') return window.showAlert("⛔ Ya hay un servicio exclusivo. Solo puedes agregar Adicionales.", "error"); 
-            if ((tipo === 'bus' || tipo === 'crucero') && existingServices.length > 0) return window.showAlert("⛔ Este servicio debe ser único.", "error"); 
+            if (hasExclusive && tipo !== 'adicional') return window.showAlert("⛔ Ya hay un paquete Bus cargado. Solo puedes agregar Adicionales.", "error"); 
+            if (tipo === 'bus' && existingServices.length > 0) return window.showAlert("⛔ El Paquete Bus debe ser único y no se puede mezclar con otros servicios base.", "error"); 
         }
         
         const id = Date.now() + Math.random(); const div = document.createElement('div');
@@ -1468,6 +1467,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
