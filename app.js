@@ -300,15 +300,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 } else if (s.tipo === 'crucero') { 
                     texto += `> 🚢 *CRUCERO ${s.crucero_naviera ? s.crucero_naviera.toUpperCase() : ''}*\n`;
-                    if (s.crucero_noches) texto += `🌙 *Duración:* ${s.crucero_noches} Noches\n`;
-                    if (s.crucero_puerto_salida) texto += `📍 Puerto de Salida: ${s.crucero_puerto_salida}\n`;
-                    if (s.checkin) texto += `📅 Fechas: ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
+                    if (s.crucero_noches) texto += ` *Duración:* ${s.crucero_noches} Noches\n`;
+                    if (s.crucero_puerto_salida) texto += ` Puerto de Salida: ${s.crucero_puerto_salida}\n`;
+                    if (s.checkin) texto += ` Fechas: ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
                     
                     if (s.crucero_paradas) {
-                        texto += `🗺️ Recorrido: ${s.crucero_paradas}\n`;
+                        texto += ` Recorrido: ${s.crucero_paradas}\n`;
                     }
             
-                    texto += `✅ Incluye:\n`;
+                    texto += ` Incluye:\n`;
                     texto += `- Pensión Completa\n`;
                     texto += `- Asistencia al Viajero\n`;
                     if (s.crucero_bebidas) texto += `- Paquete de Bebidas\n`;
@@ -1468,6 +1468,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
