@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function getSummaryIcons(pkg) { 
         let s = []; try { s = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {} 
         if (!Array.isArray(s)) return ''; 
-        const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; 
+        const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢','circuito':'🗺️'};
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
@@ -323,7 +323,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (s.tipo === 'adicional') {
                     texto += `> ➕ *ADICIONAL*\n`;
                     texto += `${s.descripcion}\n\n`;
-                }
+                    
+                } else if (s.tipo === 'circuito') {
+                    texto += `> 🗺️ *CIRCUITO: ${s.circuito_nombre ? s.circuito_nombre.toUpperCase() : ''}*\n`;
+                    if (s.circuito_noches) texto += ` *Duración:* ${s.circuito_noches} Noches\n`;
+                    if (s.checkin) texto += ` *Fechas:* ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
+                    if (s.circuito_descripcion) texto += ` *Detalle:* ${s.circuito_descripcion}\n`;
+                    texto += `\n`;
             });
         }
 
@@ -472,6 +478,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${x.crucero_bebidas ? '<br><span style="color:#2ecc71;">✓ Paquete de Bebidas</span>' : ''}
                 ${x.crucero_propinas ? '<br><span style="color:#2ecc71;">✓ Propinas Incluidas</span>' : ''}
                 </div>`);
+            }
+            else if(x.tipo === 'adicional'){
+                i='➕'; t='ADICIONAL'; 
+                l.push(`${x.descripcion}`);
+            } 
+            else if(x.tipo === 'circuito'){
+                i='🗺️'; t='CIRCUITO TERRESTRE';
+                l.push(`<b>${x.circuito_nombre}</b>`);
+                
+                let det = [];
+                if(x.checkin) det.push(`Inicio: ${formatDateAR(x.checkin)}`);
+                if(x.checkout) det.push(`Fin: ${formatDateAR(x.checkout)}`);
+                if(x.circuito_noches) det.push(`🌙 ${x.circuito_noches} Noches`);
+                if(det.length > 0) l.push(`<small>${det.join(' | ')}</small>`);
+
+                if(x.circuito_descripcion) {
+                    l.push(`<div style="margin-top:5px; color:#555;">📝 <i>${x.circuito_descripcion.replace(/\n/g, '<br>')}</i></div>`);
+                }
             }
             h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`;
         }); 
@@ -1003,6 +1027,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
         }
+        else if (tipo === 'circuito') {
+            const uniqueId = Date.now();
+            html += `
+                <div style="margin-bottom:15px; border-bottom: 2px solid #f8f9fa; padding-bottom:10px;">
+                    <h4 style="margin:0; color:#333;">🗺️ Circuito Terrestre</h4>
+                </div>
+                
+                <div class="form-group-row">
+                    <div class="form-group">
+                        <label>Nombre del Circuito <span style="color:red">*</span></label>
+                        <input type="text" name="circuito_nombre" class="form-control" placeholder="Ej: Vuelta al Norte, Europa Clásica..." required>
+                    </div>
+                </div>
+                
+                <div class="form-group-row">
+                    <div class="form-group"><label>Fecha de Inicio</label><input type="date" name="checkin" onchange="window.calcularNoches('${uniqueId}')" required></div>
+                    <div class="form-group"><label>Fecha de Fin</label><input type="date" name="checkout" onchange="window.calcularNoches('${uniqueId}')" required></div>
+                    <div class="form-group"><label>Noches</label><input type="text" name="circuito_noches" id="noches-${uniqueId}" readonly style="background:#eee; width:60px;"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Descripción / Itinerario <span style="color:red">*</span></label>
+                    <textarea name="circuito_descripcion" class="form-control" rows="3" placeholder="Describe brevemente las ciudades, excursiones o el régimen incluido..." required></textarea>
+                </div>
+                
+                <div class="form-group-row">
+                    <div class="form-group"><label>Proveedor <span style="color:red">*</span></label><input type="text" name="proveedor" class="form-control" required></div>
+                    <div class="form-group"><label>Costo <span style="color:red">*</span></label><input type="number" name="costo" class="form-control input-costo" onchange="window.calcularTotal()" required></div>
+                </div>
+            `;
+        }
         div.innerHTML = html;
         dom.containerServicios.appendChild(div);
         if (tipo === 'aereo') {
@@ -1112,7 +1167,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let endDateStr = null;
                 
                 // Calculamos el final de hoteles y cruceros
-                if ((serv.tipo === 'hotel' || serv.tipo === 'crucero') && serv.checkout) {
+                if ((serv.tipo === 'hotel' || serv.tipo === 'crucero' || serv.tipo === 'circuito') && serv.checkout) {
                     endDateStr = serv.checkout;
                 } 
                 // Calculamos el final de los buses
@@ -1513,6 +1568,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
