@@ -299,19 +299,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     texto += `\n`;
 
                 } else if (s.tipo === 'crucero') { 
-                    texto += `> 🚢 *CRUCERO ${s.crucero_naviera ? s.crucero_naviera.toUpperCase() : ''}* (${s.crucero_noches || '?'} Noches)\n`;
-                    if (s.crucero_puerto_salida) texto += `> 📍 Puerto de Salida: ${s.crucero_puerto_salida}\n`;
-                    if (s.checkin) texto += `> 📅 Fechas: ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
+                    texto += `> 🚢 *CRUCERO ${s.crucero_naviera ? s.crucero_naviera.toUpperCase() : ''}*\n`;
+                    if (s.crucero_noches) texto += `🌙 *Duración:* ${s.crucero_noches} Noches\n`;
+                    if (s.crucero_puerto_salida) texto += `📍 Puerto de Salida: ${s.crucero_puerto_salida}\n`;
+                    if (s.checkin) texto += `📅 Fechas: ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
                     
                     if (s.crucero_paradas) {
-                        texto += `> 🗺️ Recorrido: ${s.crucero_paradas}\n`;
+                        texto += `🗺️ Recorrido: ${s.crucero_paradas}\n`;
                     }
             
-                    texto += `> ✅ Incluye:\n`;
-                    texto += `> - Pensión Completa\n`;
-                    texto += `> - Asistencia al Viajero\n`;
-                    if (s.crucero_bebidas) texto += `> - Paquete de Bebidas\n`;
-                    if (s.crucero_propinas) texto += `> - Propinas\n`;
+                    texto += `✅ Incluye:\n`;
+                    texto += `- Pensión Completa\n`;
+                    texto += `- Asistencia al Viajero\n`;
+                    if (s.crucero_bebidas) texto += `- Paquete de Bebidas\n`;
+                    if (s.crucero_propinas) texto += `- Propinas\n`;
                     texto += `\n`;
 
                 } else if (s.tipo === 'adicional') {
@@ -466,7 +467,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${x.crucero_bebidas ? '<br><span style="color:#2ecc71;">✓ Paquete de Bebidas</span>' : ''}
                 ${x.crucero_propinas ? '<br><span style="color:#2ecc71;">✓ Propinas Incluidas</span>' : ''}
                 </div>`);
-            } 
+            }
+            h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`;
         }); 
         return h; 
     }
@@ -1466,6 +1468,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
