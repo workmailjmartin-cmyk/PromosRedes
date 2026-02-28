@@ -313,7 +313,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (s.crucero_bebidas) texto += `> - Paquete de Bebidas\n`;
                     if (s.crucero_propinas) texto += `> - Propinas\n`;
                     texto += `\n`;
-                });
+
+                } else if (s.tipo === 'adicional') {
+                    texto += `> ➕ *ADICIONAL*\n`;
+                    texto += `${s.descripcion}\n\n`;
+                }
+            });
         }
 
         // 3. PIE DE PAGINA (PRECIO Y LEGALES)
@@ -1461,6 +1466,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
