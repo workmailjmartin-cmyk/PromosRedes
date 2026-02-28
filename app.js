@@ -300,22 +300,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 } else if (s.tipo === 'crucero') {
                     texto += `> 🚢 *CRUCERO ${s.crucero_naviera ? s.crucero_naviera.toUpperCase() : ''}* (${s.crucero_noches || '?'} Noches)\n`;
-                    if (s.crucero_puerto_salida) texto += `> 📍 *Puerto de Salida:* ${s.crucero_puerto_salida}\n`;
-                    if (s.checkin) texto += `> 📅 *Fechas:* ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
+                    if (s.crucero_puerto_salida) texto += `> 📍 Puerto de Salida: ${s.crucero_puerto_salida}\n`;
+                    if (s.checkin) texto += `> 📅 Fechas: ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
                     
                     if (s.crucero_paradas) {
-                        texto += `> 🗺️ *Recorrido:* ${s.crucero_paradas}\n`;
+                        texto += `> 🗺️ Recorrido: ${s.crucero_paradas}\n`;
                     }
             
-                    texto += `> ✅ *Incluye:* Pensión Completa, Asistencia al Viajero`;
-                    if (s.crucero_bebidas) texto += `, Paquete de Bebidas`;
-                    if (s.crucero_propinas) texto += `, Propinas`;
-                    texto += `\n\n`;
-
-                } else if (s.tipo === 'adicional') {
-                    texto += `> ➕ *ADICIONAL*\n`;
-                    texto += `${s.descripcion}\n\n`;
-                }
+                    texto += `> ✅ Incluye:\n`;
+                    texto += `> - Pensión Completa\n`;
+                    texto += `> - Asistencia al Viajero\n`;
+                    if (s.crucero_bebidas) texto += `> - Paquete de Bebidas\n`;
+                    if (s.crucero_propinas) texto += `> - Propinas\n`;
+                    texto += `\n`;
             });
         }
 
@@ -458,10 +455,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     l.push(`🗺️ <b>Recorrido:</b> ${x.crucero_paradas}`);
                 }
 
-                let inclusiones = `<span style="color:#2ecc71;">🍽️ Pensión Completa</span> | <span style="color:#2ecc71;">🚑 Asistencia al Viajero</span>`;
-                if (x.crucero_bebidas) inclusiones += ` | <span style="color:#2ecc71;">🥤 Paquete Bebidas</span>`;
-                if (x.crucero_propinas) inclusiones += ` | <span style="color:#2ecc71;">💰 Propinas</span>`;
-                l.push(inclusiones);
+                l.push(`<div style="margin-top:5px;"><b>Incluye:</b><br>
+                <span style="color:#2ecc71;">✓ Pensión Completa</span><br>
+                <span style="color:#2ecc71;">✓ Asistencia al Viajero</span>
+                ${x.crucero_bebidas ? '<br><span style="color:#2ecc71;">✓ Paquete de Bebidas</span>' : ''}
+                ${x.crucero_propinas ? '<br><span style="color:#2ecc71;">✓ Propinas Incluidas</span>' : ''}
+                </div>`);
             } 
         }); 
         return h; 
@@ -925,23 +924,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
         else if(tipo === 'crucero') {
-            const uniqueId = Date.now();
-            
-            // Lógica para cuando se edita un paquete y ya tiene paradas
+            // Lógica para cuando se edita un paquete
             let paradasHtml = '';
             let paradasValue = '';
             if (data && data.crucero_paradas) {
                 paradasValue = data.crucero_paradas;
-                const paradasArray = data.crucero_paradas.split(' ➔ ');
+                const paradasArray = data.crucero_paradas.split(' - ');
                 paradasArray.forEach((p, index) => {
                     paradasHtml += `<div style="display:flex; gap:5px; margin-bottom:5px;">
-                        <input type="text" class="form-control parada-input-${uniqueId}" value="${p}" oninput="window.actualizarParadas('${uniqueId}')">
-                        ${index > 0 ? `<button type="button" class="btn btn-secundario" style="padding:2px 8px;" onclick="this.parentElement.remove(); window.actualizarParadas('${uniqueId}');">🗑️</button>` : ''}
+                        <input type="text" class="form-control parada-input-${id}" value="${p}" oninput="window.actualizarParadas('${id}')">
+                        ${index > 0 ? `<button type="button" class="btn btn-secundario" style="padding:2px 8px;" onclick="this.parentElement.remove(); window.actualizarParadas('${id}');">🗑️</button>` : ''}
                     </div>`;
                 });
             } else {
                 paradasHtml = `<div style="display:flex; gap:5px; margin-bottom:5px;">
-                    <input type="text" class="form-control parada-input-${uniqueId}" placeholder="Ej: Punta del Este..." oninput="window.actualizarParadas('${uniqueId}')">
+                    <input type="text" class="form-control parada-input-${id}" placeholder="Ej: Punta del Este..." oninput="window.actualizarParadas('${id}')">
                 </div>`;
             }
 
@@ -955,9 +952,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 
                 <div class="form-group-row">
-                    <div class="form-group"><label>Embarque</label><input type="date" name="checkin" onchange="window.calcularNoches(${uniqueId})" required></div>
-                    <div class="form-group"><label>Desembarque</label><input type="date" name="checkout" onchange="window.calcularNoches(${uniqueId})" required></div>
-                    <div class="form-group"><label>Noches</label><input type="text" name="crucero_noches" id="noches-${uniqueId}" readonly style="background:#eee; width:60px;"></div>
+                    <div class="form-group"><label>Embarque</label><input type="date" name="checkin" onchange="window.calcularNoches('${id}')" required></div>
+                    <div class="form-group"><label>Desembarque</label><input type="date" name="checkout" onchange="window.calcularNoches('${id}')" required></div>
+                    <div class="form-group"><label>Noches</label><input type="text" name="crucero_noches" id="noches-${id}" readonly style="background:#eee; width:60px;"></div>
                 </div>
 
                 <div class="form-group-row" style="background:#f9f9f9; padding:12px; border-radius:5px; margin-bottom:10px;">
@@ -976,17 +973,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 <div class="form-group" style="border: 1px solid #eee; padding: 10px; border-radius: 5px; margin-bottom:10px;">
                     <label>Paradas del Recorrido</label>
-                    <div id="paradas-container-${uniqueId}">
+                    <div id="paradas-container-${id}">
                         ${paradasHtml}
                     </div>
                     <button type="button" class="btn btn-secundario" style="padding: 2px 10px; font-size: 0.9em; margin-top:5px;" onclick="
-                        const cont = document.getElementById('paradas-container-${uniqueId}');
+                        const cont = document.getElementById('paradas-container-${id}');
                         const div = document.createElement('div');
                         div.style.cssText = 'display:flex; gap:5px; margin-bottom:5px;';
-                        div.innerHTML = '<input type=\\'text\\' class=\\'form-control parada-input-${uniqueId}\\' placeholder=\\'Siguiente parada...\\' oninput=\\'window.actualizarParadas(\\'${uniqueId}\\')\\'><button type=\\'button\\' class=\\'btn btn-secundario\\' style=\\'padding:2px 8px;\\' onclick=\\'this.parentElement.remove(); window.actualizarParadas(\\'${uniqueId}\\');\\'>🗑️</button>';
+                        div.innerHTML = '<input type=\\'text\\' class=\\'form-control parada-input-${id}\\' placeholder=\\'Siguiente parada...\\' oninput=\\'window.actualizarParadas(\\'${id}\\')\\'><button type=\\'button\\' class=\\'btn btn-secundario\\' style=\\'padding:2px 8px;\\' onclick=\\'this.parentElement.remove(); window.actualizarParadas(\\'${id}\\');\\'>🗑️</button>';
                         cont.appendChild(div);
                     ">+ Agregar Parada</button>
-                    <input type="hidden" name="crucero_paradas" id="hidden_paradas_${uniqueId}" value="${paradasValue}">
+                    <input type="hidden" name="crucero_paradas" id="hidden_paradas_${id}" value="${paradasValue}">
                 </div>
 
                 <div class="form-group-row">
@@ -1044,7 +1041,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputs = container.querySelectorAll(`.parada-input-${id}`);
         const vals = Array.from(inputs).map(i => i.value).filter(v => v.trim() !== '');
         const hidden = document.getElementById(`hidden_paradas_${id}`);
-        if(hidden) hidden.value = vals.join(' ➔ ');
+        if(hidden) hidden.value = vals.join(' - ');
     };
     // CALCULO NOCHES (HOTEL)
     window.calcularNoches = (id) => { 
@@ -1141,7 +1138,16 @@ document.addEventListener('DOMContentLoaded', () => {
         targetGrid.innerHTML = ''; if (!list || list.length === 0) { targetGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;">No hay resultados.</p>'; return; }
         list.forEach(pkg => {
             if (!pkg.destino) return; 
-            const card = document.createElement('div'); const noches = getNoches(pkg); card.className = 'paquete-card'; const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; const summaryIcons = getSummaryIcons(pkg); 
+            const card = document.createElement('div'); const noches = getNoches(pkg);
+            // --- LÓGICA INTELIGENTE DE SALIDA PARA LA GRILLA ---
+            let lugarSalidaGrid = pkg['salida'];
+            let sGrid = []; try { sGrid = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e){}
+            const tieneAereoGrid = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'aereo');
+            if (!tieneAereoGrid) {
+                const crucero = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'crucero');
+                if (crucero && crucero.crucero_puerto_salida) lugarSalidaGrid = crucero.crucero_puerto_salida;
+            }
+            card.className = 'paquete-card'; const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; const summaryIcons = getSummaryIcons(pkg); 
             const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`; 
             let statusTag = ''; if (pkg.status === 'pending') statusTag = `<span style="background-color:#ffeaa7; color:#d35400; padding:2px 8px; border-radius:10px; font-size:0.7em; margin-left:5px;">⏳ En Revisión</span>`;
 
@@ -1165,7 +1171,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
                         
                         <div style="text-align: right;">
-                            <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${pkg['salida']}</div>
+                            <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${lugarSalidaGrid}</div>
                             
                             <p class="precio-valor" style="margin: 5px 0 0 0;">
                                 ${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar/2))}
@@ -1455,6 +1461,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
