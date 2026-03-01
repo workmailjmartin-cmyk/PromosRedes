@@ -326,11 +326,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                 } else if (s.tipo === 'circuito') {
                     texto += `> 🗺️ *CIRCUITO: ${s.circuito_nombre ? s.circuito_nombre.toUpperCase() : ''}*\n`;
-                    if (s.circuito_noches) texto += ` *Duración:* ${s.circuito_noches} Noches\n`;
-                    if (s.checkin) texto += ` *Fechas:* ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
-                    if (s.circuito_descripcion) texto += ` *Detalle:* ${s.circuito_descripcion}\n`;
+                    if (s.circuito_noches) texto += `Duración: ${s.circuito_noches} Noches\n`;
+                    if (s.circuito_salida) texto += `Salida desde: ${s.circuito_salida}\n`;
+                    if (s.checkin) texto += `*Fechas:* ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
+                    if (s.circuito_descripcion) texto += `Detalle: ${s.circuito_descripcion}\n`;
                     texto += `\n`;
-                }
             });
         }
 
@@ -487,6 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
             else if(x.tipo === 'circuito'){
                 i='🗺️'; t='CIRCUITO TERRESTRE';
                 l.push(`<b>${x.circuito_nombre}</b>`);
+                if(x.circuito_salida) l.push(`📍 <b>Salida desde:</b> ${x.circuito_salida}`);
                 
                 let det = [];
                 if(x.checkin) det.push(`Inicio: ${formatDateAR(x.checkin)}`);
@@ -1029,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
         else if (tipo === 'circuito') {
-            const uniqueId = Date.now();
+            // Eliminamos el uniqueId y usamos el 'id' original para que funcionen las noches
             html += `
                 <div style="margin-bottom:15px; border-bottom: 2px solid #f8f9fa; padding-bottom:10px;">
                     <h4 style="margin:0; color:#333;">🗺️ Circuito Terrestre</h4>
@@ -1040,12 +1041,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         <label>Nombre del Circuito <span style="color:red">*</span></label>
                         <input type="text" name="circuito_nombre" class="form-control" placeholder="Ej: Vuelta al Norte, Europa Clásica..." required>
                     </div>
+                    <div class="form-group">
+                        <label>Ciudad de Salida</label>
+                        <input type="text" name="circuito_salida" class="form-control" placeholder="Ej: Madrid, Salta..." required>
+                    </div>
                 </div>
                 
                 <div class="form-group-row">
-                    <div class="form-group"><label>Fecha de Inicio</label><input type="date" name="checkin" onchange="window.calcularNoches('${uniqueId}')" required></div>
-                    <div class="form-group"><label>Fecha de Fin</label><input type="date" name="checkout" onchange="window.calcularNoches('${uniqueId}')" required></div>
-                    <div class="form-group"><label>Noches</label><input type="text" name="circuito_noches" id="noches-${uniqueId}" readonly style="background:#eee; width:60px;"></div>
+                    <div class="form-group"><label>Fecha de Inicio</label><input type="date" name="checkin" onchange="window.calcularNoches('${id}')" required></div>
+                    <div class="form-group"><label>Fecha de Fin</label><input type="date" name="checkout" onchange="window.calcularNoches('${id}')" required></div>
+                    <div class="form-group"><label>Noches</label><input type="text" name="circuito_noches" id="noches-${id}" readonly style="background:#eee; width:60px;"></div>
                 </div>
                 
                 <div class="form-group">
@@ -1569,6 +1574,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
