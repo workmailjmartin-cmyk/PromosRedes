@@ -163,15 +163,22 @@ document.addEventListener('DOMContentLoaded', () => {
         servicios.forEach(s => { if (s.tipo === 'hotel' && s.noches) { totalHotel += parseInt(s.noches) || 0; hayHotel = true; } });
         if(hayHotel && totalHotel > 0) return totalHotel;
 
-        const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
+        // Buscamos si hay servicios principales con sus propias noches definidas
+        const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.noches) return parseInt(bus.noches);
         const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
+        
+        // ¡NUEVO! Le enseñamos a buscar el circuito
+        const circuito = servicios.find(s => s.tipo === 'circuito'); if (circuito && circuito.circuito_noches) return parseInt(circuito.circuito_noches);
         
         if(!pkg['fecha_salida']) return 0;
         let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
         const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
+        
         servicios.forEach(s => {
             if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
             if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+            if(s.tipo==='crucero'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+            if(s.tipo==='circuito'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} } // <-- Sumado aquí también
         });
         return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
     }
@@ -1586,6 +1593,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
