@@ -208,8 +208,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const tieneAereo = Array.isArray(servicios) && servicios.some(s => s.tipo === 'aereo');
         if (!tieneAereo) {
             const crucero = Array.isArray(servicios) && servicios.find(s => s.tipo === 'crucero');
+            const circuito = Array.isArray(servicios) && servicios.find(s => s.tipo === 'circuito');
             if (crucero && crucero.crucero_puerto_salida) {
                 lugarSalida = crucero.crucero_puerto_salida;
+            } else if (circuito && circuito.circuito_salida) {
+                lugarSalida = circuito.circuito_salida;
             }
         }
         texto += `📍 Desde: ${lugarSalida}\n`;
@@ -1258,7 +1261,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const tieneAereoGrid = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'aereo');
             if (!tieneAereoGrid) {
                 const crucero = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'crucero');
-                if (crucero && crucero.crucero_puerto_salida) lugarSalidaGrid = crucero.crucero_puerto_salida;
+                const circuito = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'circuito');
+                if (crucero && crucero.crucero_puerto_salida) {
+                    lugarSalidaGrid = crucero.crucero_puerto_salida;
+                } else if (circuito && circuito.circuito_salida) {
+                    lugarSalidaGrid = circuito.circuito_salida;
+                }
             }
             card.className = 'paquete-card'; const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; const summaryIcons = getSummaryIcons(pkg); 
             const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`; 
@@ -1314,8 +1322,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const tieneAereoModal = Array.isArray(serviciosModal) && serviciosModal.some(s => s.tipo === 'aereo');
         if (!tieneAereoModal) {
             const crucero = Array.isArray(serviciosModal) && serviciosModal.find(s => s.tipo === 'crucero');
+            const circuito = Array.isArray(serviciosModal) && serviciosModal.find(s => s.tipo === 'circuito');
             if (crucero && crucero.crucero_puerto_salida) {
                 lugarSalidaModal = crucero.crucero_puerto_salida;
+            } else if (circuito && circuito.circuito_salida) {
+                lugarSalidaModal = circuito.circuito_salida;
             }
         }
         const htmlCliente = renderServiciosClienteHTML(rawServicios); const htmlCostos = renderCostosProveedoresHTML(rawServicios); const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2); 
@@ -1574,6 +1585,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
