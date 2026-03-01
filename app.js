@@ -21,6 +21,79 @@ document.addEventListener('DOMContentLoaded', () => {
     const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
 
+    // --- DICCIONARIO DE AEROPUERTOS POR PROVINCIA ---
+    const aeropuertosPorProvincia = {
+        "Buenos Aires": [
+            {nombre: "Ezeiza - Ministro Pistarini", sigla: "EZE"},
+            {nombre: "Aeroparque Jorge Newbery", sigla: "AEP"},
+            {nombre: "El Palomar", sigla: "EPA"},
+            {nombre: "Mar del Plata - Astor Piazzolla", sigla: "MDQ"},
+            {nombre: "Bahía Blanca - Comandante Espora", sigla: "BHI"},
+            {nombre: "San Fernando", sigla: "FDO"}
+        ],
+        "CABA": [{nombre: "Aeroparque Jorge Newbery", sigla: "AEP"}],
+        "Catamarca": [{nombre: "Catamarca - Felipe Varela", sigla: "CTC"}],
+        "Chaco": [{nombre: "Resistencia", sigla: "RES"}],
+        "Chubut": [
+            {nombre: "Comodoro Rivadavia", sigla: "CRV"}, {nombre: "Trelew", sigla: "REL"},
+            {nombre: "Puerto Madryn", sigla: "PMY"}, {nombre: "Esquel", sigla: "EQS"}
+        ],
+        "Córdoba": [
+            {nombre: "Córdoba - Ing. Taravella", sigla: "COR"},
+            {nombre: "Río Cuarto", sigla: "RCU"}
+        ],
+        "Corrientes": [{nombre: "Corrientes", sigla: "CNQ"}, {nombre: "Paso de los Libres", sigla: "AOL"}],
+        "Entre Ríos": [{nombre: "Paraná", sigla: "PRA"}],
+        "Formosa": [{nombre: "Formosa", sigla: "FMA"}],
+        "Jujuy": [{nombre: "Jujuy - Horacio Guzmán", sigla: "JUJ"}],
+        "La Pampa": [{nombre: "Santa Rosa", sigla: "RSA"}, {nombre: "General Pico", sigla: "GPO"}],
+        "La Rioja": [{nombre: "La Rioja", sigla: "IRJ"}],
+        "Mendoza": [
+            {nombre: "Mendoza - El Plumerillo", sigla: "MDZ"},
+            {nombre: "San Rafael", sigla: "AFA"}, {nombre: "Malargüe", sigla: "LGS"}
+        ],
+        "Misiones": [{nombre: "Iguazú", sigla: "IGR"}, {nombre: "Posadas", sigla: "PSS"}],
+        "Neuquén": [{nombre: "Neuquén", sigla: "NQN"}, {nombre: "San Martín de los Andes", sigla: "CPC"}],
+        "Río Negro": [{nombre: "Bariloche", sigla: "BRC"}, {nombre: "Viedma", sigla: "VDM"}],
+        "Salta": [{nombre: "Salta - Güemes", sigla: "SLA"}],
+        "San Juan": [{nombre: "San Juan", sigla: "UAQ"}],
+        "San Luis": [{nombre: "San Luis", sigla: "LUQ"}, {nombre: "Merlo", sigla: "RLO"}],
+        "Santa Cruz": [
+            {nombre: "El Calafate", sigla: "FTE"}, {nombre: "Río Gallegos", sigla: "RGL"},
+            {nombre: "Puerto Deseado", sigla: "PUD"}, {nombre: "Perito Moreno", sigla: "PMQ"}
+        ],
+        "Santa Fe": [{nombre: "Rosario", sigla: "ROS"}, {nombre: "Santa Fe", sigla: "SFN"}],
+        "Santiago del Estero": [{nombre: "Santiago del Estero", sigla: "SDE"}, {nombre: "Termas de Río Hondo", sigla: "RHD"}],
+        "Tierra del Fuego": [{nombre: "Ushuaia", sigla: "USH"}, {nombre: "Río Grande", sigla: "RGA"}],
+        "Tucumán": [{nombre: "Tucumán", sigla: "TUC"}]
+    };
+    
+    function actualizarAeropuertos(provinciaSeleccionada) {
+        const selectsAeropuerto = document.querySelectorAll('[name="aeropuerto_salida"]');
+        if(!selectsAeropuerto || selectsAeropuerto.length === 0) return;
+        
+        selectsAeropuerto.forEach(selectAeropuerto => {
+            const valorPrevio = selectAeropuerto.value; // Guardamos lo que ya estaba elegido
+            selectAeropuerto.innerHTML = '<option value="">-- No especificar --</option>';
+            if (aeropuertosPorProvincia[provinciaSeleccionada]) {
+                aeropuertosPorProvincia[provinciaSeleccionada].forEach(aero => {
+                    const option = document.createElement('option');
+                    option.value = `${aero.nombre} (${aero.sigla})`;
+                    option.textContent = `${aero.nombre} (${aero.sigla})`;
+                    selectAeropuerto.appendChild(option);
+                });
+            }
+            if (valorPrevio) selectAeropuerto.value = valorPrevio; // Lo volvemos a poner
+        });
+    }
+    
+    document.addEventListener('change', (e) => {
+        // Conectamos el filtro al campo de Salida de tu formulario principal
+        if (e.target.id === 'upload-salida') {
+            actualizarAeropuertos(e.target.value);
+        }
+    });
+
     // ESTADO GLOBAL
     let currentUser = null;
     let userData = null; 
@@ -90,15 +163,22 @@ document.addEventListener('DOMContentLoaded', () => {
         servicios.forEach(s => { if (s.tipo === 'hotel' && s.noches) { totalHotel += parseInt(s.noches) || 0; hayHotel = true; } });
         if(hayHotel && totalHotel > 0) return totalHotel;
 
-        const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.bus_noches) return parseInt(bus.bus_noches);
+        // Buscamos si hay servicios principales con sus propias noches definidas
+        const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.noches) return parseInt(bus.noches);
         const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
+        
+        // ¡NUEVO! Le enseñamos a buscar el circuito
+        const circuito = servicios.find(s => s.tipo === 'circuito'); if (circuito && circuito.circuito_noches) return parseInt(circuito.circuito_noches);
         
         if(!pkg['fecha_salida']) return 0;
         let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
         const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
+        
         servicios.forEach(s => {
             if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
             if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+            if(s.tipo==='crucero'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+            if(s.tipo==='circuito'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} } // <-- Sumado aquí también
         });
         return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
     }
@@ -106,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function getSummaryIcons(pkg) { 
         let s = []; try { s = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {} 
         if (!Array.isArray(s)) return ''; 
-        const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢'}; 
+        const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢','circuito':'🗺️'};
         return [...new Set(s.map(x => m[x.tipo] || '🔹'))].join(' '); 
     }
 
@@ -129,7 +209,20 @@ document.addEventListener('DOMContentLoaded', () => {
         let texto = `*${pkg.destino.toUpperCase()}*\n`;
         texto += `PAQUETE\n\n`; // Nuevo agregado
         texto += `📅 Salida: ${formatDateAR(pkg.fecha_salida)}\n`;
-        texto += `📍 Desde: ${pkg.salida}\n`;
+        
+        // --- LÓGICA INTELIGENTE DE SALIDA ---
+        let lugarSalida = pkg.salida;
+        const tieneAereo = Array.isArray(servicios) && servicios.some(s => s.tipo === 'aereo');
+        if (!tieneAereo) {
+            const crucero = Array.isArray(servicios) && servicios.find(s => s.tipo === 'crucero');
+            const circuito = Array.isArray(servicios) && servicios.find(s => s.tipo === 'circuito');
+            if (crucero && crucero.crucero_puerto_salida) {
+                lugarSalida = crucero.crucero_puerto_salida;
+            } else if (circuito && circuito.circuito_salida) {
+                lugarSalida = circuito.circuito_salida;
+            }
+        }
+        texto += `📍 Desde: ${lugarSalida}\n`;
         if (noches > 0) texto += `🌙 Duración: ${noches} Noches\n`;
         
         // 2. INTRODUCCIÓN SERVICIOS
@@ -151,6 +244,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // FORMATO BLOQUE CITA
                     texto += `> ✈️ *AÉREO*\n`;
+                    if (s.aeropuerto_salida) {
+                        texto += `🛫 *Salida desde:* ${s.aeropuerto_salida}\n`;
+                    }
                     texto += `${s.aerolinea || 'Aerolínea'}\n`;
                     texto += `${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
                     texto += `${escalasTxt} | ${s.tipo_equipaje || '-'}\n\n`;
@@ -178,7 +274,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 } else if (s.tipo === 'bus') {
                     texto += `> 🚌 *PAQUETE BUS* (${s.noches || '?'} Noches)\n`;
-        
+                    
+                    if (s.bus_salida) {
+                        texto += `> 📍 *Salida desde:* ${s.bus_salida}\n`;
+                    }
                     // Si tiene alojamiento, mostramos los detalles
                     if (s.incluye_alojamiento) {
                         texto += `> 🏨 *Hotel:* ${s.hotel_nombre || 'A confirmar'}\n`;
@@ -214,14 +313,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Un salto de línea extra para separar del siguiente servicio
                     texto += `\n`;
 
-                } else if (s.tipo === 'crucero') {
-                    texto += `> 🚢 *CRUCERO*\n`;
-                    texto += `${s.crucero_naviera}\n`;
-                    texto += `${s.crucero_recorrido}\n\n`;
+                } else if (s.tipo === 'crucero') { 
+                    texto += `> 🚢 *CRUCERO ${s.crucero_naviera ? s.crucero_naviera.toUpperCase() : ''}*\n`;
+                    if (s.crucero_noches) texto += ` *Duración:* ${s.crucero_noches} Noches\n`;
+                    if (s.crucero_puerto_salida) texto += ` Puerto de Salida: ${s.crucero_puerto_salida}\n`;
+                    if (s.checkin) texto += ` Fechas: ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
+                    
+                    if (s.crucero_paradas) {
+                        texto += ` Recorrido: ${s.crucero_paradas}\n`;
+                    }
+            
+                    texto += ` Incluye:\n`;
+                    texto += `- Pensión Completa\n`;
+                    texto += `- Asistencia al Viajero\n`;
+                    if (s.crucero_bebidas) texto += `- Paquete de Bebidas\n`;
+                    if (s.crucero_propinas) texto += `- Propinas\n`;
+                    texto += `\n`;
 
                 } else if (s.tipo === 'adicional') {
                     texto += `> ➕ *ADICIONAL*\n`;
                     texto += `${s.descripcion}\n\n`;
+                    
+                } else if (s.tipo === 'circuito') {
+                    texto += `> 🗺️ *CIRCUITO: ${s.circuito_nombre ? s.circuito_nombre.toUpperCase() : ''}*\n`;
+                    if (s.circuito_noches) texto += `Duración: ${s.circuito_noches} Noches\n`;
+                    if (s.circuito_salida) texto += `Salida desde: ${s.circuito_salida}\n`;
+                    if (s.checkin) texto += `*Fechas:* ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
+                    if (s.circuito_descripcion) texto += `Detalle: ${s.circuito_descripcion}\n`;
+                    texto += `\n`;
                 }
             });
         }
@@ -272,6 +391,9 @@ document.addEventListener('DOMContentLoaded', () => {
             let i='🔹',t='',l=[]; 
             if(x.tipo==='aereo'){
                 i='✈️';t='AÉREO';
+                if(x.aeropuerto_salida) {
+                    l.push(`🛫 <b>Salida desde:</b> ${x.aeropuerto_salida}`);
+                }
                 l.push(`<b>${x.aerolinea}</b>`);
                 l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);
                 
@@ -307,7 +429,10 @@ document.addEventListener('DOMContentLoaded', () => {
             else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} 
             else if(x.tipo === 'bus'){
             i='🚌'; t='PAQUETE BUS';
-            
+                
+            if(x.bus_salida) {
+                l.push(`📍 <b>Salida desde:</b> ${x.bus_salida}`);
+            }
             // 1. Noches
             if(x.noches) l.push(`🌙 <b>${x.noches} Noches</b>`);
 
@@ -345,8 +470,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 l.push(`📝 <i>Nota: ${x.observaciones}</i>`);
             }
         }
-            else if(x.tipo==='crucero'){i='🚢';t='CRUCERO';l.push(`${x.crucero_naviera} - ${x.crucero_recorrido}`);} 
-            h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`; 
+            else if(x.tipo === 'crucero'){
+                i='🚢'; t='CRUCERO';
+                l.push(`<b>Naviera:</b> ${x.crucero_naviera}`);
+                if(x.crucero_puerto_salida) l.push(`📍 <b>Puerto de Salida:</b> ${x.crucero_puerto_salida}`);
+                
+                let det = [];
+                if(x.checkin) det.push(`Embarque: ${formatDateAR(x.checkin)}`);
+                if(x.crucero_noches) det.push(`🌙 ${x.crucero_noches} Noches`);
+                if(det.length > 0) l.push(`<small>${det.join(' | ')}</small>`);
+
+                if(x.crucero_paradas) {
+                    l.push(`🗺️ <b>Recorrido:</b> ${x.crucero_paradas}`);
+                }
+
+                l.push(`<div style="margin-top:5px;"><b>Incluye:</b><br>
+                <span style="color:#2ecc71;">✓ Pensión Completa</span><br>
+                <span style="color:#2ecc71;">✓ Asistencia al Viajero</span>
+                ${x.crucero_bebidas ? '<br><span style="color:#2ecc71;">✓ Paquete de Bebidas</span>' : ''}
+                ${x.crucero_propinas ? '<br><span style="color:#2ecc71;">✓ Propinas Incluidas</span>' : ''}
+                </div>`);
+            }
+            else if(x.tipo === 'adicional'){
+                i='➕'; t='ADICIONAL'; 
+                l.push(`${x.descripcion}`);
+            } 
+            else if(x.tipo === 'circuito'){
+                i='🗺️'; t='CIRCUITO TERRESTRE';
+                l.push(`<b>${x.circuito_nombre}</b>`);
+                if(x.circuito_salida) l.push(`📍 <b>Salida desde:</b> ${x.circuito_salida}`);
+                
+                let det = [];
+                if(x.checkin) det.push(`Inicio: ${formatDateAR(x.checkin)}`);
+                if(x.checkout) det.push(`Fin: ${formatDateAR(x.checkout)}`);
+                if(x.circuito_noches) det.push(`🌙 ${x.circuito_noches} Noches`);
+                if(det.length > 0) l.push(`<small>${det.join(' | ')}</small>`);
+
+                if(x.circuito_descripcion) {
+                    l.push(`<div style="margin-top:5px; color:#555;">📝 <i>${x.circuito_descripcion.replace(/\n/g, '<br>')}</i></div>`);
+                }
+            }
+            h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;">${l.join('<br>')}</div></div>`;
         }); 
         return h; 
     }
@@ -612,11 +776,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function agregarModuloServicio(tipo, data = null) {
         const container = dom.containerServicios; const existingServices = container.querySelectorAll('.servicio-card');
-        const hasExclusive = Array.from(existingServices).some(c => c.dataset.tipo === 'bus' || c.dataset.tipo === 'crucero');
-        
+        const hasExclusive = Array.from(existingServices).some(c => c.dataset.tipo === 'bus');
         if (!data) { 
-            if (hasExclusive && tipo !== 'adicional') return window.showAlert("⛔ Ya hay un servicio exclusivo. Solo puedes agregar Adicionales.", "error"); 
-            if ((tipo === 'bus' || tipo === 'crucero') && existingServices.length > 0) return window.showAlert("⛔ Este servicio debe ser único.", "error"); 
+            if (hasExclusive && tipo !== 'adicional') return window.showAlert("⛔ Ya hay un paquete Bus cargado. Solo puedes agregar Adicionales.", "error"); 
+            if (tipo === 'bus' && existingServices.length > 0) return window.showAlert("⛔ El Paquete Bus debe ser único y no se puede mezclar con otros servicios base.", "error"); 
         }
         
         const id = Date.now() + Math.random(); const div = document.createElement('div');
@@ -624,7 +787,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = `<button type="button" class="btn-eliminar-servicio" onclick="this.parentElement.remove(); window.calcularTotal();">×</button>`;
         
         if(tipo==='aereo'){
-            // MODIFICACIÓN: AHORA SÍ CON DOS CONTADORES (IDA y VUELTA) EXPLÍCITOS
+            // Inyeccion de aereos
             html+=`<h4>✈️ Aéreo</h4>
             <div class="form-group-row">
                 <div class="form-group"><label>Aerolínea</label><input type="text" name="aerolinea" required></div>
@@ -642,6 +805,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         <option>Mochila + Carry On + Bodega</option>
                     </select>
                 </div>
+            <div class="form-group-row">
+                <div class="form-group" style="flex: 1;">
+                    <label>🛫 Aeropuerto de Salida (Opcional)</label>
+                    <select name="aeropuerto_salida" class="form-control">
+                        <option value="">-- Selecciona una provincia de salida primero --</option>
+                    </select>
+                </div>
+            </div>
             </div>
             <div class="form-group-row">
                 <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
@@ -688,9 +859,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h4 style="margin:0; color:#333;">🚌 Paquete Bus</h4>
                     </div>
 
-                    <div class="form-group">
-                        <label style="font-weight:600;">Cant. Noches <span style="color:red">*</span></label>
-                        <input type="number" name="noches" class="form-control" required style="width: 100px;">
+                   <div class="form-group-row">
+                        <div class="form-group" style="flex: 0 0 auto;">
+                            <label style="font-weight:600;">Cant. Noches <span style="color:red">*</span></label>
+                            <input type="number" name="noches" class="form-control" required style="width: 100px;">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label style="font-weight:600;">Ciudad de Salida (Opcional)</label>
+                            <input type="text" name="bus_salida" class="form-control" placeholder="Ej: Córdoba, Rosario...">
+                        </div>
                     </div>
 
                     <div class="form-group" style="border-bottom: 1px solid #eee; padding: 12px 0;">
@@ -794,11 +971,118 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
-        else if(tipo==='crucero'){html+=`<h4>🚢 Crucero</h4><div class="form-group-row"><div class="form-group"><label>Naviera</label><input type="text" name="crucero_naviera" required></div><div class="form-group"><label>Noches</label><input type="number" name="crucero_noches" required></div></div><div class="form-group-row"><div class="form-group"><label>Puerto Salida</label><input type="text" name="crucero_puerto_salida" required></div><div class="form-group"><label>Puertos que Recorre</label><input type="text" name="crucero_recorrido" required></div></div><div class="form-group"><label>Información Adicional</label><textarea name="crucero_info" rows="2"></textarea></div><div class="form-group-row"><div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div><div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div></div>`;}
+        else if(tipo === 'crucero') {
+            // Lógica para cuando se edita un paquete
+            let paradasHtml = '';
+            let paradasValue = '';
+            if (data && data.crucero_paradas) {
+                paradasValue = data.crucero_paradas;
+                const paradasArray = data.crucero_paradas.split(' - ');
+                paradasArray.forEach((p, index) => {
+                    paradasHtml += `<div style="display:flex; gap:5px; margin-bottom:5px;">
+                        <input type="text" class="form-control parada-input-${id}" value="${p}" oninput="window.actualizarParadas('${id}')">
+                        ${index > 0 ? `<button type="button" class="btn btn-secundario" style="padding:2px 8px;" onclick="this.parentElement.remove(); window.actualizarParadas('${id}');">🗑️</button>` : ''}
+                    </div>`;
+                });
+            } else {
+                paradasHtml = `<div style="display:flex; gap:5px; margin-bottom:5px;">
+                    <input type="text" class="form-control parada-input-${id}" placeholder="Ej: Punta del Este..." oninput="window.actualizarParadas('${id}')">
+                </div>`;
+            }
 
+            html += `
+                <div style="margin-bottom:15px; border-bottom: 2px solid #f8f9fa; padding-bottom:10px;">
+                    <h4 style="margin:0; color:#333;">🚢 Crucero</h4>
+                </div>
+                <div class="form-group-row">
+                    <div class="form-group"><label>Naviera</label><input type="text" name="crucero_naviera" placeholder="Ej: MSC, Costa Cruceros..." required></div>
+                    <div class="form-group"><label>Puerto de Salida</label><input type="text" name="crucero_puerto_salida" placeholder="Ej: Buenos Aires, Miami..." required></div>
+                </div>
+                
+                <div class="form-group-row">
+                    <div class="form-group"><label>Embarque</label><input type="date" name="checkin" onchange="window.calcularNoches('${id}')" required></div>
+                    <div class="form-group"><label>Desembarque</label><input type="date" name="checkout" onchange="window.calcularNoches('${id}')" required></div>
+                    <div class="form-group"><label>Noches</label><input type="text" name="crucero_noches" id="noches-${id}" readonly style="background:#eee; width:60px;"></div>
+                </div>
+
+                <div class="form-group-row" style="background:#f9f9f9; padding:12px; border-radius:5px; margin-bottom:10px;">
+                    <div class="form-group" style="flex:1;">
+                        <label style="margin:0; font-weight:500; cursor:pointer;"><input type="checkbox" name="crucero_bebidas" style="transform: scale(1.2); margin-right:5px;"> Paquete de Bebidas 🥤</label>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label style="margin:0; font-weight:500; cursor:pointer;"><input type="checkbox" name="crucero_propinas" style="transform: scale(1.2); margin-right:5px;"> Propinas Incluidas 💰</label>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px; padding-left: 5px;">
+                    <small style="color:#2ecc71; font-weight:bold;">✓ Pensión Completa incluida</small> | 
+                    <small style="color:#2ecc71; font-weight:bold;">✓ Asistencia al Viajero incluida</small>
+                </div>
+
+                <div class="form-group" style="border: 1px solid #eee; padding: 10px; border-radius: 5px; margin-bottom:10px;">
+                    <label>Paradas del Recorrido</label>
+                    <div id="paradas-container-${id}">
+                        ${paradasHtml}
+                    </div>
+                    <button type="button" class="btn btn-secundario" style="padding: 2px 10px; font-size: 0.9em; margin-top:5px;" onclick="
+                        const cont = document.getElementById('paradas-container-${id}');
+                        const div = document.createElement('div');
+                        div.style.cssText = 'display:flex; gap:5px; margin-bottom:5px;';
+                        div.innerHTML = '<input type=\\'text\\' class=\\'form-control parada-input-${id}\\' placeholder=\\'Siguiente parada...\\' oninput=\\'window.actualizarParadas(\\'${id}\\')\\'><button type=\\'button\\' class=\\'btn btn-secundario\\' style=\\'padding:2px 8px;\\' onclick=\\'this.parentElement.remove(); window.actualizarParadas(\\'${id}\\');\\'>🗑️</button>';
+                        cont.appendChild(div);
+                    ">+ Agregar Parada</button>
+                    <input type="hidden" name="crucero_paradas" id="hidden_paradas_${id}" value="${paradasValue}">
+                </div>
+
+                <div class="form-group-row">
+                    <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
+                    <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
+                </div>
+            `;
+        }
+        else if (tipo === 'circuito') {
+            // Eliminamos el uniqueId y usamos el 'id' original para que funcionen las noches
+            html += `
+                <div style="margin-bottom:15px; border-bottom: 2px solid #f8f9fa; padding-bottom:10px;">
+                    <h4 style="margin:0; color:#333;">🗺️ Circuito Terrestre</h4>
+                </div>
+                
+                <div class="form-group-row">
+                    <div class="form-group">
+                        <label>Nombre del Circuito <span style="color:red">*</span></label>
+                        <input type="text" name="circuito_nombre" class="form-control" placeholder="Ej: Vuelta al Norte, Europa Clásica..." required>
+                    </div>
+                    <div class="form-group">
+                        <label>Ciudad de Salida</label>
+                        <input type="text" name="circuito_salida" class="form-control" placeholder="Ej: Madrid, Salta..." required>
+                    </div>
+                </div>
+                
+                <div class="form-group-row">
+                    <div class="form-group"><label>Fecha de Inicio</label><input type="date" name="checkin" onchange="window.calcularNoches('${id}')" required></div>
+                    <div class="form-group"><label>Fecha de Fin</label><input type="date" name="checkout" onchange="window.calcularNoches('${id}')" required></div>
+                    <div class="form-group"><label>Noches</label><input type="text" name="circuito_noches" id="noches-${id}" readonly style="background:#eee; width:60px;"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Descripción / Itinerario <span style="color:red">*</span></label>
+                    <textarea name="circuito_descripcion" class="form-control" rows="3" placeholder="Describe brevemente las ciudades, excursiones o el régimen incluido..." required></textarea>
+                </div>
+                
+                <div class="form-group-row">
+                    <div class="form-group"><label>Proveedor <span style="color:red">*</span></label><input type="text" name="proveedor" class="form-control" required></div>
+                    <div class="form-group"><label>Costo <span style="color:red">*</span></label><input type="number" name="costo" class="form-control input-costo" onchange="window.calcularTotal()" required></div>
+                </div>
+            `;
+        }
         div.innerHTML = html;
         dom.containerServicios.appendChild(div);
-        
+        if (tipo === 'aereo') {
+            const selectProvinciaGlobal = document.getElementById('upload-salida');
+            if (selectProvinciaGlobal && selectProvinciaGlobal.value) {
+                actualizarAeropuertos(selectProvinciaGlobal.value);
+            }
+        }
         if(dom.inputFechaViaje.value) { const inputsFecha = div.querySelectorAll('input[type="date"]'); inputsFecha.forEach(i => i.min = dom.inputFechaViaje.value); }
         else { const inputsFecha = div.querySelectorAll('input[type="date"]'); const today = new Date(); today.setMinutes(today.getMinutes() - today.getTimezoneOffset()); inputsFecha.forEach(i => i.min = today.toISOString().split('T')[0]); }
 
@@ -837,7 +1121,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.crearContadorHTML = (n, v) => `<div class="counter-wrapper"><button type="button" class="counter-btn" onclick="this.nextElementSibling.innerText=Math.max(0,parseInt(this.nextElementSibling.innerText)-1)">-</button><span class="counter-value">${v}</span><button type="button" class="counter-btn" onclick="this.previousElementSibling.innerText=parseInt(this.previousElementSibling.innerText)+1">+</button><input type="hidden" name="${n}" value="${v}"></div>`;
-    
+
+    // LÓGICA DINÁMICA DE PARADAS DE CRUCERO
+    window.actualizarParadas = (id) => {
+        const container = document.getElementById(`paradas-container-${id}`);
+        if(!container) return;
+        const inputs = container.querySelectorAll(`.parada-input-${id}`);
+        const vals = Array.from(inputs).map(i => i.value).filter(v => v.trim() !== '');
+        const hidden = document.getElementById(`hidden_paradas_${id}`);
+        if(hidden) hidden.value = vals.join(' - ');
+    };
     // CALCULO NOCHES (HOTEL)
     window.calcularNoches = (id) => { 
         const c=document.querySelector(`.servicio-card[data-id="${id}"]`); if(!c)return; 
@@ -873,7 +1166,43 @@ document.addEventListener('DOMContentLoaded', () => {
         const cards = document.querySelectorAll('.servicio-card'); if (cards.length === 0) { showLoader(false); return window.showAlert("Agrega servicios.", 'error'); }
 
         let serviciosData = []; for (let card of cards) { const serv = { tipo: card.dataset.tipo }; card.querySelectorAll('input, select, textarea').forEach(i => { if (i.type === 'checkbox') serv[i.name] = i.checked; else if (i.type === 'hidden') { if(i.name==='hotel_estrellas') serv[i.name] = i.value; else serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value; } else serv[i.name] = i.value; }); serviciosData.push(serv); }
+        let fechaMaxRegresoAereo = null;
+        let aereoRegresoStr = "";
+        
+        // Buscamos si hay un vuelo con fecha de regreso
+        for (let serv of serviciosData) {
+            if (serv.tipo === 'aereo' && serv.fecha_regreso) {
+                fechaMaxRegresoAereo = new Date(serv.fecha_regreso + 'T00:00:00');
+                aereoRegresoStr = formatDateAR(serv.fecha_regreso);
+                break; 
+            }
+        }
 
+        // Si hay un regreso de vuelo, validamos que nadie se quede en destino
+        if (fechaMaxRegresoAereo) {
+            for (let serv of serviciosData) {
+                let endDateStr = null;
+                
+                // Calculamos el final de hoteles y cruceros
+                if ((serv.tipo === 'hotel' || serv.tipo === 'crucero' || serv.tipo === 'circuito') && serv.checkout) {
+                    endDateStr = serv.checkout;
+                } 
+                // Calculamos el final de los buses
+                else if (serv.tipo === 'bus' && serv.noches && fechaViajeStr) {
+                    const startBus = new Date(fechaViajeStr + 'T00:00:00');
+                    startBus.setDate(startBus.getDate() + parseInt(serv.noches));
+                    endDateStr = startBus.toISOString().split('T')[0];
+                }
+
+                if (endDateStr) {
+                    const endDate = new Date(endDateStr + 'T00:00:00');
+                    if (endDate > fechaMaxRegresoAereo) {
+                        showLoader(false);
+                        return window.showAlert(`⛔ Error: El servicio de ${serv.tipo.toUpperCase()} finaliza después de tu regreso en Vuelo (${aereoRegresoStr}). Revisa las fechas.`, 'error');
+                    }
+                }
+            }
+        }
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         
         let creadorFinal;
@@ -933,7 +1262,21 @@ document.addEventListener('DOMContentLoaded', () => {
         targetGrid.innerHTML = ''; if (!list || list.length === 0) { targetGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;">No hay resultados.</p>'; return; }
         list.forEach(pkg => {
             if (!pkg.destino) return; 
-            const card = document.createElement('div'); const noches = getNoches(pkg); card.className = 'paquete-card'; const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; const summaryIcons = getSummaryIcons(pkg); 
+            const card = document.createElement('div'); const noches = getNoches(pkg);
+            // --- LÓGICA INTELIGENTE DE SALIDA PARA LA GRILLA ---
+            let lugarSalidaGrid = pkg['salida'];
+            let sGrid = []; try { sGrid = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e){}
+            const tieneAereoGrid = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'aereo');
+            if (!tieneAereoGrid) {
+                const crucero = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'crucero');
+                const circuito = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'circuito');
+                if (crucero && crucero.crucero_puerto_salida) {
+                    lugarSalidaGrid = crucero.crucero_puerto_salida;
+                } else if (circuito && circuito.circuito_salida) {
+                    lugarSalidaGrid = circuito.circuito_salida;
+                }
+            }
+            card.className = 'paquete-card'; const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; const summaryIcons = getSummaryIcons(pkg); 
             const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`; 
             let statusTag = ''; if (pkg.status === 'pending') statusTag = `<span style="background-color:#ffeaa7; color:#d35400; padding:2px 8px; border-radius:10px; font-size:0.7em; margin-left:5px;">⏳ En Revisión</span>`;
 
@@ -957,7 +1300,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
                         
                         <div style="text-align: right;">
-                            <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${pkg['salida']}</div>
+                            <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${lugarSalidaGrid}</div>
                             
                             <p class="precio-valor" style="margin: 5px 0 0 0;">
                                 ${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar/2))}
@@ -979,7 +1322,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function openModal(pkg) {
         window.currentModalPackage = pkg;
         if (typeof renderServiciosClienteHTML !== 'function') return alert("Error interno.");
-        const rawServicios = pkg['servicios'] || pkg['item.servicios']; const htmlCliente = renderServiciosClienteHTML(rawServicios); const htmlCostos = renderCostosProveedoresHTML(rawServicios); const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2); 
+        const rawServicios = pkg['servicios'] || pkg['item.servicios']; 
+        let serviciosModal = []; 
+        try { serviciosModal = typeof rawServicios === 'string' ? JSON.parse(rawServicios) : rawServicios; } catch(e) {}
+        
+        let lugarSalidaModal = pkg['salida'];
+        const tieneAereoModal = Array.isArray(serviciosModal) && serviciosModal.some(s => s.tipo === 'aereo');
+        if (!tieneAereoModal) {
+            const crucero = Array.isArray(serviciosModal) && serviciosModal.find(s => s.tipo === 'crucero');
+            const circuito = Array.isArray(serviciosModal) && serviciosModal.find(s => s.tipo === 'circuito');
+            if (crucero && crucero.crucero_puerto_salida) {
+                lugarSalidaModal = crucero.crucero_puerto_salida;
+            } else if (circuito && circuito.circuito_salida) {
+                lugarSalidaModal = circuito.circuito_salida;
+            }
+        }
+        const htmlCliente = renderServiciosClienteHTML(rawServicios); const htmlCostos = renderCostosProveedoresHTML(rawServicios); const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2); 
         const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`; 
         let adminTools = ''; const isOwner = pkg.editor_email === currentUser.email; const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
         if (canEdit) { const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick='approvePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : ''; adminTools = `<div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">${btnApprove}<button class="btn btn-secundario" onclick='startEditing(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button><button class="btn btn-secundario" onclick='deletePackage(${JSON.stringify(pkg)})' style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button></div>`; }
@@ -1006,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${btnCopiar}
                     </div>
                     <p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${formatDateAR(pkg['fecha_salida'])}</p>
-                    <p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${pkg['salida']}</p>
+                    <p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${lugarSalidaModal}</p>
                     <p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p>
                     <p style="margin:5px 0; font-size:0.9em;"><b>📅 Cargado el:</b> ${pkg['fecha_creacion'] || '-'}</p>
                     
@@ -1209,12 +1567,13 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const pkg of aBorrar) {
             const id = pkg.id_paquete || pkg.id || pkg['item.id'];
             try {
-                await secureFetch(API_URL_UPLOAD, { 
+                // Usamos _doFetch directo en lugar de secureFetch para que trabaje en 2do plano sin bloquear la pantalla
+                await _doFetch(API_URL_UPLOAD, { 
                     action_type: 'delete', 
                     id_paquete: id, 
                     status: 'deleted' 
                 });
-                console.log(`✅ Borrado OK: ${pkg.destino}`);
+                console.log(`✅ Borrado OK silencioso: ${pkg.destino}`);
                 borradosExitosos++;
             } catch (error) {
                 console.error(`❌ Error al borrar ${pkg.destino}:`, error);
@@ -1232,31 +1591,9 @@ document.addEventListener('DOMContentLoaded', () => {
              console.log(`⚠ Aún quedan ${candidatos.length - LOTE_MAXIMO} viejos. Se borrarán en la próxima recarga.`);
         }
     }
+    
 
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
