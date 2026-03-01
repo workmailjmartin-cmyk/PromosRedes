@@ -1567,12 +1567,13 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const pkg of aBorrar) {
             const id = pkg.id_paquete || pkg.id || pkg['item.id'];
             try {
-                await secureFetch(API_URL_UPLOAD, { 
+                // Usamos _doFetch directo en lugar de secureFetch para que trabaje en 2do plano sin bloquear la pantalla
+                await _doFetch(API_URL_UPLOAD, { 
                     action_type: 'delete', 
                     id_paquete: id, 
                     status: 'deleted' 
                 });
-                console.log(`✅ Borrado OK: ${pkg.destino}`);
+                console.log(`✅ Borrado OK silencioso: ${pkg.destino}`);
                 borradosExitosos++;
             } catch (error) {
                 console.error(`❌ Error al borrar ${pkg.destino}:`, error);
@@ -1593,6 +1594,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
