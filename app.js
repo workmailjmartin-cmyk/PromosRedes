@@ -334,6 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (s.checkin) texto += `*Fechas:* ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
                     if (s.circuito_descripcion) texto += `Detalle: ${s.circuito_descripcion}\n`;
                     texto += `\n`;
+                }
             });
         }
 
@@ -1585,6 +1586,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
