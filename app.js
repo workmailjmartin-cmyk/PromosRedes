@@ -103,8 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let originalCreator = ''; 
     window.currentModalPackage = null;
 
-    const db = firebase.firestore();
-
     // DOM PRINCIPAL
     const dom = {
         views: { search: document.getElementById('view-search'), upload: document.getElementById('view-upload'), gestion: document.getElementById('view-gestion'), users: document.getElementById('view-users') },
@@ -1702,6 +1700,7 @@ window.approvePackage = async (pkg) => {
     
 
 });
+
 
 
 
