@@ -1215,24 +1215,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const payload = { id_paquete: idGenerado, destino: document.getElementById('upload-destino').value, salida: document.getElementById('upload-salida').value, fecha_salida: fechaViajeStr, costos_proveedor: costo, tarifa: tarifa, moneda: document.getElementById('upload-moneda').value, tipo_promo: promoType, financiacion: document.getElementById('upload-financiacion').value, servicios: serviciosData, status: status, creador: creadorFinal, editor_email: currentUser.email, action_type: isEditingId ? 'edit' : 'create' };
 
+        // PASO 1: Guardamos en la base de datos de forma aislada
         try { 
-            await secureFetch(API_URL_UPLOAD, payload);    
-            await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success');
-             
+            await secureFetch(API_URL_UPLOAD, payload); 
+        } catch(e) { 
+            window.showAlert('Error real al conectar con el servidor.', 'error'); 
+            console.error("Fallo el envío:", e);
+            return; // Si no hay internet o falla, cortamos todo acá.
+        }
+    
+        // PASO 2: Si llegó hasta acá, SE GUARDÓ SÍ O SÍ. 
+        await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success'); 
+        
+        // PASO 3: Cambio visual de pantallas (Aislado para que no rompa lo anterior)
+        try {
+            dom.uploadForm.reset();
+            dom.containerServicios.innerHTML = '';
+            
+            // ¡Acá es donde se está tropezando actualmente!
             dom.seccionUpload.style.display = 'none';
             dom.seccionFeed.style.display = 'block';
-        
-            dom.uploadForm.reset();
-            dom.containerServicios.innerHTML = ''; 
-        
-            window.showAlert("¡Paquete guardado con éxito!", "success");
-        
+            
             showLoader(true, "Actualizando grilla...");
-            await fetchPackages(); 
-
+            await fetchPackages(); // O tu función que descarga los paquetes
             showLoader(false);
-        } catch(e) 
-            { window.showAlert("Error al guardar.", 'error'); 
+        } catch (errorVisual) {
+            console.error("🚨 ERROR EN LA PANTALLA (Pasame esto):", errorVisual);
         }
     });
 
@@ -1617,6 +1625,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
