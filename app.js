@@ -1143,15 +1143,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
     };
     
-    window.calcularTotal = () => { 
-        let t=0; 
-        document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0); 
-        dom.inputCostoTotal.value = t;
+    window.calcularTotal = () => {
+        let t=0;
+        document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0);
+        if(dom.inputCostoTotal) dom.inputCostoTotal.value = t;
         const tarifaSugerida = Math.round(t * 1.185);
-        dom.inputTarifaTotal.value = tarifaSugerida;
-        
-        // Disparar evento manualmente por si acaso
-        dom.inputTarifaTotal.dispatchEvent(new Event('input'));
+        if(dom.inputTarifaTotal) dom.inputTarifaTotal.value = tarifaSugerida;
+        if (typeof window.calcularPorPersona === 'function') {
+            dom.inputTarifaTotal.dispatchEvent(new Event('input'));
+        }
     };
 
     dom.uploadForm.addEventListener('submit', async (e) => {
@@ -1612,6 +1612,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
