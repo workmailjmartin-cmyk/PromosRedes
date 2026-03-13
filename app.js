@@ -1210,7 +1210,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const payload = { id_paquete: idGenerado, destino: document.getElementById('upload-destino').value, salida: document.getElementById('upload-salida').value, fecha_salida: fechaViajeStr, costos_proveedor: costo, tarifa: tarifa, moneda: document.getElementById('upload-moneda').value, tipo_promo: promoType, financiacion: document.getElementById('upload-financiacion').value, servicios: serviciosData, status: status, creador: creadorFinal, editor_email: currentUser.email, action_type: isEditingId ? 'edit' : 'create' };
 
-        try { await secureFetch(API_URL_UPLOAD, payload); await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success'); window.location.reload(); } catch(e) { window.showAlert("Error al guardar.", 'error'); }
+        try { 
+            await secureFetch(API_URL_UPLOAD, payload);    
+            await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success');
+             
+            dom.seccionUpload.style.display = 'none';
+            dom.seccionFeed.style.display = 'block';
+        
+            dom.uploadForm.reset();
+            dom.containerServicios.innerHTML = ''; 
+        
+            window.showAlert("¡Paquete guardado con éxito!", "success");
+        
+            showLoader(true, "Actualizando grilla...");
+            await fetchPackages(); 
+
+            showLoader(false);
+        } catch(e) 
+            { window.showAlert("Error al guardar.", 'error'); 
+        }
     });
 
     function populateFranchiseFilter(packages) { const selector = dom.filtroCreador; if(!selector) return; const currentVal = selector.value; const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))]; selector.innerHTML = '<option value="">Todas las Franquicias</option>'; creadores.sort().forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt); }); selector.value = currentVal; }
@@ -1594,6 +1612,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
