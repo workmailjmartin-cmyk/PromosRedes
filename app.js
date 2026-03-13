@@ -1227,20 +1227,23 @@ document.addEventListener('DOMContentLoaded', () => {
         // PASO 2: Si llegó hasta acá, SE GUARDÓ SÍ O SÍ. 
         await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success'); 
         
-        // PASO 3: Cambio visual de pantallas (Aislado para que no rompa lo anterior)
+        // PASO 3: Cambio visual de pantallas (Ahora con los nombres reales)
         try {
             dom.uploadForm.reset();
             dom.containerServicios.innerHTML = '';
             
-            // ¡Acá es donde se está tropezando actualmente!
-            dom.seccionUpload.style.display = 'none';
-            dom.seccionFeed.style.display = 'block';
+            // Magia: Ocultamos formulario, mostramos menú principal
+            dom.views.upload.style.display = 'none';
+            dom.views.search.style.display = 'block';
             
             showLoader(true, "Actualizando grilla...");
-            await fetchPackages(); // O tu función que descarga los paquetes
+            
+            // Actualizamos los datos invisibles (Fijate si tu función se llama fetchPackages, cargarPaquetes o similar)
+            if(typeof fetchPackages === 'function') await fetchPackages(); 
+            
             showLoader(false);
         } catch (errorVisual) {
-            console.error("🚨 ERROR EN LA PANTALLA (Pasame esto):", errorVisual);
+            console.error("🚨 ERROR EN LA PANTALLA:", errorVisual);
         }
     });
 
@@ -1625,6 +1628,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
