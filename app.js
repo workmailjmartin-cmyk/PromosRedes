@@ -103,6 +103,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let originalCreator = ''; 
     window.currentModalPackage = null;
 
+    const db = firebase.firestore();
+
     // DOM PRINCIPAL
     const dom = {
         views: { search: document.getElementById('view-search'), upload: document.getElementById('view-upload'), gestion: document.getElementById('view-gestion'), users: document.getElementById('view-users') },
@@ -655,15 +657,32 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchAndLoadPackages() { 
         showLoader(true, "Cargando paquetes...");
         try { 
-            let d = await secureFetch(API_URL_SEARCH, {}); 
-            if (typeof d === 'string') d = JSON.parse(d); 
-            allPackages = d; 
+            // 1. Descargamos todo de Firebase a la velocidad de la luz
+            const snapshot = await db.collection('paquetes').get();
+            
+            // 2. Transformamos los datos al formato que tu código ya conoce
+            allPackages = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id_paquete: doc.id, // Le inyectamos el ID seguro de Firebase
+                    ...data
+                };
+            });
+            
+            // 3. Tus funciones de filtrado y dibujado quedan intactas
             uniquePackages = processPackageHistory(allPackages); 
             populateFranchiseFilter(uniquePackages); 
             autoCleanupPackages(uniquePackages);
             applyFilters();
             updatePendingBadge(); 
-        } catch(e){ console.error(e); }
+            
+        } catch(e) { 
+            console.error("🔥 Error al leer de Firebase:", e); 
+            // Cuidamos al usuario: le mostramos qué pasó si falla
+            if (typeof window.showAlert === 'function') {
+                window.showAlert("No se pudieron cargar las promociones. Revisa tu conexión.", "error");
+            }
+        }
         showLoader(false);
     }
 
@@ -1215,35 +1234,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const payload = { id_paquete: idGenerado, destino: document.getElementById('upload-destino').value, salida: document.getElementById('upload-salida').value, fecha_salida: fechaViajeStr, costos_proveedor: costo, tarifa: tarifa, moneda: document.getElementById('upload-moneda').value, tipo_promo: promoType, financiacion: document.getElementById('upload-financiacion').value, servicios: serviciosData, status: status, creador: creadorFinal, editor_email: currentUser.email, action_type: isEditingId ? 'edit' : 'create' };
 
-        // PASO 1: Guardamos en la base de datos de forma aislada
+       // PASO 1 y 2: Guardamos en la base de datos de FIREBASE
+        showLoader(true, "Guardando paquete...");
         try { 
-            await secureFetch(API_URL_UPLOAD, payload); 
+            if (isEditingId) {
+                // EDITAR: Actualizamos el documento existente con el ID de edición
+                await db.collection('paquetes').doc(isEditingId).update(payload);
+                await window.showAlert(status === 'pending' ? 'Edición enviada a revisión.' : 'Actualizado correctamente.', 'success');
+            } else {
+                // CREAR NUEVO: Usamos tu idGenerado para nombrar al documento en Firebase
+                await db.collection('paquetes').doc(idGenerado).set(payload);
+                await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success');
+            }
         } catch(e) { 
-            window.showAlert('Error real al conectar con el servidor.', 'error'); 
-            console.error("Fallo el envío:", e);
+            window.showAlert('Error al conectar con la base de datos.', 'error'); 
+            console.error("Fallo el guardado en Firebase:", e);
+            showLoader(false);
             return; // Si no hay internet o falla, cortamos todo acá.
         }
     
-        // PASO 2: Si llegó hasta acá, SE GUARDÓ SÍ O SÍ. 
-        await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success'); 
-        
-        // PASO 3: Cambio visual de pantallas (Ahora con los nombres reales)
+        // PASO 3: Cambio visual de pantallas y recarga de datos
         try {
             dom.uploadForm.reset();
             dom.containerServicios.innerHTML = '';
             
-            // Magia: Ocultamos formulario, mostramos menú principal
+            // Ocultamos formulario, mostramos menú principal
             dom.views.upload.style.display = 'none';
             dom.views.search.style.display = 'block';
             
             showLoader(true, "Actualizando grilla...");
             
-            // Actualizamos los datos invisibles (Fijate si tu función se llama fetchPackages, cargarPaquetes o similar)
-            if(typeof fetchPackages === 'function') await fetchPackages(); 
+            // ¡Llamamos a tu función con el nombre real que descubrimos antes!
+            if(typeof fetchAndLoadPackages === 'function') await fetchAndLoadPackages(); 
             
             showLoader(false);
         } catch (errorVisual) {
             console.error("🚨 ERROR EN LA PANTALLA:", errorVisual);
+            showLoader(false);
         }
     });
 
@@ -1349,8 +1376,55 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // GESTION MODAL
-    window.deletePackage = async (pkg) => { if (!await window.showConfirm("⚠️ ¿Eliminar este paquete?")) return; showLoader(true); try { const id = pkg.id_paquete || pkg.id || pkg['item.id']; await secureFetch(API_URL_UPLOAD, { action_type: 'delete', id_paquete: id, status: 'deleted' }); await window.showAlert("Paquete eliminado.", "success"); window.location.reload(); } catch (e) { window.showAlert("Error al eliminar.", "error"); } };
-    window.approvePackage = async (pkg) => { if (!await window.showConfirm("¿Aprobar publicación en FEED?")) return; showLoader(true); try { let payload = JSON.parse(JSON.stringify(pkg)); payload.status = 'approved'; payload.action_type = 'edit'; payload.creador = pkg.creador; delete payload['row_number']; await secureFetch(API_URL_UPLOAD, payload); await window.showAlert("Paquete Aprobado.", "success"); window.location.reload(); } catch(e) { window.showAlert("Error al aprobar.", "error"); } };
+    window.deletePackage = async (pkg) => { 
+        if (!await window.showConfirm("⚠️ ¿Eliminar este paquete para siempre?")) return; 
+        
+        showLoader(true, "Eliminando paquete..."); 
+        try { 
+            const id = pkg.id_paquete || pkg.id || pkg['item.id']; 
+            
+            // FIREBASE: Borramos el documento físicamente de la base de datos
+            await db.collection('paquetes').doc(id).delete(); 
+            
+            await window.showAlert("Paquete eliminado correctamente.", "success"); 
+            
+            // Cerramos el modal si estaba abierto
+            if(dom.modal) dom.modal.style.display = 'none';
+            
+            // UX MÁGICA: Recargamos la grilla suavecito sin reiniciar la página
+            if(typeof fetchAndLoadPackages === 'function') await fetchAndLoadPackages(); 
+
+        } catch (e) { 
+            console.error("Error al borrar en Firebase:", e);
+            window.showAlert("Error al eliminar.", "error"); 
+        } 
+        showLoader(false);
+    };
+window.approvePackage = async (pkg) => { 
+        if (!await window.showConfirm("¿Aprobar publicación en FEED?")) return; 
+        
+        showLoader(true, "Aprobando..."); 
+        try { 
+            const id = pkg.id_paquete || pkg.id || pkg['item.id'];
+            
+            // FIREBASE: Solo actualizamos el campo 'status', súper eficiente
+            await db.collection('paquetes').doc(id).update({
+                status: 'approved'
+            }); 
+            
+            await window.showAlert("Paquete Aprobado y publicado.", "success"); 
+            
+            if(dom.modal) dom.modal.style.display = 'none';
+            
+            // UX: Recargamos la grilla sin F5
+            if(typeof fetchAndLoadPackages === 'function') await fetchAndLoadPackages(); 
+
+        } catch(e) { 
+            console.error("Error al aprobar en Firebase:", e);
+            window.showAlert("Error al aprobar.", "error"); 
+        } 
+        showLoader(false);
+    };    
     window.startEditing = async (pkg) => { if (!await window.showConfirm("Se abrirá el formulario de edición.")) return; isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; originalCreator = pkg.creador || ''; document.getElementById('upload-destino').value = pkg.destino; document.getElementById('upload-salida').value = pkg.salida; let fecha = pkg.fecha_salida; if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-'); dom.inputFechaViaje.value = fecha; document.getElementById('upload-moneda').value = pkg.moneda; document.getElementById('upload-promo').value = pkg.tipo_promo; document.getElementById('upload-financiacion').value = pkg.financiacion || ''; document.getElementById('upload-tarifa-total').value = pkg.tarifa; dom.containerServicios.innerHTML = ''; let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {} if (Array.isArray(servicios)) { servicios.forEach(s => agregarModuloServicio(s.tipo, s)); } window.calcularTotal(); dom.modal.style.display = 'none'; showView('upload'); window.scrollTo(0,0); window.showAlert("Modo Edición Activado.", "info"); };
 
     function openModal(pkg) {
@@ -1628,6 +1702,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
