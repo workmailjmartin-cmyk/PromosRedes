@@ -530,8 +530,26 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showAlert = (message, type = 'error') => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btn = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); if(btnCancel) btnCancel.style.display = 'none'; if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; } else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; } else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; } msg.innerText = message; overlay.style.display = 'flex'; btn.onclick = () => { overlay.style.display = 'none'; resolve(); }; }); };
     window.showConfirm = (message) => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btnOk = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); title.innerText = 'Confirmación'; title.style.color = '#11173d'; icon.innerHTML = '❓'; msg.innerText = message; if(btnCancel) btnCancel.style.display = 'inline-block'; overlay.style.display = 'flex'; btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); }; if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); }; }); };
 
-    // --- CORE ---
-    if(dom.logoImg) dom.logoImg.addEventListener('click', () => { showLoader(true); window.location.reload(); });
+   // --- CORE ---
+    if(dom.logoImg) {
+        dom.logoImg.addEventListener('click', async (e) => {
+            e.preventDefault(); // Evitamos cualquier comportamiento por defecto
+
+            // 1. Ocultamos otras pantallas y mostramos la grilla principal
+            showView('search'); 
+
+            // 2. Limpiamos el formulario por si el vendedor estaba a la mitad de una carga
+            if (dom.uploadForm) dom.uploadForm.reset();
+            if (dom.containerServicios) dom.containerServicios.innerHTML = '';
+
+            // 3. (Opcional pero recomendado) Ya que apretó el logo para "refrescar", 
+            // le traemos las novedades de Firebase en silencio y al instante
+            if(typeof fetchAndLoadPackages === 'function') await fetchAndLoadPackages();
+
+            // 4. Lo llevamos arriba de todo de la página con un scroll suavecito
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    }
 
     const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     const minGlobalDate = now.toISOString().split('T')[0];
