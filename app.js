@@ -658,6 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let d = await secureFetch(API_URL_SEARCH, {}); 
             if (typeof d === 'string') d = JSON.parse(d); 
             allPackages = d; 
+            window.paquetesViejos = allPackages;
             uniquePackages = processPackageHistory(allPackages); 
             populateFranchiseFilter(uniquePackages); 
             autoCleanupPackages(uniquePackages);
