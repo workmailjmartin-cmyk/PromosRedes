@@ -1649,7 +1649,7 @@ window.approvePackage = async (pkg) => {
     });
     // --- LIMPIEZA AUTOMÁTICA (MODO FILA INDIA) ---
     async function autoCleanupPackages(packages) {
-        // 1. SEGURIDAD
+        // 1. SEGURIDAD (Solo el admin dispara la limpieza)
         if (!userData || (userData.rol !== 'admin')) return;
 
         // 2. FRENO DE MANO (Diario)
@@ -1678,45 +1678,34 @@ window.approvePackage = async (pkg) => {
             return;
         }
 
-        // 4. PROCESAR UNO POR UNO (Para evitar errores 400)
-        // Tomamos máximo 10 para no tener trabajando al navegador tanto tiempo
-        const LOTE_MAXIMO = 10; 
-        const aBorrar = candidatos.slice(0, LOTE_MAXIMO);
-
-        console.log(`🗑️ Iniciando borrado secuencial de ${aBorrar.length} paquetes...`);
+        // 4. PROCESAR TODOS JUNTOS (Firebase no tiene límites molestos)
+        console.log(`🗑️ Iniciando desinfección de ${candidatos.length} paquetes viejos...`);
 
         let borradosExitosos = 0;
 
-        // BUCLE "FILA INDIA": Esperamos (await) a que termine uno para seguir con el otro
-        for (const pkg of aBorrar) {
+        for (const pkg of candidatos) {
             const id = pkg.id_paquete || pkg.id || pkg['item.id'];
             try {
-                // Usamos _doFetch directo en lugar de secureFetch para que trabaje en 2do plano sin bloquear la pantalla
-                await _doFetch(API_URL_UPLOAD, { 
-                    action_type: 'delete', 
-                    id_paquete: id, 
-                    status: 'deleted' 
-                });
-                console.log(`✅ Borrado OK silencioso: ${pkg.destino}`);
+                // Borrado real e instantáneo en Firebase
+                await db.collection('paquetes').doc(id).delete();
+                console.log(`✅ Borrado silencioso: ${pkg.destino} (Tenía ${pkg.tipo_promo})`);
                 borradosExitosos++;
             } catch (error) {
                 console.error(`❌ Error al borrar ${pkg.destino}:`, error);
             }
         }
 
-        console.log(`✨ Fin del ciclo. Se borraron ${borradosExitosos} de ${aBorrar.length}.`);
+        console.log(`✨ Fin del ciclo. Se borraron ${borradosExitosos} de ${candidatos.length}.`);
 
-        // Si ya no quedan más pendientes en la lista total, firmamos para hoy.
-        // Si quedan, NO firmamos, así la próxima vez borra otros 10.
-        if (candidatos.length <= LOTE_MAXIMO) {
-             localStorage.setItem('ultimo_mantenimiento', hoy);
-             console.log("🏆 Limpieza total del día completada.");
-        } else {
-             console.log(`⚠ Aún quedan ${candidatos.length - LOTE_MAXIMO} viejos. Se borrarán en la próxima recarga.`);
+        // Firmamos el mantenimiento de hoy
+        localStorage.setItem('ultimo_mantenimiento', hoy);
+        console.log("🏆 Limpieza total del día completada.");
+
+        // Si se borró basura, actualizamos la pantalla para que el admin vea la grilla limpia
+        if (borradosExitosos > 0 && typeof fetchAndLoadPackages === 'function') {
+            await fetchAndLoadPackages();
         }
     }
-    
-
 });
 
 
