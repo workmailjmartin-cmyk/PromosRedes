@@ -1142,7 +1142,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if(inputN) inputN.value = diff;
         } 
     };
-    
+   
+    if (typeof window.calcularPorPersona !== 'function') {
+        window.calcularPorPersona = () => {
+            // Función de seguridad: evita que el HTML colapse al limpiarse
+        };
+    }
     window.calcularTotal = () => {
         let t=0;
         document.querySelectorAll('.input-costo').forEach(i=>t+=parseFloat(i.value)||0);
@@ -1612,6 +1617,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
 
 });
+
 
 
 
