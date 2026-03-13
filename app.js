@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
     }
+    const analytics = firebase.analytics();
     const auth = firebase.auth();
     const db = firebase.firestore(); 
     const provider = new firebase.auth.GoogleAuthProvider();
