@@ -688,9 +688,20 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // ORDEN TEMPORAL
             allPackages.sort((a, b) => {
-                const tiempoA = a.timestamp || parseInt(a.id_paquete.split('_')[1]) || 0;
-                const tiempoB = b.timestamp || parseInt(b.id_paquete.split('_')[1]) || 0;
-                return tiempoB - tiempoA; 
+                // Función interna para sacar los milisegundos de cualquier paquete (viejo o nuevo)
+                function getMilisegundos(pkg) {
+                    if (pkg.timestamp) return pkg.timestamp; // Si es nuevo de Firebase
+                    if (pkg.fecha_creacion) { // Si es viejo del Excel (ej: 13/03/2026)
+                        const partes = pkg.fecha_creacion.split('/');
+                        if (partes.length === 3) {
+                            return new Date(partes[2], partes[1] - 1, partes[0]).getTime();
+                        }
+                    }
+                    return 0; // Por si alguno viene sin fecha
+                }
+                
+                // Ordenamos de Mayor a Menor (más recientes arriba)
+                return getMilisegundos(b) - getMilisegundos(a); 
             });
             
             // 3. Tus funciones de filtrado y dibujado quedan intactas
@@ -1678,8 +1689,8 @@ window.approvePackage = async (pkg) => {
 
         // 2. FRENO DE MANO (Diario)
         const hoy = new Date().toISOString().split('T')[0];
-        const ultimoChequeo = localStorage.getItem('ultimo_mantenimiento');
-        if (ultimoChequeo === hoy) return; 
+        //const ultimoChequeo = localStorage.getItem('ultimo_mantenimiento');
+        //if (ultimoChequeo === hoy) return; 
 
         console.log("🧹 Buscando paquetes vencidos...");
         const now = new Date();
