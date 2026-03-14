@@ -1689,8 +1689,8 @@ window.approvePackage = async (pkg) => {
 
         // 2. FRENO DE MANO (Diario)
         const hoy = new Date().toISOString().split('T')[0];
-        //const ultimoChequeo = localStorage.getItem('ultimo_mantenimiento');
-        //if (ultimoChequeo === hoy) return; 
+        const ultimoChequeo = localStorage.getItem('ultimo_mantenimiento');
+        if (ultimoChequeo === hoy) return; 
 
         console.log("🧹 Buscando paquetes vencidos...");
         const now = new Date();
