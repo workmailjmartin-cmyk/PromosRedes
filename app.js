@@ -686,6 +686,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             });
             
+            // ORDEN TEMPORAL
+            allPackages.sort((a, b) => {
+                const tiempoA = a.timestamp || parseInt(a.id_paquete.split('_')[1]) || 0;
+                const tiempoB = b.timestamp || parseInt(b.id_paquete.split('_')[1]) || 0;
+                return tiempoB - tiempoA; 
+            });
+            
             // 3. Tus funciones de filtrado y dibujado quedan intactas
             uniquePackages = processPackageHistory(allPackages); 
             populateFranchiseFilter(uniquePackages); 
@@ -1249,8 +1256,24 @@ document.addEventListener('DOMContentLoaded', () => {
         let creadorFinal;
         if (isEditingId && originalCreator) { creadorFinal = originalCreator; } else { creadorFinal = userData.franquicia || 'Desconocido'; }
 
-        const payload = { id_paquete: idGenerado, destino: document.getElementById('upload-destino').value, salida: document.getElementById('upload-salida').value, fecha_salida: fechaViajeStr, costos_proveedor: costo, tarifa: tarifa, moneda: document.getElementById('upload-moneda').value, tipo_promo: promoType, financiacion: document.getElementById('upload-financiacion').value, servicios: serviciosData, status: status, creador: creadorFinal, editor_email: currentUser.email, action_type: isEditingId ? 'edit' : 'create' };
-
+        const payload = { 
+                    id_paquete: idGenerado, 
+                    destino: document.getElementById('upload-destino').value, 
+                    salida: document.getElementById('upload-salida').value, 
+                    fecha_salida: fechaViajeStr, 
+                    costos_proveedor: costo, 
+                    tarifa: tarifa, 
+                    moneda: document.getElementById('upload-moneda').value, 
+                    tipo_promo: promoType, 
+                    financiacion: document.getElementById('upload-financiacion').value, 
+                    servicios: serviciosData, 
+                    status: status, 
+                    creador: creadorFinal, 
+                    editor_email: currentUser.email, 
+                    action_type: isEditingId ? 'edit' : 'create',
+                    timestamp: Date.now() // <-- ¡LA MAGIA NUEVA ESTÁ ACÁ!
+                };
+        
        // PASO 1 y 2: Guardamos en la base de datos de FIREBASE
         showLoader(true, "Guardando paquete...");
         try { 
