@@ -1288,8 +1288,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     creador: creadorFinal, 
                     editor_email: currentUser.email, 
                     action_type: isEditingId ? 'edit' : 'create',
-                    timestamp: Date.now()
-                    fecha_creacion: fechaCreacionFormateada
+                    timestamp: Date.now(),
+                    fecha_creacion: fechaCreacionFormateada,
                 };
         
        // PASO 1 y 2: Guardamos en la base de datos de FIREBASE
