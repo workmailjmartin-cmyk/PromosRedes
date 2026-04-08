@@ -1221,7 +1221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let status = 'approved'; 
         
-        const costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; const fechaViajeStr = dom.inputFechaViaje.value;
+        let costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; const fechaViajeStr = dom.inputFechaViaje.value;
         if (tarifa < costo) { showLoader(false); return window.showAlert(`Error: Tarifa menor al costo.`, 'error'); }
         
         const cards = document.querySelectorAll('.servicio-card'); if (cards.length === 0) { showLoader(false); return window.showAlert("Agrega servicios.", 'error'); }
@@ -1230,7 +1230,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // --- NUEVA VALIDACIÓN INTELIGENTE DE FECHA ---
         const esCircuito = serviciosData.some(s => s.tipo === 'circuito');
-        if (!fechaViajeStr && !esCircuito) { 
+        const tieneAereo = serviciosData.some(s => s.tipo === 'aereo');
+        
+        // Si es circuito Y NO HAY AÉREO, borramos la fecha a la fuerza
+        if (esCircuito && !tieneAereo) {
+            fechaViajeStr = ""; 
+        } else if (!fechaViajeStr) { 
+            // Si no hay fecha (y no es un circuito puro), frena todo
             showLoader(false); return window.showAlert("Falta fecha de salida.", 'error'); 
         }
         let fechaMaxRegresoAereo = null;
@@ -1412,9 +1418,9 @@ document.addEventListener('DOMContentLoaded', () => {
             let sGrid = []; try { sGrid = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e){}
             const tieneAereoGrid = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'aereo');
             
-            // Lógica de Múltiples salidas para Circuitos
+           // Lógica de Múltiples salidas para Circuitos (EL AÉREO MANDA)
             const esCircuitoGrid = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'circuito');
-            const fechaMostrar = (!pkg['fecha_salida'] && esCircuitoGrid) ? 'Múltiples Salidas' : formatDateAR(pkg['fecha_salida']);
+            const fechaMostrar = (!pkg['fecha_salida'] && esCircuitoGrid && !tieneAereoGrid) ? 'Múltiples Salidas' : formatDateAR(pkg['fecha_salida']);
             if (!tieneAereoGrid) {
                 const crucero = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'crucero');
                 const circuito = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'circuito');
