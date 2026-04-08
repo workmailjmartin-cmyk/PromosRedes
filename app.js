@@ -735,6 +735,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const nombreMostrar = userData.franquicia || u.email;
                     if(dom.userEmail) dom.userEmail.innerHTML = `<b>${nombreMostrar}</b><br><small>${userData.rol.toUpperCase()}</small>`;
                     configureUIByRole(); await fetchAndLoadPackages(); showView('search');
+                    if (document.getElementById('btn-toggle-calculadora')) document.getElementById('btn-toggle-calculadora').style.display = 'flex';
                 } else { await window.showAlert(`⛔ Sin permisos.`); auth.signOut(); }
             } catch (e) { 
                 console.error("🔥 ERROR REAL DE FIRESTORE:", e); // <--- Esto mostrará el detalle en consola (F12)
@@ -742,7 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("Mensaje:", e.message);
                 await window.showAlert("Error de conexión: " + e.message); // Verás el error en la pantalla
             }
-        } else { currentUser = null; userData = null; dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none'; }
+        } else { currentUser = null; userData = null; dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none'; if (document.getElementById('btn-toggle-calculadora')) document.getElementById('btn-toggle-calculadora').style.display = 'none';}
         showLoader(false);
     });
 
