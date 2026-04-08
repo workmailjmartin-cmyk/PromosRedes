@@ -1952,7 +1952,7 @@ if (btnToggle && panelCalc) {
     });
 }
 });
-});
+
 
 
 
