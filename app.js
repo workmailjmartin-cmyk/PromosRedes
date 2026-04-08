@@ -1895,7 +1895,14 @@ function calcularVentaAgencia(servicio, proveedor, montoBase, tipoVuelo) {
 // 3. LA LÓGICA DE LA INTERFAZ VISUAL
 const btnToggle = document.getElementById('btn-toggle-calculadora');
 const panelCalc = document.getElementById('panel-calculadora');
+const bodyCalc = document.getElementById('body-calculadora');
+
+// Botones de control de ventana
 const btnClose = document.getElementById('btn-close-calculadora');
+const btnMin = document.getElementById('btn-min-calculadora');
+const btnMax = document.getElementById('btn-max-calculadora');
+
+// Elementos del formulario
 const selectServicio = document.getElementById('calc-servicio');
 const selectProveedor = document.getElementById('calc-proveedor');
 const selectTipoVuelo = document.getElementById('calc-tipo-vuelo');
@@ -1905,11 +1912,56 @@ const btnCalcular = document.getElementById('btn-calcular-ya');
 const boxResultados = document.getElementById('calc-resultados');
 
 if (btnToggle && panelCalc) {
-    // Abrir / Cerrar
+    let isMaximized = false;
+
+    // Abrir la calculadora desde el botón flotante principal
     btnToggle.addEventListener('click', () => {
         panelCalc.style.display = panelCalc.style.display === 'none' || panelCalc.style.display === '' ? 'flex' : 'none';
+        bodyCalc.style.display = 'block'; // Asegurar que no abra minimizada
     });
-    btnClose.addEventListener('click', () => panelCalc.style.display = 'none');
+
+    // --- CONTROLES DE VENTANA ---
+    
+    // 1. Cerrar (y resetear todo a 0)
+    btnClose.addEventListener('click', () => {
+        panelCalc.style.display = 'none';
+        selectServicio.value = '';
+        selectProveedor.innerHTML = '<option value="">Seleccionar Servicio Primero...</option>';
+        boxTipoVuelo.style.display = 'none';
+        inputMonto.value = '';
+        boxResultados.style.display = 'none';
+        
+        // Volver al tamaño original si estaba grande
+        if (isMaximized) btnMax.click();
+    });
+
+    // 2. Minimizar (Ocultar el cuerpo y dejar solo la cabecera)
+    btnMin.addEventListener('click', () => {
+        bodyCalc.style.display = bodyCalc.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // 3. Maximizar (Pantalla completa / Tamaño normal)
+    btnMax.addEventListener('click', () => {
+        isMaximized = !isMaximized;
+        if (isMaximized) {
+            // Se hace gigante
+            panelCalc.style.width = '80vw';
+            panelCalc.style.height = '80vh';
+            panelCalc.style.bottom = '10vh';
+            panelCalc.style.right = '10vw';
+            btnMax.innerText = '❐'; // Cambia el ícono
+            // Acá a futuro podemos inyectar la vista de "Carrito de Presupuesto"
+        } else {
+            // Vuelve a su tamaño normal
+            panelCalc.style.width = '350px';
+            panelCalc.style.height = 'auto';
+            panelCalc.style.bottom = '100px';
+            panelCalc.style.right = '30px';
+            btnMax.innerText = '⬜';
+        }
+    });
+
+    // --- FUNCIONAMIENTO INTERNO ---
 
     // Cambiar Servicio (Actualiza proveedores)
     selectServicio.addEventListener('change', (e) => {
@@ -1942,7 +1994,6 @@ if (btnToggle && panelCalc) {
 
         const resultado = calcularVentaAgencia(serv, prov, monto, tipoVuelo);
         
-        // Formatear para mostrar
         const formatter = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         
         document.getElementById('res-rentabilidad').innerText = `$${formatter.format(resultado.profit)} (${(resultado.profitRate * 100).toFixed(1)}%)`;
