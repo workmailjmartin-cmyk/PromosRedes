@@ -1836,79 +1836,80 @@ async function loadCalculadoraConfig() {
 }
 
 // 3. LÓGICA DEL PANEL DE ADMINISTRACIÓN
-document.addEventListener('DOMContentLoaded', () => {
-    // --- NAVEGACIÓN DE PESTAÑAS INTERNAS ---
-    const tabUsers = document.getElementById('tab-admin-usuarios');
-    const tabCalc = document.getElementById('tab-admin-calculadora');
-    const secUsers = document.getElementById('admin-seccion-usuarios');
-    const secCalc = document.getElementById('admin-seccion-calculadora');
+// 3. LÓGICA DEL PANEL DE ADMINISTRACIÓN
+// --- NAVEGACIÓN DE PESTAÑAS INTERNAS ---
+const tabUsers = document.getElementById('tab-admin-usuarios');
+const tabCalc = document.getElementById('tab-admin-calculadora');
+const secUsers = document.getElementById('admin-seccion-usuarios');
+const secCalc = document.getElementById('admin-seccion-calculadora');
 
-    if(tabUsers && tabCalc) {
-        tabUsers.addEventListener('click', () => {
-            secUsers.style.display = 'block'; secCalc.style.display = 'none';
-            tabUsers.style.background = '#11173d'; tabUsers.style.color = 'white';
-            tabCalc.style.background = '#f3f4f6'; tabCalc.style.color = '#6b7280';
-        });
-        tabCalc.addEventListener('click', () => {
-            secUsers.style.display = 'none'; secCalc.style.display = 'block';
-            tabCalc.style.background = '#11173d'; tabCalc.style.color = 'white';
-            tabUsers.style.background = '#f3f4f6'; tabUsers.style.color = '#6b7280';
-            renderAdminCalculadora(); // Dibujamos los inputs al abrir la pestaña
-        });
+if(tabUsers && tabCalc) {
+    tabUsers.addEventListener('click', () => {
+        secUsers.style.display = 'block'; secCalc.style.display = 'none';
+        tabUsers.style.background = '#11173d'; tabUsers.style.color = 'white';
+        tabCalc.style.background = '#f3f4f6'; tabCalc.style.color = '#6b7280';
+    });
+    tabCalc.addEventListener('click', () => {
+        secUsers.style.display = 'none'; secCalc.style.display = 'block';
+        tabCalc.style.background = '#11173d'; tabCalc.style.color = 'white';
+        tabUsers.style.background = '#f3f4f6'; tabUsers.style.color = '#6b7280';
+        renderAdminCalculadora(); // Dibujamos los inputs al abrir la pestaña
+    });
+}
+
+// --- RENDERIZAR INPUTS DINÁMICOS ---
+function renderAdminCalculadora() {
+    const contTasas = document.getElementById('admin-tasas-container');
+    const contProvs = document.getElementById('admin-provs-container');
+    if (!contTasas || !contProvs) return;
+    
+    contTasas.innerHTML = ''; contProvs.innerHTML = '';
+
+    // Dibujar Inputs de Tasas
+    for (const [key, value] of Object.entries(configCalculadora.tasas)) {
+        contTasas.innerHTML += `
+            <div>
+                <label style="font-size:0.8em; font-weight:bold; color:#11173d;">${key}</label>
+                <input type="number" step="0.001" id="tasa_${key}" value="${value}" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; margin-top:4px;">
+            </div>`;
     }
 
-    // --- RENDERIZAR INPUTS DINÁMICOS ---
-    function renderAdminCalculadora() {
-        const contTasas = document.getElementById('admin-tasas-container');
-        const contProvs = document.getElementById('admin-provs-container');
-        contTasas.innerHTML = ''; contProvs.innerHTML = '';
-
-        // Dibujar Inputs de Tasas
-        for (const [key, value] of Object.entries(configCalculadora.tasas)) {
-            contTasas.innerHTML += `
-                <div>
-                    <label style="font-size:0.8em; font-weight:bold;">${key}</label>
-                    <input type="number" step="0.001" id="tasa_${key}" value="${value}" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>`;
-        }
-
-        // Dibujar Inputs de Proveedores
-        for (const [key, value] of Object.entries(configCalculadora.proveedores)) {
-            contProvs.innerHTML += `
-                <div>
-                    <label style="font-size:0.8em; font-weight:bold;">${key}</label>
-                    <input type="text" id="prov_${key}" value="${value}" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>`;
-        }
+    // Dibujar Inputs de Proveedores
+    for (const [key, value] of Object.entries(configCalculadora.proveedores)) {
+        contProvs.innerHTML += `
+            <div>
+                <label style="font-size:0.8em; font-weight:bold; color:#11173d;">${key}</label>
+                <input type="text" id="prov_${key}" value="${value}" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; margin-top:4px;">
+            </div>`;
     }
+}
 
-    // --- GUARDAR CAMBIOS EN FIREBASE ---
-    const btnSaveCalc = document.getElementById('btn-save-calculadora');
-    if(btnSaveCalc) {
-        btnSaveCalc.addEventListener('click', async () => {
-            showLoader(true, "Guardando configuración...");
-            try {
-                // Recolectar tasas
-                for (const key of Object.keys(configCalculadora.tasas)) {
-                    const val = document.getElementById(`tasa_${key}`).value;
-                    configCalculadora.tasas[key] = parseFloat(val) || 0;
-                }
-                // Recolectar proveedores
-                for (const key of Object.keys(configCalculadora.proveedores)) {
-                    configCalculadora.proveedores[key] = document.getElementById(`prov_${key}`).value;
-                }
-
-                // Guardar en Firebase
-                await db.collection('config').doc('calculadora_settings').set(configCalculadora);
-                window.showAlert("Configuración guardada. La calculadora ya usa los nuevos valores.", "success");
-            } catch (error) {
-                console.error("Error guardando:", error);
-                window.showAlert("Error al guardar en Firebase", "error");
+// --- GUARDAR CAMBIOS EN FIREBASE ---
+const btnSaveCalc = document.getElementById('btn-save-calculadora');
+if(btnSaveCalc) {
+    btnSaveCalc.addEventListener('click', async () => {
+        showLoader(true, "Guardando configuración...");
+        try {
+            // Recolectar tasas
+            for (const key of Object.keys(configCalculadora.tasas)) {
+                const val = document.getElementById(`tasa_${key}`).value;
+                configCalculadora.tasas[key] = parseFloat(val) || 0;
             }
-            showLoader(false);
-        });
-    }
-});
+            // Recolectar proveedores
+            for (const key of Object.keys(configCalculadora.proveedores)) {
+                configCalculadora.proveedores[key] = document.getElementById(`prov_${key}`).value;
+            }
+
+            // Guardar en Firebase
+            await db.collection('config').doc('calculadora_settings').set(configCalculadora);
+            window.showAlert("Configuración guardada. La calculadora ya usa los nuevos valores.", "success");
+        } catch (error) {
+            console.error("Error guardando:", error);
+            window.showAlert("Error al guardar en Firebase", "error");
+        }
+        showLoader(false);
+    });
+}
 
 // 2. EL MOTOR MATEMÁTICO (Traducción exacta de tu React)
 function calcularVentaAgencia(servicio, proveedor, montoBase, tipoVuelo) {
