@@ -303,64 +303,73 @@
         </svg>
     </button>
 
-    <div id="panel-calculadora" style="position: fixed; bottom: 100px; right: 30px; width: 350px; background: white; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 9998; display: none; flex-direction: column; overflow: hidden; border: 2px solid #f3f4f6;">
+   <div id="panel-calculadora" style="position: fixed; bottom: 100px; right: 30px; width: 350px; background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 9998; display: none; flex-direction: column; overflow: hidden; border: 1px solid #e5e7eb; transition: all 0.3s ease;">
         
-        <div style="background: #11173d; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; font-size: 1.1em;">Cotizador Rápido</h3>
-            <button id="btn-close-calculadora" style="background: none; border: none; color: white; font-size: 16px; cursor: pointer;">✖</button>
+        <div style="background: #11173d; color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ef5a1a;">
+            <h3 style="margin: 0; font-size: 1em; display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="14.01"></line><line x1="16" y1="10" x2="16" y2="10.01"></line><line x1="16" y1="18" x2="16" y2="18.01"></line><line x1="12" y1="14" x2="12" y2="14.01"></line><line x1="12" y1="10" x2="12" y2="10.01"></line><line x1="12" y1="18" x2="12" y2="18.01"></line><line x1="8" y1="14" x2="8" y2="14.01"></line><line x1="8" y1="10" x2="8" y2="10.01"></line><line x1="8" y1="18" x2="8" y2="18.01"></line></svg>
+                Cotizador
+            </h3>
+            <div style="display: flex; gap: 12px;">
+                <button id="btn-min-calculadora" style="background: none; border: none; color: white; cursor: pointer; font-size: 14px; font-weight: bold; padding: 0;">_</button>
+                <button id="btn-max-calculadora" style="background: none; border: none; color: white; cursor: pointer; font-size: 14px; padding: 0;">⬜</button>
+                <button id="btn-close-calculadora" style="background: none; border: none; color: white; cursor: pointer; font-size: 14px; padding: 0;">✖</button>
+            </div>
         </div>
 
-        <div style="padding: 20px;">
-            <div style="margin-bottom: 15px;">
-                <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Servicio</label>
-                <select id="calc-servicio" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
-                    <option value="">Seleccionar...</option>
-                    <option value="flights">✈️ Vuelos</option>
-                    <option value="hotels">🏨 Alojamiento</option>
-                    <option value="cruises">🚢 Cruceros</option>
-                    <option value="assistance">🛡️ Asistencia al Viajero</option>
-                    <option value="transfers">🚕 Traslados</option>
-                    <option value="cars">🚗 Autos</option>
-                    <option value="packages">📦 Paquetes</option>
-                    <option value="excursions">🗺️ Excursiones</option>
-                    <option value="buspackages">🚌 Paquetes en Bus</option>
-                </select>
+        <div id="body-calculadora">
+            <div style="padding: 20px;">
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Servicio</label>
+                    <select id="calc-servicio" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
+                        <option value="">Seleccionar Servicio...</option>
+                        <option value="flights">✈️ Aéreo</option>
+                        <option value="hotels">🏨 Hotel</option>
+                        <option value="transfers">🚕 Traslado</option>
+                        <option value="assistance">🛡️ Seguro</option>
+                        <option value="buspackages">🚌 Paquete Bus</option>
+                        <option value="cruises">🚢 Crucero</option>
+                        <option value="packages">🗺️ Circuito Terrestre</option>
+                        <option value="cars">🚗 Auto</option>
+                        <option value="excursions">🌲 Excursión</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 15px; display: none;" id="box-vuelo-tipo">
+                    <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Tipo de Vuelo</label>
+                    <select id="calc-tipo-vuelo" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
+                        <option value="">Seleccionar...</option>
+                        <option value="nacional">Nacional</option>
+                        <option value="internacional">Internacional</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Proveedor</label>
+                    <select id="calc-proveedor" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
+                        <option value="">Seleccionar Servicio Primero...</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Monto Base (Neto)</label>
+                    <input type="number" id="calc-monto" placeholder="0.00" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px; font-size: 1.1em; box-sizing: border-box;">
+                </div>
+
+                <button id="btn-calcular-ya" style="width: 100%; background: linear-gradient(135deg, #ef5a1a 0%, #ff7a3d 100%); color: white; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                    Calcular Venta
+                </button>
             </div>
 
-            <div style="margin-bottom: 15px;" id="box-vuelo-tipo" style="display:none;">
-                <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Tipo de Vuelo</label>
-                <select id="calc-tipo-vuelo" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
-                    <option value="">Seleccionar...</option>
-                    <option value="nacional">Nacional</option>
-                    <option value="internacional">Internacional</option>
-                </select>
-            </div>
-
-            <div style="margin-bottom: 15px;">
-                <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Proveedor</label>
-                <select id="calc-proveedor" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
-                    <option value="">Seleccionar Servicio Primero...</option>
-                </select>
-            </div>
-
-            <div style="margin-bottom: 20px;">
-                <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Monto Base (Neto)</label>
-                <input type="number" id="calc-monto" placeholder="0.00" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px; font-size: 1.1em; box-sizing: border-box;">
-            </div>
-
-            <button id="btn-calcular-ya" style="width: 100%; background: linear-gradient(135deg, #ef5a1a 0%, #ff7a3d 100%); color: white; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
-                Calcular Venta
-            </button>
-        </div>
-
-        <div id="calc-resultados" style="display: none; background: #f9fafb; padding: 20px; border-top: 1px solid #e5e7eb;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                <span style="color: #6b7280; font-size: 0.9em;">Rentabilidad:</span>
-                <span id="res-rentabilidad" style="color: #56DDE0; font-weight: bold;">$0</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #e5e7eb;">
-                <span style="color: #11173d; font-weight: bold; font-size: 1.1em;">Total Venta:</span>
-                <span id="res-total" style="color: #ef5a1a; font-weight: bold; font-size: 1.5em;">$0</span>
+            <div id="calc-resultados" style="display: none; background: #f9fafb; padding: 20px; border-top: 1px solid #e5e7eb;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: #6b7280; font-size: 0.9em;">Rentabilidad:</span>
+                    <span id="res-rentabilidad" style="color: #56DDE0; font-weight: bold;">$0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+                    <span style="color: #11173d; font-weight: bold; font-size: 1.1em;">Total Venta:</span>
+                    <span id="res-total" style="color: #ef5a1a; font-weight: bold; font-size: 1.5em;">$0</span>
+                </div>
             </div>
         </div>
     </div>
