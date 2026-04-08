@@ -244,18 +244,55 @@
             </div>
 
             <div id="view-users" class="view">
-                <div class="user-create-card">
-                    <h3 style="margin-top:0; color:#11173d;">Crear Nuevo Usuario</h3>
-                    <form id="user-form" style="display:flex; gap:10px; align-items:flex-end;">
-                        <div class="form-group" style="flex:2;"><label>Email</label><input type="email" id="user-email-input" required></div>
-                        <div class="form-group"><label>Rol</label><select id="user-role-input"><option value="usuario">Usuario</option><option value="editor">Editor</option><option value="admin">Admin</option></select></div>
-                        <div class="form-group" style="flex:2;"><label>Franquicia/Alias</label><input type="text" id="user-franchise-input" required></div>
-                        <button type="submit" class="btn btn-primario" style="height:45px;">Guardar</button>
-                    </form>
-                </div>
-                <div class="user-list-card">
-                    <h3 style="padding:0 20px; color:#777;">Usuarios Existentes</h3>
-                    <div id="users-list"></div>
+                <div style="max-width: 900px; margin: 0 auto; padding: 20px;">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e5e7eb; padding-bottom: 15px; margin-bottom: 20px;">
+                        <h2 style="color: #11173d; margin: 0;">Panel de Administración</h2>
+                        
+                        <div style="display: flex; gap: 10px;">
+                            <button id="tab-admin-usuarios" style="background: #11173d; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer;">👥 Usuarios</button>
+                            <button id="tab-admin-calculadora" style="background: #f3f4f6; color: #6b7280; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer;">🧮 Calculadora</button>
+                        </div>
+                    </div>
+
+                    <div id="admin-seccion-usuarios" style="display: block;">
+                        <div class="user-create-card" style="margin-bottom: 20px;">
+                            <h3 style="margin-top:0; color:#11173d;">Crear Nuevo Usuario</h3>
+                            <form id="user-form" style="display:flex; gap:10px; align-items:flex-end;">
+                                <div class="form-group" style="flex:2;"><label>Email</label><input type="email" id="user-email-input" required></div>
+                                <div class="form-group"><label>Rol</label><select id="user-role-input"><option value="usuario">Usuario</option><option value="editor">Editor</option><option value="admin">Admin</option></select></div>
+                                <div class="form-group" style="flex:2;"><label>Franquicia/Alias</label><input type="text" id="user-franchise-input" required></div>
+                                <button type="submit" class="btn btn-primario" style="height:45px;">Guardar</button>
+                            </form>
+                        </div>
+                        <div class="user-list-card">
+                            <h3 style="padding:0 20px; color:#777;">Usuarios Existentes</h3>
+                            <div id="users-list"></div>
+                        </div>
+                    </div>
+
+                    <div id="admin-seccion-calculadora" style="display: none;">
+                        <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                            <h3 style="color: #ef5a1a; margin-top: 0;">Rentabilidades y Comisiones (%)</h3>
+                            <p style="color: #6b7280; font-size: 0.85em; margin-bottom: 15px;">Escribí los valores en decimales (Ejemplo: Para un 18.5%, escribí 0.185).</p>
+                            
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;" id="admin-tasas-container">
+                                </div>
+                        </div>
+
+                        <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                            <h3 style="color: #56DDE0; margin-top: 0;">Proveedores Habilitados</h3>
+                            <p style="color: #6b7280; font-size: 0.85em; margin-bottom: 15px;">Separalos con comas. Ejemplo: Ola, Julia, Hoteldo</p>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr; gap: 15px;" id="admin-provs-container">
+                                </div>
+                        </div>
+
+                        <button id="btn-save-calculadora" style="width: 100%; background: linear-gradient(135deg, #ef5a1a 0%, #ff7a3d 100%); color: white; padding: 15px; border: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; cursor: pointer;">
+                            💾 Guardar Configuración en Firebase
+                        </button>
+                    </div>
+
                 </div>
             </div>
         </div>
