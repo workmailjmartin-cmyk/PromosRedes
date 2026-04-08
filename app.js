@@ -1221,7 +1221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let status = 'approved'; 
         
-        let costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; const fechaViajeStr = dom.inputFechaViaje.value;
+        let costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; let fechaViajeStr = dom.inputFechaViaje.value;
         if (tarifa < costo) { showLoader(false); return window.showAlert(`Error: Tarifa menor al costo.`, 'error'); }
         
         const cards = document.querySelectorAll('.servicio-card'); if (cards.length === 0) { showLoader(false); return window.showAlert("Agrega servicios.", 'error'); }
@@ -1326,17 +1326,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     
         // PASO 3: Cambio visual de pantallas y recarga de datos
+        // PASO 3: Cambio visual de pantallas y recarga de datos
         try {
             dom.uploadForm.reset();
             dom.containerServicios.innerHTML = '';
             
-            // Ocultamos formulario, mostramos menú principal
-            dom.views.upload.style.display = 'none';
-            dom.views.search.style.display = 'block';
+            // 1. Limpiamos cualquier forzado de estilo viejo por las dudas
+            dom.views.upload.style.display = '';
+            dom.views.search.style.display = '';
+            
+            // 2. Usamos tu función oficial para que los botones de arriba cambien de color perfecto
+            showView('search');
+            
+            // 3. ¡Magia para el usuario! Llevamos la pantalla arriba de todo suavemente
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             
             showLoader(true, "Actualizando grilla...");
             
-            // ¡Llamamos a tu función con el nombre real que descubrimos antes!
+            // Recargamos los paquetes
             if(typeof fetchAndLoadPackages === 'function') await fetchAndLoadPackages(); 
             
             showLoader(false);
