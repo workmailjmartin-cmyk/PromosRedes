@@ -1792,6 +1792,163 @@ window.approvePackage = async (pkg) => {
             await fetchAndLoadPackages();
         }
     }
+    // ==========================================
+// MÓDULO CALCULADORA NATIVA (VERSIÓN AGENCIA)
+// ==========================================
+
+// 1. EL CEREBRO CENTRAL (Preparado para Firebase en el futuro)
+const configCalculadora = {
+    proveedores: {
+        flights: ['Hoteldo', 'Ola', 'Turbo'],
+        hotels: ['Feliz Viaje', 'Hoteldo', 'OlaClick', 'RolSol'],
+        cruises: ['Costa', 'MSC'],
+        assistance: ['Hoteldo', 'AssisCard'],
+        transfers: ['Hoteldo', 'Feliz Viaje', 'RolSol', 'Ola'],
+        cars: ['BookingCars', 'Hoteldo'],
+        packages: ['Ola', 'Julia'],
+        excursions: ['Hoteldo', 'Feliz Viaje'],
+        buspackages: ['360 Regional', 'KMB', 'RolSol', 'Balloon', 'Astros', 'TuViaje']
+    },
+    tasas: {
+        vuelosNacional: 0.117,
+        vuelosInternacional: 0.097,
+        vuelosStandard: 0.185,
+        hoteles: 0.185,
+        asistencia: 0.30,
+        traslados: 0.185,
+        autosBookingCars: 0.12,
+        autosStandard: 0.185,
+        cruceros: 0.035,
+        excursiones: 0.185,
+        paquetesOla: 0.085,
+        paquetesJulia: 0.09,
+        bus360Regional: 0.085,
+        busKMB: 0.035,
+        busRolSol: 0.12,
+        busBalloon: 0.12,
+        busAstros: 0.12,
+        busTuViaje: 0.085
+    }
+};
+
+// 2. EL MOTOR MATEMÁTICO (Traducción exacta de tu React)
+function calcularVentaAgencia(servicio, proveedor, montoBase, tipoVuelo) {
+    let final = parseFloat(montoBase);
+    let base = parseFloat(montoBase);
+    let profitRate = 0;
+    let profit = 0;
+    let config = configCalculadora.tasas;
+
+    if (servicio === 'flights') {
+        if (tipoVuelo === 'internacional') profitRate = config.vuelosInternacional;
+        else if (tipoVuelo === 'nacional') profitRate = config.vuelosNacional;
+        else profitRate = config.vuelosStandard;
+    } 
+    else if (servicio === 'hotels') profitRate = config.hoteles;
+    else if (servicio === 'assistance') profitRate = config.asistencia;
+    else if (servicio === 'transfers') profitRate = config.traslados;
+    else if (servicio === 'cars') {
+        if (proveedor === 'BookingCars') {
+            // Lógica inversa especial de BookingCars que armaste
+            final = parseFloat(montoBase);
+            base = final * 0.88;
+            profit = final - base;
+            profitRate = config.autosBookingCars;
+            return { base, profit, final, profitRate };
+        } else {
+            profitRate = config.autosStandard;
+        }
+    } 
+    else if (servicio === 'packages') {
+        if (proveedor === 'Ola') profitRate = config.paquetesOla;
+        else if (proveedor === 'Julia') profitRate = config.paquetesJulia;
+    } 
+    else if (servicio === 'cruises') {
+        profitRate = config.cruceros;
+        profit = base * profitRate;
+        final = base + profit;
+        return { base, profit, final, profitRate };
+    } 
+    else if (servicio === 'excursions') profitRate = config.excursiones;
+    else if (servicio === 'buspackages') {
+        const ratesBus = {
+            '360 Regional': config.bus360Regional,
+            'KMB': config.busKMB,
+            'RolSol': config.busRolSol,
+            'Balloon': config.busBalloon,
+            'Astros': config.busAstros,
+            'TuViaje': config.busTuViaje
+        };
+        profitRate = ratesBus[proveedor] || 0;
+    }
+
+    // Fórmula general
+    if ((servicio !== 'cars' || proveedor !== 'BookingCars') && servicio !== 'cruises') {
+        profit = final * profitRate;
+        final = final + profit;
+    }
+
+    return { base, profit, final, profitRate };
+}
+
+// 3. LA LÓGICA DE LA INTERFAZ VISUAL
+document.addEventListener('DOMContentLoaded', () => {
+    const btnToggle = document.getElementById('btn-toggle-calculadora');
+    const panelCalc = document.getElementById('panel-calculadora');
+    const btnClose = document.getElementById('btn-close-calculadora');
+    const selectServicio = document.getElementById('calc-servicio');
+    const selectProveedor = document.getElementById('calc-proveedor');
+    const selectTipoVuelo = document.getElementById('calc-tipo-vuelo');
+    const boxTipoVuelo = document.getElementById('box-vuelo-tipo');
+    const inputMonto = document.getElementById('calc-monto');
+    const btnCalcular = document.getElementById('btn-calcular-ya');
+    const boxResultados = document.getElementById('calc-resultados');
+
+    // Abrir / Cerrar
+    btnToggle.addEventListener('click', () => {
+        panelCalc.style.display = panelCalc.style.display === 'none' || panelCalc.style.display === '' ? 'flex' : 'none';
+    });
+    btnClose.addEventListener('click', () => panelCalc.style.display = 'none');
+
+    // Cambiar Servicio (Actualiza proveedores)
+    selectServicio.addEventListener('change', (e) => {
+        const serv = e.target.value;
+        selectProveedor.innerHTML = '<option value="">Seleccionar...</option>';
+        boxResultados.style.display = 'none';
+        
+        if (serv === 'flights') boxTipoVuelo.style.display = 'block';
+        else boxTipoVuelo.style.display = 'none';
+
+        if (serv && configCalculadora.proveedores[serv]) {
+            configCalculadora.proveedores[serv].forEach(prov => {
+                const opt = document.createElement('option');
+                opt.value = prov;
+                opt.innerText = prov;
+                selectProveedor.appendChild(opt);
+            });
+        }
+    });
+
+    // Acción de Calcular
+    btnCalcular.addEventListener('click', () => {
+        const serv = selectServicio.value;
+        const prov = selectProveedor.value;
+        const tipoVuelo = selectTipoVuelo.value;
+        const monto = inputMonto.value;
+
+        if (!serv || !prov || !monto) return window.showAlert("Completá servicio, proveedor y monto.", "error");
+        if (serv === 'flights' && !tipoVuelo) return window.showAlert("Seleccioná el tipo de vuelo.", "error");
+
+        const resultado = calcularVentaAgencia(serv, prov, monto, tipoVuelo);
+        
+        // Formatear para mostrar
+        const formatter = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        document.getElementById('res-rentabilidad').innerText = `$${formatter.format(resultado.profit)} (${(resultado.profitRate * 100).toFixed(1)}%)`;
+        document.getElementById('res-total').innerText = `$${formatter.format(resultado.final)}`;
+        
+        boxResultados.style.display = 'block';
+    });
 });
 
 
