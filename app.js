@@ -1910,6 +1910,8 @@ const boxTipoVuelo = document.getElementById('box-vuelo-tipo');
 const inputMonto = document.getElementById('calc-monto');
 const btnCalcular = document.getElementById('btn-calcular-ya');
 const boxResultados = document.getElementById('calc-resultados');
+const btnCalcCopiar = document.getElementById('btn-calc-copiar');
+const btnCalcNueva = document.getElementById('btn-calc-nueva');
 
 if (btnToggle && panelCalc) {
     let isMaximized = false;
@@ -2001,6 +2003,47 @@ if (btnToggle && panelCalc) {
         
         boxResultados.style.display = 'block';
     });
+    // --- BOTONES DE RESULTADO ---
+    const btnCalcCopiar = document.getElementById('btn-calc-copiar');
+    const btnCalcNueva = document.getElementById('btn-calc-nueva');
+
+    // Botón: Nueva Cotización (Limpia todo sin cerrar la ventana)
+    if (btnCalcNueva) {
+        btnCalcNueva.addEventListener('click', () => {
+            selectServicio.value = '';
+            selectProveedor.innerHTML = '<option value="">Seleccionar Servicio Primero...</option>';
+            boxTipoVuelo.style.display = 'none';
+            inputMonto.value = '';
+            boxResultados.style.display = 'none';
+            // Le damos el foco al primer campo para que el vendedor empiece a tipear rápido
+            selectServicio.focus(); 
+        });
+    }
+
+    // Botón: Copiar Resultado
+    if (btnCalcCopiar) {
+        btnCalcCopiar.addEventListener('click', () => {
+            // Agarramos el número final sin el signo peso para que sea fácil de pegar
+            const totalTexto = document.getElementById('res-total').innerText.replace('$', '').replace(/\./g, '').replace(',', '.');
+            
+            navigator.clipboard.writeText(totalTexto).then(() => {
+                // Pequeña animación visual para confirmar que se copió
+                const textoOriginal = btnCalcCopiar.innerHTML;
+                btnCalcCopiar.innerHTML = '✅ ¡Copiado!';
+                btnCalcCopiar.style.background = '#e6f4ea';
+                btnCalcCopiar.style.color = '#1e8e3e';
+                
+                setTimeout(() => {
+                    btnCalcCopiar.innerHTML = textoOriginal;
+                    btnCalcCopiar.style.background = 'white';
+                    btnCalcCopiar.style.color = '#11173d';
+                }, 2000);
+            }).catch(err => {
+                console.error('Error al copiar: ', err);
+                window.showAlert("Error al copiar el valor.", "error");
+            });
+        });
+    }
 }
 });
 
