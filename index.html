@@ -287,6 +287,71 @@
             </div>
         </div>
     </div>
+    <button id="btn-toggle-calculadora" style="position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #ef5a1a 0%, #ff7a3d 100%); color: white; border: none; border-radius: 50%; width: 60px; height: 60px; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; z-index: 9999; display: flex; align-items: center; justify-content: center; transition: transform 0.2s;">
+        🧮
+    </button>
+
+    <div id="panel-calculadora" style="position: fixed; bottom: 100px; right: 30px; width: 350px; background: white; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 9998; display: none; flex-direction: column; overflow: hidden; border: 2px solid #f3f4f6;">
+        
+        <div style="background: #11173d; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.1em;">Cotizador Rápido</h3>
+            <button id="btn-close-calculadora" style="background: none; border: none; color: white; font-size: 16px; cursor: pointer;">✖</button>
+        </div>
+
+        <div style="padding: 20px;">
+            <div style="margin-bottom: 15px;">
+                <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Servicio</label>
+                <select id="calc-servicio" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
+                    <option value="">Seleccionar...</option>
+                    <option value="flights">✈️ Vuelos</option>
+                    <option value="hotels">🏨 Alojamiento</option>
+                    <option value="cruises">🚢 Cruceros</option>
+                    <option value="assistance">🛡️ Asistencia al Viajero</option>
+                    <option value="transfers">🚕 Traslados</option>
+                    <option value="cars">🚗 Autos</option>
+                    <option value="packages">📦 Paquetes</option>
+                    <option value="excursions">🗺️ Excursiones</option>
+                    <option value="buspackages">🚌 Paquetes en Bus</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 15px;" id="box-vuelo-tipo" style="display:none;">
+                <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Tipo de Vuelo</label>
+                <select id="calc-tipo-vuelo" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
+                    <option value="">Seleccionar...</option>
+                    <option value="nacional">Nacional</option>
+                    <option value="internacional">Internacional</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Proveedor</label>
+                <select id="calc-proveedor" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
+                    <option value="">Seleccionar Servicio Primero...</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Monto Base (Neto)</label>
+                <input type="number" id="calc-monto" placeholder="0.00" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px; font-size: 1.1em; box-sizing: border-box;">
+            </div>
+
+            <button id="btn-calcular-ya" style="width: 100%; background: linear-gradient(135deg, #ef5a1a 0%, #ff7a3d 100%); color: white; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                Calcular Venta
+            </button>
+        </div>
+
+        <div id="calc-resultados" style="display: none; background: #f9fafb; padding: 20px; border-top: 1px solid #e5e7eb;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <span style="color: #6b7280; font-size: 0.9em;">Rentabilidad:</span>
+                <span id="res-rentabilidad" style="color: #56DDE0; font-weight: bold;">$0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+                <span style="color: #11173d; font-weight: bold; font-size: 1.1em;">Total Venta:</span>
+                <span id="res-total" style="color: #ef5a1a; font-weight: bold; font-size: 1.5em;">$0</span>
+            </div>
+        </div>
+    </div>
 
     <footer class="main-footer">Designed by Juan Pablo Martin</footer>
 
