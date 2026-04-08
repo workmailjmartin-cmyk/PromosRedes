@@ -734,7 +734,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     dom.loginContainer.style.display='none'; dom.appContainer.style.display='block';
                     const nombreMostrar = userData.franquicia || u.email;
                     if(dom.userEmail) dom.userEmail.innerHTML = `<b>${nombreMostrar}</b><br><small>${userData.rol.toUpperCase()}</small>`;
-                    configureUIByRole(); await fetchAndLoadPackages(); showView('search');
+                    configureUIByRole(); await fetchAndLoadPackages(); await loadCalculadoraConfig(); showView('search');
                     if (document.getElementById('btn-toggle-calculadora')) document.getElementById('btn-toggle-calculadora').style.display = 'flex';
                 } else { await window.showAlert(`⛔ Sin permisos.`); auth.signOut(); }
             } catch (e) { 
@@ -1793,44 +1793,122 @@ window.approvePackage = async (pkg) => {
             await fetchAndLoadPackages();
         }
     }
-    // ==========================================
-// MÓDULO CALCULADORA NATIVA (VERSIÓN AGENCIA)
+// ==========================================
+// MÓDULO CALCULADORA Y PANEL ADMIN
 // ==========================================
 
-// 1. EL CEREBRO CENTRAL (Preparado para Firebase en el futuro)
-const configCalculadora = {
+// 1. EL CEREBRO CENTRAL (Ahora es dinámico)
+let configCalculadora = {
     proveedores: {
-        flights: ['Hoteldo', 'Ola', 'Turbo'],
-        hotels: ['Feliz Viaje', 'Hoteldo', 'OlaClick', 'RolSol'],
-        cruises: ['Costa', 'MSC'],
-        assistance: ['Hoteldo', 'AssisCard'],
-        transfers: ['Hoteldo', 'Feliz Viaje', 'RolSol', 'Ola'],
-        cars: ['BookingCars', 'Hoteldo'],
-        packages: ['Ola', 'Julia'],
-        excursions: ['Hoteldo', 'Feliz Viaje'],
-        buspackages: ['360 Regional', 'KMB', 'RolSol', 'Balloon', 'Astros', 'TuViaje']
+        flights: "Hoteldo, Ola, Turbo",
+        hotels: "Feliz Viaje, Hoteldo, OlaClick, RolSol",
+        cruises: "Costa, MSC",
+        assistance: "Hoteldo, AssisCard",
+        transfers: "Hoteldo, Feliz Viaje, RolSol, Ola",
+        cars: "BookingCars, Hoteldo",
+        packages: "Ola, Julia",
+        excursions: "Hoteldo, Feliz Viaje",
+        buspackages: "360 Regional, KMB, RolSol, Balloon, Astros, TuViaje"
     },
     tasas: {
-        vuelosNacional: 0.117,
-        vuelosInternacional: 0.097,
-        vuelosStandard: 0.185,
-        hoteles: 0.185,
-        asistencia: 0.30,
-        traslados: 0.185,
-        autosBookingCars: 0.12,
-        autosStandard: 0.185,
-        cruceros: 0.035,
-        excursiones: 0.185,
-        paquetesOla: 0.085,
-        paquetesJulia: 0.09,
-        bus360Regional: 0.085,
-        busKMB: 0.035,
-        busRolSol: 0.12,
-        busBalloon: 0.12,
-        busAstros: 0.12,
-        busTuViaje: 0.085
+        vuelosNacional: 0.117, vuelosInternacional: 0.097, vuelosStandard: 0.185,
+        hoteles: 0.185, asistencia: 0.30, traslados: 0.185,
+        autosBookingCars: 0.12, autosStandard: 0.185, cruceros: 0.035, excursiones: 0.185,
+        paquetesOla: 0.085, paquetesJulia: 0.09, bus360Regional: 0.085, busKMB: 0.035,
+        busRolSol: 0.12, busBalloon: 0.12, busAstros: 0.12, busTuViaje: 0.085
     }
 };
+
+// 2. FUNCIÓN PARA CARGAR LA CONFIGURACIÓN DESDE FIREBASE
+async function loadCalculadoraConfig() {
+    try {
+        const doc = await db.collection('config').doc('calculadora_settings').get();
+        if (doc.exists) {
+            // Pisamos la configuración por defecto con la que viene de Firebase
+            configCalculadora = doc.data();
+        } else {
+            // Si no existe (primera vez), la creamos en la base de datos
+            await db.collection('config').doc('calculadora_settings').set(configCalculadora);
+        }
+    } catch (e) {
+        console.error("Error al cargar config de calculadora:", e);
+    }
+}
+
+// 3. LÓGICA DEL PANEL DE ADMINISTRACIÓN
+document.addEventListener('DOMContentLoaded', () => {
+    // --- NAVEGACIÓN DE PESTAÑAS INTERNAS ---
+    const tabUsers = document.getElementById('tab-admin-usuarios');
+    const tabCalc = document.getElementById('tab-admin-calculadora');
+    const secUsers = document.getElementById('admin-seccion-usuarios');
+    const secCalc = document.getElementById('admin-seccion-calculadora');
+
+    if(tabUsers && tabCalc) {
+        tabUsers.addEventListener('click', () => {
+            secUsers.style.display = 'block'; secCalc.style.display = 'none';
+            tabUsers.style.background = '#11173d'; tabUsers.style.color = 'white';
+            tabCalc.style.background = '#f3f4f6'; tabCalc.style.color = '#6b7280';
+        });
+        tabCalc.addEventListener('click', () => {
+            secUsers.style.display = 'none'; secCalc.style.display = 'block';
+            tabCalc.style.background = '#11173d'; tabCalc.style.color = 'white';
+            tabUsers.style.background = '#f3f4f6'; tabUsers.style.color = '#6b7280';
+            renderAdminCalculadora(); // Dibujamos los inputs al abrir la pestaña
+        });
+    }
+
+    // --- RENDERIZAR INPUTS DINÁMICOS ---
+    function renderAdminCalculadora() {
+        const contTasas = document.getElementById('admin-tasas-container');
+        const contProvs = document.getElementById('admin-provs-container');
+        contTasas.innerHTML = ''; contProvs.innerHTML = '';
+
+        // Dibujar Inputs de Tasas
+        for (const [key, value] of Object.entries(configCalculadora.tasas)) {
+            contTasas.innerHTML += `
+                <div>
+                    <label style="font-size:0.8em; font-weight:bold;">${key}</label>
+                    <input type="number" step="0.001" id="tasa_${key}" value="${value}" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>`;
+        }
+
+        // Dibujar Inputs de Proveedores
+        for (const [key, value] of Object.entries(configCalculadora.proveedores)) {
+            contProvs.innerHTML += `
+                <div>
+                    <label style="font-size:0.8em; font-weight:bold;">${key}</label>
+                    <input type="text" id="prov_${key}" value="${value}" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>`;
+        }
+    }
+
+    // --- GUARDAR CAMBIOS EN FIREBASE ---
+    const btnSaveCalc = document.getElementById('btn-save-calculadora');
+    if(btnSaveCalc) {
+        btnSaveCalc.addEventListener('click', async () => {
+            showLoader(true, "Guardando configuración...");
+            try {
+                // Recolectar tasas
+                for (const key of Object.keys(configCalculadora.tasas)) {
+                    const val = document.getElementById(`tasa_${key}`).value;
+                    configCalculadora.tasas[key] = parseFloat(val) || 0;
+                }
+                // Recolectar proveedores
+                for (const key of Object.keys(configCalculadora.proveedores)) {
+                    configCalculadora.proveedores[key] = document.getElementById(`prov_${key}`).value;
+                }
+
+                // Guardar en Firebase
+                await db.collection('config').doc('calculadora_settings').set(configCalculadora);
+                window.showAlert("Configuración guardada. La calculadora ya usa los nuevos valores.", "success");
+            } catch (error) {
+                console.error("Error guardando:", error);
+                window.showAlert("Error al guardar en Firebase", "error");
+            }
+            showLoader(false);
+        });
+    }
+});
 
 // 2. EL MOTOR MATEMÁTICO (Traducción exacta de tu React)
 function calcularVentaAgencia(servicio, proveedor, montoBase, tipoVuelo) {
@@ -1975,7 +2053,8 @@ if (btnToggle && panelCalc) {
         else boxTipoVuelo.style.display = 'none';
 
         if (serv && configCalculadora.proveedores[serv]) {
-            configCalculadora.proveedores[serv].forEach(prov => {
+            const arrayProvs = configCalculadora.proveedores[serv].split(',').map(p => p.trim());
+            arrayProvs.forEach(prov => {
                 const opt = document.createElement('option');
                 opt.value = prov;
                 opt.innerText = prov;
