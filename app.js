@@ -1893,18 +1893,18 @@ function calcularVentaAgencia(servicio, proveedor, montoBase, tipoVuelo) {
 }
 
 // 3. LA LÓGICA DE LA INTERFAZ VISUAL
-document.addEventListener('DOMContentLoaded', () => {
-    const btnToggle = document.getElementById('btn-toggle-calculadora');
-    const panelCalc = document.getElementById('panel-calculadora');
-    const btnClose = document.getElementById('btn-close-calculadora');
-    const selectServicio = document.getElementById('calc-servicio');
-    const selectProveedor = document.getElementById('calc-proveedor');
-    const selectTipoVuelo = document.getElementById('calc-tipo-vuelo');
-    const boxTipoVuelo = document.getElementById('box-vuelo-tipo');
-    const inputMonto = document.getElementById('calc-monto');
-    const btnCalcular = document.getElementById('btn-calcular-ya');
-    const boxResultados = document.getElementById('calc-resultados');
+const btnToggle = document.getElementById('btn-toggle-calculadora');
+const panelCalc = document.getElementById('panel-calculadora');
+const btnClose = document.getElementById('btn-close-calculadora');
+const selectServicio = document.getElementById('calc-servicio');
+const selectProveedor = document.getElementById('calc-proveedor');
+const selectTipoVuelo = document.getElementById('calc-tipo-vuelo');
+const boxTipoVuelo = document.getElementById('box-vuelo-tipo');
+const inputMonto = document.getElementById('calc-monto');
+const btnCalcular = document.getElementById('btn-calcular-ya');
+const boxResultados = document.getElementById('calc-resultados');
 
+if (btnToggle && panelCalc) {
     // Abrir / Cerrar
     btnToggle.addEventListener('click', () => {
         panelCalc.style.display = panelCalc.style.display === 'none' || panelCalc.style.display === '' ? 'flex' : 'none';
@@ -1950,6 +1950,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         boxResultados.style.display = 'block';
     });
+}
 });
 });
 
