@@ -1335,7 +1335,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function populateFranchiseFilter(packages) { const selector = dom.filtroCreador; if(!selector) return; const currentVal = selector.value; const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))]; selector.innerHTML = '<option value="">Todas las Franquicias</option>'; creadores.sort().forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt); }); selector.value = currentVal; }
    
     function applyFilters() {
-        const fDestino = document.getElementById('filtro-destino').value.toLowerCase();
+        // NUEVO HELPER: Función para quitar tildes y pasar todo a minúscula
+        const normalizeText = (text) => {
+            if (!text) return '';
+            // El normalize("NFD") separa la letra del tilde, y el replace los borra.
+            return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        };
+
+        // Pasamos por la "trituradora" lo que el vendedor escribió en el buscador
+        const fDestino = normalizeText(document.getElementById('filtro-destino').value);
+        
         const fCreador = dom.filtroCreador ? dom.filtroCreador.value : '';
         const fPromo = document.getElementById('filtro-promo').value;
         const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
@@ -1344,7 +1353,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const fSalida = dom.filtroSalida ? dom.filtroSalida.value : '';
 
         let result = uniquePackages.filter(pkg => {
-            const mDestino = !fDestino || (pkg.destino && pkg.destino.toLowerCase().includes(fDestino));
+            // También pasamos por la "trituradora" el destino del paquete para compararlos limpios
+            const destinoNormalizado = normalizeText(pkg.destino);
+            const mDestino = !fDestino || destinoNormalizado.includes(fDestino);
+            
             const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
             const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
             
@@ -1363,8 +1375,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (fOrden === 'reciente') {
             result.sort((a, b) => {
-                const getTs = (id) => { if(!id || !id.startsWith('pkg_')) return 0; return parseInt(id.split('_')[1]) || 0; };
-                return getTs(b.id_paquete) - getTs(a.id_paquete);
+                // BONUS FIX: Actualizado para que no rompa el orden de los paquetes nuevos de Firebase
+                const getTs = (pkg) => { 
+                    if (pkg.timestamp) return pkg.timestamp;
+                    if (pkg.id_paquete && pkg.id_paquete.startsWith('pkg_')) return parseInt(pkg.id_paquete.split('_')[1]) || 0; 
+                    return 0; 
+                };
+                return getTs(b) - getTs(a);
             });
         } else if (fOrden === 'menor_precio') result.sort((a, b) => parseFloat(a.tarifa) - parseFloat(b.tarifa));
         else if (fOrden === 'mayor_precio') result.sort((a, b) => parseFloat(b.tarifa) - parseFloat(a.tarifa));
