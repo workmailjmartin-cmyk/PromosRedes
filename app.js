@@ -192,7 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- GENERADOR DE TEXTO ---
-    // --- GENERADOR DE TEXTO (NUEVO FORMATO) ---
     function generarTextoPresupuesto(pkg) {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg);
@@ -209,7 +208,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. ENCABEZADO
         let texto = `*${pkg.destino.toUpperCase()}*\n`;
         texto += `PAQUETE\n\n`; // Nuevo agregado
-        texto += `📅 Salida: ${formatDateAR(pkg.fecha_salida)}\n`;
+        
+        const esCircuitoTxt = Array.isArray(servicios) && servicios.some(s => s.tipo === 'circuito');
+        const fechaTxt = (!pkg.fecha_salida && esCircuitoTxt) ? 'Múltiples Salidas' : formatDateAR(pkg.fecha_salida);
+        texto += `📅 Salida: ${fechaTxt}\n`;
         
         // --- LÓGICA INTELIGENTE DE SALIDA ---
         let lugarSalida = pkg.salida;
@@ -1219,12 +1221,24 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let status = 'approved'; 
         
-        const costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; const fechaViajeStr = dom.inputFechaViaje.value;
+        let costo = parseFloat(dom.inputCostoTotal.value) || 0; const tarifa = parseFloat(document.getElementById('upload-tarifa-total').value) || 0; let fechaViajeStr = dom.inputFechaViaje.value;
         if (tarifa < costo) { showLoader(false); return window.showAlert(`Error: Tarifa menor al costo.`, 'error'); }
-        if (!fechaViajeStr) { showLoader(false); return window.showAlert("Falta fecha.", 'error'); }
+        
         const cards = document.querySelectorAll('.servicio-card'); if (cards.length === 0) { showLoader(false); return window.showAlert("Agrega servicios.", 'error'); }
 
         let serviciosData = []; for (let card of cards) { const serv = { tipo: card.dataset.tipo }; card.querySelectorAll('input, select, textarea').forEach(i => { if (i.type === 'checkbox') serv[i.name] = i.checked; else if (i.type === 'hidden') { if(i.name==='hotel_estrellas') serv[i.name] = i.value; else serv[i.name] = i.parentElement.querySelector('.counter-value')?.innerText || i.value; } else serv[i.name] = i.value; }); serviciosData.push(serv); }
+        
+        // --- NUEVA VALIDACIÓN INTELIGENTE DE FECHA ---
+        const esCircuito = serviciosData.some(s => s.tipo === 'circuito');
+        const tieneAereo = serviciosData.some(s => s.tipo === 'aereo');
+        
+        // Si es circuito Y NO HAY AÉREO, borramos la fecha a la fuerza
+        if (esCircuito && !tieneAereo) {
+            fechaViajeStr = ""; 
+        } else if (!fechaViajeStr) { 
+            // Si no hay fecha (y no es un circuito puro), frena todo
+            showLoader(false); return window.showAlert("Falta fecha de salida.", 'error'); 
+        }
         let fechaMaxRegresoAereo = null;
         let aereoRegresoStr = "";
         
@@ -1312,17 +1326,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     
         // PASO 3: Cambio visual de pantallas y recarga de datos
+        // PASO 3: Cambio visual de pantallas y recarga de datos
         try {
             dom.uploadForm.reset();
             dom.containerServicios.innerHTML = '';
             
-            // Ocultamos formulario, mostramos menú principal
-            dom.views.upload.style.display = 'none';
-            dom.views.search.style.display = 'block';
+            // 1. Limpiamos cualquier forzado de estilo viejo por las dudas
+            dom.views.upload.style.display = '';
+            dom.views.search.style.display = '';
+            
+            // 2. Usamos tu función oficial para que los botones de arriba cambien de color perfecto
+            showView('search');
+            
+            // 3. ¡Magia para el usuario! Llevamos la pantalla arriba de todo suavemente
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             
             showLoader(true, "Actualizando grilla...");
             
-            // ¡Llamamos a tu función con el nombre real que descubrimos antes!
+            // Recargamos los paquetes
             if(typeof fetchAndLoadPackages === 'function') await fetchAndLoadPackages(); 
             
             showLoader(false);
@@ -1399,10 +1420,14 @@ document.addEventListener('DOMContentLoaded', () => {
         list.forEach(pkg => {
             if (!pkg.destino) return; 
             const card = document.createElement('div'); const noches = getNoches(pkg);
-            // --- LÓGICA INTELIGENTE DE SALIDA PARA LA GRILLA ---
+           // --- LÓGICA INTELIGENTE DE SALIDA PARA LA GRILLA ---
             let lugarSalidaGrid = pkg['salida'];
             let sGrid = []; try { sGrid = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e){}
             const tieneAereoGrid = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'aereo');
+            
+           // Lógica de Múltiples salidas para Circuitos (EL AÉREO MANDA)
+            const esCircuitoGrid = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'circuito');
+            const fechaMostrar = (!pkg['fecha_salida'] && esCircuitoGrid && !tieneAereoGrid) ? 'Múltiples Salidas' : formatDateAR(pkg['fecha_salida']);
             if (!tieneAereoGrid) {
                 const crucero = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'crucero');
                 const circuito = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'circuito');
@@ -1425,7 +1450,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             ${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:5px 10px;border-radius:12px;font-weight:bold;font-size:0.8em;white-space:nowrap;">🌙 ${noches}</div>` : ''}
                         </div>
-                        <div class="fecha">📅 Salida: ${formatDateAR(pkg['fecha_salida'])}</div>
+                        <div class="fecha">📅 Salida: ${fechaMostrar}</div>
                     </div>
                     
                     <div class="card-body">
@@ -1510,6 +1535,8 @@ window.approvePackage = async (pkg) => {
         try { serviciosModal = typeof rawServicios === 'string' ? JSON.parse(rawServicios) : rawServicios; } catch(e) {}
         
         let lugarSalidaModal = pkg['salida'];
+        const esCircuitoModal = Array.isArray(serviciosModal) && serviciosModal.some(s => s.tipo === 'circuito');
+        const fechaModal = (!pkg['fecha_salida'] && esCircuitoModal) ? 'Múltiples Salidas' : formatDateAR(pkg['fecha_salida']);
         const tieneAereoModal = Array.isArray(serviciosModal) && serviciosModal.some(s => s.tipo === 'aereo');
         if (!tieneAereoModal) {
             const crucero = Array.isArray(serviciosModal) && serviciosModal.find(s => s.tipo === 'crucero');
@@ -1546,7 +1573,7 @@ window.approvePackage = async (pkg) => {
                         <h4 style="margin:0; color:#11173d;">Resumen</h4>
                         ${btnCopiar}
                     </div>
-                    <p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${formatDateAR(pkg['fecha_salida'])}</p>
+                    <p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${fechaModal}</p>
                     <p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${lugarSalidaModal}</p>
                     <p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p>
                     <p style="margin:5px 0; font-size:0.9em;"><b>📅 Cargado el:</b> ${pkg['fecha_creacion'] || '-'}</p>
