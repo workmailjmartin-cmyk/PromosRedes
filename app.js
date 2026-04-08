@@ -1950,7 +1950,7 @@ document.addEventListener('DOMContentLoaded', () => {
         boxResultados.style.display = 'block';
     });
 });
-
+});
 
 
 
