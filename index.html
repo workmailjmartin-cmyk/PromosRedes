@@ -275,24 +275,43 @@
                     </div>
 
                     <div id="admin-seccion-calculadora" style="display: none;">
-                        <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; margin-bottom: 20px;">
-                            <h3 style="color: #ef5a1a; margin-top: 0;">Rentabilidades y Comisiones (%)</h3>
-                            <p style="color: #6b7280; font-size: 0.85em; margin-bottom: 15px;">Escribí los valores en decimales (Ejemplo: Para un 18.5%, escribí 0.185).</p>
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                             
-                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;" id="admin-tasas-container">
+                            <div style="flex: 1; min-width: 250px; max-width: 300px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; display: flex; flex-direction: column;">
+                                <div style="background: #11173d; color: white; padding: 15px; font-weight: bold;">Mis Servicios</div>
+                                <div id="admin-lista-servicios" style="overflow-y: auto; flex: 1; padding: 10px;">
+                                    </div>
+                                <button id="btn-admin-nuevo-servicio" style="width: 100%; padding: 15px; background: #f9fafb; border: none; border-top: 1px solid #e5e7eb; cursor: pointer; color: #ef5a1a; font-weight: bold; transition: background 0.2s;">
+                                    + Crear Servicio Nuevo
+                                </button>
+                            </div>
+                            
+                            <div style="flex: 2; min-width: 300px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 20px; display: none;" id="admin-editor-servicio">
+                                <h3 id="editor-servicio-titulo" style="margin-top: 0; color: #11173d; font-size: 1.5em;">Seleccioná un servicio</h3>
+                                <p style="color: #6b7280; font-size: 0.9em;">Acá podés gestionar los proveedores y sus comisiones para este servicio.</p>
+                                
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%; text-align: left; border-collapse: collapse; margin-top: 15px; font-size: 0.9em;">
+                                        <thead>
+                                            <tr style="border-bottom: 2px solid #11173d; color: #11173d;">
+                                                <th style="padding: 12px 10px;">Proveedor</th>
+                                                <th style="padding: 12px 10px;">Porcentaje (%)</th>
+                                                <th style="padding: 12px 10px;">Lógica Matemática</th>
+                                                <th style="padding: 12px 10px; text-align: center;">Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="editor-proveedores-tbody">
+                                            </tbody>
+                                    </table>
                                 </div>
+                                <button id="btn-admin-nuevo-proveedor" style="margin-top: 20px; padding: 10px 15px; background: #56DDE0; color: #11173d; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                                    + Agregar Proveedor
+                                </button>
+                            </div>
                         </div>
 
-                        <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; margin-bottom: 20px;">
-                            <h3 style="color: #56DDE0; margin-top: 0;">Proveedores Habilitados</h3>
-                            <p style="color: #6b7280; font-size: 0.85em; margin-bottom: 15px;">Separalos con comas. Ejemplo: Ola, Julia, Hoteldo</p>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr; gap: 15px;" id="admin-provs-container">
-                                </div>
-                        </div>
-
-                        <button id="btn-save-calculadora" style="width: 100%; background: linear-gradient(135deg, #ef5a1a 0%, #ff7a3d 100%); color: white; padding: 15px; border: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; cursor: pointer;">
-                            💾 Guardar Configuración en Firebase
+                        <button id="btn-save-calculadora" style="width: 100%; background: linear-gradient(135deg, #ef5a1a 0%, #ff7a3d 100%); color: white; padding: 15px; border: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; cursor: pointer; margin-top: 20px; display: none;">
+                            💾 Guardar Cambios en Firebase
                         </button>
                     </div>
 
@@ -343,7 +362,7 @@
         </svg>
     </button>
 
-   <div id="panel-calculadora" style="position: fixed; bottom: 100px; right: 30px; width: 350px; background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 9998; display: none; flex-direction: column; overflow: hidden; border: 1px solid #e5e7eb; transition: all 0.3s ease;">
+   <div id="panel-calculadora" style="position: fixed; bottom: 100px; right: 30px; width: 350px; max-height: calc(100vh - 120px); background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 9998; display: none; flex-direction: column; overflow: hidden; border: 1px solid #e5e7eb; transition: all 0.3s ease;">
         
         <div style="background: #11173d; color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ef5a1a;">
             <h3 style="margin: 0; font-size: 1em; display: flex; align-items: center; gap: 8px;">
@@ -357,30 +376,12 @@
             </div>
         </div>
 
-        <div id="body-calculadora">
+        <div id="body-calculadora" style="overflow-y: auto; flex: 1;">
             <div style="padding: 20px;">
                 <div style="margin-bottom: 15px;">
                     <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Servicio</label>
                     <select id="calc-servicio" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
-                        <option value="">Seleccionar Servicio...</option>
-                        <option value="flights">✈️ Aéreo</option>
-                        <option value="hotels">🏨 Hotel</option>
-                        <option value="transfers">🚕 Traslado</option>
-                        <option value="assistance">🛡️ Seguro</option>
-                        <option value="buspackages">🚌 Paquete Bus</option>
-                        <option value="cruises">🚢 Crucero</option>
-                        <option value="packages">🗺️ Circuito Terrestre</option>
-                        <option value="cars">🚗 Auto</option>
-                        <option value="excursions">🌲 Excursión</option>
-                    </select>
-                </div>
-
-                <div style="margin-bottom: 15px; display: none;" id="box-vuelo-tipo">
-                    <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Tipo de Vuelo</label>
-                    <select id="calc-tipo-vuelo" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
-                        <option value="">Seleccionar...</option>
-                        <option value="nacional">Nacional</option>
-                        <option value="internacional">Internacional</option>
+                        <option value="">Cargando servicios...</option>
                     </select>
                 </div>
 
@@ -410,14 +411,9 @@
                     <span style="color: #11173d; font-weight: bold; font-size: 1.1em;">Total Venta:</span>
                     <span id="res-total" style="color: #ef5a1a; font-weight: bold; font-size: 1.5em;">$0</span>
                 </div>
-                
                 <div style="display: flex; gap: 10px;">
-                    <button id="btn-calc-copiar" style="flex: 1; background: white; color: #11173d; border: 1px solid #e5e7eb; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 5px; transition: background 0.2s;">
-                        📋 Copiar 
-                    </button>
-                    <button id="btn-calc-nueva" style="flex: 1; background: #11173d; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s;">
-                        🔄 Nueva Cotización
-                    </button>
+                    <button id="btn-calc-copiar" style="flex: 1; background: white; color: #11173d; border: 1px solid #e5e7eb; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 5px;">📋 Copiar</button>
+                    <button id="btn-calc-nueva" style="flex: 1; background: #11173d; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">🔄 Nueva</button>
                 </div>
             </div>
         </div>
