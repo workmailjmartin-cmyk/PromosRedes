@@ -1855,11 +1855,13 @@ const btnMin = document.getElementById('btn-min-calculadora');
 const btnMax = document.getElementById('btn-max-calculadora');
 const selectServicio = document.getElementById('calc-servicio');
 const selectProveedor = document.getElementById('calc-proveedor');
+const selectMoneda = document.getElementById('calc-moneda');
 const inputMonto = document.getElementById('calc-monto');
 const btnCalcular = document.getElementById('btn-calcular-ya');
 const boxResultados = document.getElementById('calc-resultados');
 const btnCalcCopiar = document.getElementById('btn-calc-copiar');
 const btnCalcNueva = document.getElementById('btn-calc-nueva');
+const calcBackdrop = document.getElementById('calc-backdrop');
 
 if (btnToggle && panelCalc) {
     let isMaximized = false;
@@ -1869,20 +1871,42 @@ if (btnToggle && panelCalc) {
         bodyCalc.style.display = 'block';
     });
 
-    btnClose.addEventListener('click', () => { panelCalc.style.display = 'none'; if(btnCalcNueva) btnCalcNueva.click(); if (isMaximized) btnMax.click(); });
+    btnClose.addEventListener('click', () => { 
+        panelCalc.style.display = 'none'; 
+        if(calcBackdrop) calcBackdrop.style.display = 'none';
+        if(btnCalcNueva) btnCalcNueva.click(); 
+        if (isMaximized) btnMax.click(); 
+    });
+    
     btnMin.addEventListener('click', () => { bodyCalc.style.display = bodyCalc.style.display === 'none' ? 'block' : 'none'; });
     
-    // RESPONSIVIDAD NOTEBOOKS
+    // RESPONSIVIDAD: Tamaño cómodo y centrado
     btnMax.addEventListener('click', () => {
         isMaximized = !isMaximized;
         if (isMaximized) {
-            panelCalc.style.width = '90vw'; panelCalc.style.height = '90vh'; panelCalc.style.maxHeight = 'none';
-            panelCalc.style.top = '50%'; panelCalc.style.left = '50%'; panelCalc.style.bottom = 'auto'; panelCalc.style.right = 'auto';
-            panelCalc.style.transform = 'translate(-50%, -50%)'; btnMax.innerText = '❐';
+            // Tamaño centrado y prolijo
+            panelCalc.style.width = '600px'; 
+            panelCalc.style.height = 'auto'; 
+            panelCalc.style.maxHeight = '80vh';
+            panelCalc.style.top = '50%'; 
+            panelCalc.style.left = '50%'; 
+            panelCalc.style.bottom = 'auto'; 
+            panelCalc.style.right = 'auto';
+            panelCalc.style.transform = 'translate(-50%, -50%)'; 
+            btnMax.innerText = '❐';
+            if(calcBackdrop) calcBackdrop.style.display = 'block'; // Prende el fondo oscuro
         } else {
-            panelCalc.style.width = '350px'; panelCalc.style.height = 'auto'; panelCalc.style.maxHeight = 'calc(100vh - 120px)';
-            panelCalc.style.top = 'auto'; panelCalc.style.left = 'auto'; panelCalc.style.bottom = '100px'; panelCalc.style.right = '30px';
-            panelCalc.style.transform = 'none'; btnMax.innerText = '⬜';
+            // Vuelve a su lugar flotante
+            panelCalc.style.width = '350px'; 
+            panelCalc.style.height = 'auto'; 
+            panelCalc.style.maxHeight = 'calc(100vh - 120px)';
+            panelCalc.style.top = 'auto'; 
+            panelCalc.style.left = 'auto'; 
+            panelCalc.style.bottom = '100px'; 
+            panelCalc.style.right = '30px';
+            panelCalc.style.transform = 'none'; 
+            btnMax.innerText = '⬜';
+            if(calcBackdrop) calcBackdrop.style.display = 'none'; // Apaga el fondo oscuro
         }
     });
 
@@ -1907,6 +1931,7 @@ if (btnToggle && panelCalc) {
         const servId = selectServicio.value;
         const provName = selectProveedor.value;
         const monto = inputMonto.value;
+        const moneda = selectMoneda.value; // Obtener USD o $
 
         if (!servId || !provName || !monto) return window.showAlert("Completá servicio, proveedor y monto.", "error");
 
@@ -1916,8 +1941,9 @@ if (btnToggle && panelCalc) {
         const resultado = calcularVentaAgencia(monto, provData);
         const formatter = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         
-        document.getElementById('res-rentabilidad').innerText = `$${formatter.format(resultado.profit)} (${(resultado.profitRate * 100).toFixed(1)}%)`;
-        document.getElementById('res-total').innerText = `$${formatter.format(resultado.final)}`;
+        // Se aplica la moneda elegida
+        document.getElementById('res-rentabilidad').innerText = `${moneda}${formatter.format(resultado.profit)} (${(resultado.profitRate * 100).toFixed(1)}%)`;
+        document.getElementById('res-total').innerText = `${moneda}${formatter.format(resultado.final)}`;
         boxResultados.style.display = 'block';
     });
 
@@ -1927,7 +1953,10 @@ if (btnToggle && panelCalc) {
     });
 
     if(btnCalcCopiar) btnCalcCopiar.addEventListener('click', () => {
-        const totalTexto = document.getElementById('res-total').innerText.replace('$', '').replace(/\./g, '').replace(',', '.');
+        // Al copiar, limpiamos los signos raros para dejar solo el número puro
+        let totalTexto = document.getElementById('res-total').innerText.replace('USD', '').replace('$', '').trim();
+        totalTexto = totalTexto.replace(/\./g, '').replace(',', '.'); // Formato de base de datos
+        
         navigator.clipboard.writeText(totalTexto).then(() => {
             const old = btnCalcCopiar.innerHTML; btnCalcCopiar.innerHTML = '✅ Copiado'; btnCalcCopiar.style.background = '#e6f4ea'; btnCalcCopiar.style.color = '#1e8e3e';
             setTimeout(() => { btnCalcCopiar.innerHTML = old; btnCalcCopiar.style.background = 'white'; btnCalcCopiar.style.color = '#11173d'; }, 2000);
@@ -1973,7 +2002,19 @@ if(tabUsers && tabCalc) {
         if(!srv) return;
         
         editorDiv.style.display = 'block';
-        document.getElementById('editor-servicio-titulo').innerText = `Editando: ${srv.nombre}`;
+        editorDiv.style.display = 'block';
+        
+        // NUEVO TÍTULO CON BOTONES DE EDITAR Y BORRAR
+        document.getElementById('editor-servicio-titulo').innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="cursor: pointer; border-bottom: 2px dashed #11173d;" onclick="editarNombreServicio()" title="Tocar para editar nombre">
+                    ✏️ ${srv.nombre}
+                </span>
+                <button onclick="borrarServicioActual()" style="background: #ef5a1a; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.6em; cursor: pointer; font-weight: bold; transition: opacity 0.2s;">
+                    🗑️ Borrar Servicio
+                </button>
+            </div>
+        `;
         tbody.innerHTML = '';
         
         srv.proveedores.forEach((prov, index) => {
@@ -1994,6 +2035,22 @@ if(tabUsers && tabCalc) {
     };
 
     // FUNCIONES AUXILIARES DEL EDITOR
+    // FUNCIONES AUXILIARES DEL EDITOR
+    window.editarNombreServicio = () => {
+        const srv = dbCalculadora.find(s => s.id === servicioEditandoId);
+        const nuevoNombre = prompt("Editá el nombre y el emoji (Ej: 🚌 Paquete en BUS):", srv.nombre);
+        if(nuevoNombre) { srv.nombre = nuevoNombre; renderAdminListaServicios(); renderAdminEditor(); }
+    };
+
+    window.borrarServicioActual = () => {
+        const srv = dbCalculadora.find(s => s.id === servicioEditandoId);
+        if(confirm(`¿Seguro que querés borrar el servicio "${srv.nombre}" y todos sus proveedores?`)) {
+            dbCalculadora = dbCalculadora.filter(s => s.id !== servicioEditandoId);
+            servicioEditandoId = null;
+            renderAdminListaServicios();
+            document.getElementById('admin-editor-servicio').style.display = 'none';
+        }
+    };
     window.updateProv = (index, field, value) => { const srv = dbCalculadora.find(s => s.id === servicioEditandoId); srv.proveedores[index][field] = value; };
     window.deleteProv = (index) => { const srv = dbCalculadora.find(s => s.id === servicioEditandoId); srv.proveedores.splice(index, 1); renderAdminEditor(); };
     
