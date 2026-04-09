@@ -2088,5 +2088,34 @@ if(tabUsers && tabCalc) {
             showLoader(false);
         });
     }
+    
+}
+// ==========================================
+// BUSCADOR EN TIEMPO REAL DE USUARIOS
+// ==========================================
+const searchUsersInput = document.getElementById('admin-search-users');
+
+if (searchUsersInput) {
+    searchUsersInput.addEventListener('input', function() {
+        const termino = this.value.toLowerCase();
+        const listaUsuarios = document.getElementById('users-list');
+        
+        if (listaUsuarios) {
+            // Agarramos a todos los usuarios de la lista
+            const items = listaUsuarios.children;
+            
+            for (let i = 0; i < items.length; i++) {
+                // Leemos todo el texto que tiene ese renglón (email, rol, franquicia)
+                const textoRenglon = items[i].innerText.toLowerCase();
+                
+                // Si el renglón contiene lo que escribimos, lo mostramos. Si no, lo ocultamos.
+                if (textoRenglon.includes(termino)) {
+                    items[i].style.display = ''; 
+                } else {
+                    items[i].style.display = 'none'; 
+                }
+            }
+        }
+    });
 }
 });

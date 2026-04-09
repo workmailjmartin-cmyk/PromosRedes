@@ -38,7 +38,7 @@
                         Gestión
                         <span id="badge-gestion" class="nav-badge">0</span>
                     </button> //--> 
-                    <button class="nav-button" id="nav-users" style="display:none;">Usuarios</button>
+                    <button class="nav-button" id="nav-users" style="display:none;">Panel de Configuración</button>
                 </nav>
 
                 <div class="user-info">
@@ -247,7 +247,7 @@
                 <div style="max-width: 900px; margin: 0 auto; padding: 20px;">
                     
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e5e7eb; padding-bottom: 15px; margin-bottom: 20px;">
-                        <h2 style="color: #11173d; margin: 0;">Panel de Administración</h2>
+                        <h2 style="color: #11173d; margin: 0;">Panel de Configuración</h2>
                         
                         <div style="display: flex; gap: 10px;">
                             <button id="tab-admin-usuarios" style="background: #11173d; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer;">👥 Usuarios</button>
@@ -270,6 +270,11 @@
                         </div>
                         <div class="user-list-card">
                             <h3 style="padding:0 20px; color:#777;">Usuarios Existentes</h3>
+                            
+                            <div style="padding: 0 20px 15px 20px;">
+                                <input type="text" id="admin-search-users" placeholder="🔍 Buscar por email o franquicia..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; box-sizing: border-box; font-size: 0.9em;">
+                            </div>
+
                             <div id="users-list"></div>
                         </div>
                     </div>
