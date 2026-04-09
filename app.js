@@ -1794,119 +1794,228 @@ window.approvePackage = async (pkg) => {
         }
     }
 // ==========================================
-// MÓDULO CALCULADORA Y PANEL ADMIN
+// MÓDULO CALCULADORA DINÁMICA Y ADMIN (V3)
 // ==========================================
 
-// 1. EL CEREBRO CENTRAL (Ahora es dinámico)
-let configCalculadora = {
-    proveedores: {
-        flights: "Hoteldo, Ola, Turbo",
-        hotels: "Feliz Viaje, Hoteldo, OlaClick, RolSol",
-        cruises: "Costa, MSC",
-        assistance: "Hoteldo, AssisCard",
-        transfers: "Hoteldo, Feliz Viaje, RolSol, Ola",
-        cars: "BookingCars, Hoteldo",
-        packages: "Ola, Julia",
-        excursions: "Hoteldo, Feliz Viaje",
-        buspackages: "360 Regional, KMB, RolSol, Balloon, Astros, TuViaje"
-    },
-    tasas: {
-        vuelosNacional: 0.117, vuelosInternacional: 0.097, vuelosStandard: 0.185,
-        hoteles: 0.185, asistencia: 0.30, traslados: 0.185,
-        autosBookingCars: 0.12, autosStandard: 0.185, cruceros: 0.035, excursiones: 0.185,
-        paquetesOla: 0.085, paquetesJulia: 0.09, bus360Regional: 0.085, busKMB: 0.035,
-        busRolSol: 0.12, busBalloon: 0.12, busAstros: 0.12, busTuViaje: 0.085
-    }
-};
+// 1. EL NUEVO MODELO DE DATOS UNIVERSAL
+let dbCalculadora = [];
+let servicioEditandoId = null;
 
-// 2. FUNCIÓN PARA CARGAR LA CONFIGURACIÓN DESDE FIREBASE
+// Valores por defecto (Semilla) si Firebase está vacío
+const defaultData = [
+    { id: 'vuelo_nac', nombre: '✈️ Vuelo Nacional', proveedores: [ { nombre: 'Hoteldo', tasa: 11.7, tipo: 'markup' }, { nombre: 'Ola', tasa: 11.7, tipo: 'markup' } ] },
+    { id: 'vuelo_int', nombre: '✈️ Vuelo Internacional', proveedores: [ { nombre: 'Hoteldo', tasa: 9.7, tipo: 'markup' } ] },
+    { id: 'hoteles', nombre: '🏨 Alojamiento', proveedores: [ { nombre: 'Feliz Viaje', tasa: 18.5, tipo: 'markup' } ] },
+    { id: 'autos', nombre: '🚗 Autos', proveedores: [ { nombre: 'BookingCars', tasa: 12, tipo: 'descuento' }, { nombre: 'Hoteldo', tasa: 18.5, tipo: 'markup' } ] }
+];
+
+// Carga inicial
 async function loadCalculadoraConfig() {
     try {
-        const doc = await db.collection('config').doc('calculadora_settings').get();
+        const doc = await db.collection('config').doc('calculadora_v3').get();
         if (doc.exists) {
-            // Pisamos la configuración por defecto con la que viene de Firebase
-            configCalculadora = doc.data();
+            dbCalculadora = doc.data().servicios || [];
         } else {
-            // Si no existe (primera vez), la creamos en la base de datos
-            await db.collection('config').doc('calculadora_settings').set(configCalculadora);
+            dbCalculadora = defaultData;
+            await db.collection('config').doc('calculadora_v3').set({ servicios: dbCalculadora });
         }
+        actualizarSelectServiciosVentas();
     } catch (e) {
-        console.error("Error al cargar config de calculadora:", e);
+        console.error("Error cargando calculadora:", e);
     }
 }
 
-// 3. LÓGICA DEL PANEL DE ADMINISTRACIÓN
-// 3. LÓGICA DEL PANEL DE ADMINISTRACIÓN
-// --- NAVEGACIÓN DE PESTAÑAS INTERNAS ---
+// 2. MOTOR MATEMÁTICO UNIVERSAL
+function calcularVentaAgencia(montoBase, provData) {
+    let final = parseFloat(montoBase);
+    let base = parseFloat(montoBase);
+    let profit = 0;
+    let profitRate = parseFloat(provData.tasa) / 100;
+
+    if (provData.tipo === 'descuento') {
+        // Lógica BookingCars: El monto ingresado es el Final, la ganancia se resta de ahí.
+        base = final * (1 - profitRate);
+        profit = final - base;
+    } else {
+        // Lógica Normal (Markup): El monto ingresado es la Base, se le suma la ganancia.
+        profit = base * profitRate;
+        final = base + profit;
+    }
+    return { base, profit, final, profitRate };
+}
+
+// 3. LÓGICA DE LA INTERFAZ VISUAL (Ventas)
+const btnToggle = document.getElementById('btn-toggle-calculadora');
+const panelCalc = document.getElementById('panel-calculadora');
+const bodyCalc = document.getElementById('body-calculadora');
+const btnClose = document.getElementById('btn-close-calculadora');
+const btnMin = document.getElementById('btn-min-calculadora');
+const btnMax = document.getElementById('btn-max-calculadora');
+const selectServicio = document.getElementById('calc-servicio');
+const selectProveedor = document.getElementById('calc-proveedor');
+const inputMonto = document.getElementById('calc-monto');
+const btnCalcular = document.getElementById('btn-calcular-ya');
+const boxResultados = document.getElementById('calc-resultados');
+const btnCalcCopiar = document.getElementById('btn-calc-copiar');
+const btnCalcNueva = document.getElementById('btn-calc-nueva');
+
+if (btnToggle && panelCalc) {
+    let isMaximized = false;
+
+    btnToggle.addEventListener('click', () => {
+        panelCalc.style.display = panelCalc.style.display === 'none' || panelCalc.style.display === '' ? 'flex' : 'none';
+        bodyCalc.style.display = 'block';
+    });
+
+    btnClose.addEventListener('click', () => { panelCalc.style.display = 'none'; btnCalcNueva.click(); if (isMaximized) btnMax.click(); });
+    btnMin.addEventListener('click', () => { bodyCalc.style.display = bodyCalc.style.display === 'none' ? 'block' : 'none'; });
+    
+    // RESPONSIVIDAD NOTEBOOKS
+    btnMax.addEventListener('click', () => {
+        isMaximized = !isMaximized;
+        if (isMaximized) {
+            panelCalc.style.width = '90vw'; panelCalc.style.height = '90vh'; panelCalc.style.maxHeight = 'none';
+            panelCalc.style.top = '50%'; panelCalc.style.left = '50%'; panelCalc.style.bottom = 'auto'; panelCalc.style.right = 'auto';
+            panelCalc.style.transform = 'translate(-50%, -50%)'; btnMax.innerText = '❐';
+        } else {
+            panelCalc.style.width = '350px'; panelCalc.style.height = 'auto'; panelCalc.style.maxHeight = 'calc(100vh - 120px)';
+            panelCalc.style.top = 'auto'; panelCalc.style.left = 'auto'; panelCalc.style.bottom = '100px'; panelCalc.style.right = '30px';
+            panelCalc.style.transform = 'none'; btnMax.innerText = '⬜';
+        }
+    });
+
+    // Llenar el primer select de Ventas
+    window.actualizarSelectServiciosVentas = () => {
+        selectServicio.innerHTML = '<option value="">Seleccionar Servicio...</option>';
+        dbCalculadora.forEach(s => { selectServicio.innerHTML += `<option value="${s.id}">${s.nombre}</option>`; });
+    };
+
+    selectServicio.addEventListener('change', (e) => {
+        const servId = e.target.value;
+        selectProveedor.innerHTML = '<option value="">Seleccionar Proveedor...</option>';
+        boxResultados.style.display = 'none';
+        const srv = dbCalculadora.find(s => s.id === servId);
+        if (srv && srv.proveedores) {
+            srv.proveedores.forEach(p => { selectProveedor.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`; });
+        }
+    });
+
+    btnCalcular.addEventListener('click', () => {
+        const servId = selectServicio.value;
+        const provName = selectProveedor.value;
+        const monto = inputMonto.value;
+
+        if (!servId || !provName || !monto) return window.showAlert("Completá servicio, proveedor y monto.", "error");
+
+        const srv = dbCalculadora.find(s => s.id === servId);
+        const provData = srv.proveedores.find(p => p.nombre === provName);
+        
+        const resultado = calcularVentaAgencia(monto, provData);
+        const formatter = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        document.getElementById('res-rentabilidad').innerText = `$${formatter.format(resultado.profit)} (${(resultado.profitRate * 100).toFixed(1)}%)`;
+        document.getElementById('res-total').innerText = `$${formatter.format(resultado.final)}`;
+        boxResultados.style.display = 'block';
+    });
+
+    if(btnCalcNueva) btnCalcNueva.addEventListener('click', () => {
+        selectServicio.value = ''; selectProveedor.innerHTML = '<option value="">Seleccionar Servicio Primero...</option>';
+        inputMonto.value = ''; boxResultados.style.display = 'none'; selectServicio.focus(); 
+    });
+
+    if(btnCalcCopiar) btnCalcCopiar.addEventListener('click', () => {
+        const totalTexto = document.getElementById('res-total').innerText.replace('$', '').replace(/\./g, '').replace(',', '.');
+        navigator.clipboard.writeText(totalTexto).then(() => {
+            const old = btnCalcCopiar.innerHTML; btnCalcCopiar.innerHTML = '✅ Copiado'; btnCalcCopiar.style.background = '#e6f4ea'; btnCalcCopiar.style.color = '#1e8e3e';
+            setTimeout(() => { btnCalcCopiar.innerHTML = old; btnCalcCopiar.style.background = 'white'; btnCalcCopiar.style.color = '#11173d'; }, 2000);
+        });
+    });
+}
+
+// 4. LÓGICA DEL PANEL DE ADMINISTRACIÓN (BACKOFFICE)
 const tabUsers = document.getElementById('tab-admin-usuarios');
 const tabCalc = document.getElementById('tab-admin-calculadora');
 const secUsers = document.getElementById('admin-seccion-usuarios');
 const secCalc = document.getElementById('admin-seccion-calculadora');
+const btnSaveCalc = document.getElementById('btn-save-calculadora');
 
 if(tabUsers && tabCalc) {
-    tabUsers.addEventListener('click', () => {
-        secUsers.style.display = 'block'; secCalc.style.display = 'none';
-        tabUsers.style.background = '#11173d'; tabUsers.style.color = 'white';
-        tabCalc.style.background = '#f3f4f6'; tabCalc.style.color = '#6b7280';
-    });
-    tabCalc.addEventListener('click', () => {
-        secUsers.style.display = 'none'; secCalc.style.display = 'block';
-        tabCalc.style.background = '#11173d'; tabCalc.style.color = 'white';
-        tabUsers.style.background = '#f3f4f6'; tabUsers.style.color = '#6b7280';
-        renderAdminCalculadora(); // Dibujamos los inputs al abrir la pestaña
-    });
-}
+    tabUsers.addEventListener('click', () => { secUsers.style.display = 'block'; secCalc.style.display = 'none'; tabUsers.style.background = '#11173d'; tabUsers.style.color = 'white'; tabCalc.style.background = '#f3f4f6'; tabCalc.style.color = '#6b7280'; });
+    tabCalc.addEventListener('click', () => { secUsers.style.display = 'none'; secCalc.style.display = 'block'; tabCalc.style.background = '#11173d'; tabCalc.style.color = 'white'; tabUsers.style.background = '#f3f4f6'; tabUsers.style.color = '#6b7280'; renderAdminListaServicios(); });
 
-// --- RENDERIZAR INPUTS DINÁMICOS ---
-function renderAdminCalculadora() {
-    const contTasas = document.getElementById('admin-tasas-container');
-    const contProvs = document.getElementById('admin-provs-container');
-    if (!contTasas || !contProvs) return;
+    // RENDERIZAR LISTA IZQUIERDA
+    window.renderAdminListaServicios = () => {
+        const listaDiv = document.getElementById('admin-lista-servicios');
+        listaDiv.innerHTML = '';
+        dbCalculadora.forEach(srv => {
+            const btn = document.createElement('div');
+            btn.style.cssText = `padding: 12px; border-bottom: 1px solid #e5e7eb; cursor: pointer; transition: background 0.2s; background: ${servicioEditandoId === srv.id ? '#e6f4ea' : 'white'}; font-weight: ${servicioEditandoId === srv.id ? 'bold' : 'normal'};`;
+            btn.innerText = srv.nombre;
+            btn.onclick = () => { servicioEditandoId = srv.id; renderAdminListaServicios(); renderAdminEditor(); };
+            listaDiv.appendChild(btn);
+        });
+        if(dbCalculadora.length > 0 && !servicioEditandoId) { servicioEditandoId = dbCalculadora[0].id; renderAdminListaServicios(); renderAdminEditor(); }
+    };
+
+    // RENDERIZAR TABLA DERECHA
+    window.renderAdminEditor = () => {
+        const editorDiv = document.getElementById('admin-editor-servicio');
+        const tbody = document.getElementById('editor-proveedores-tbody');
+        btnSaveCalc.style.display = 'block';
+        
+        const srv = dbCalculadora.find(s => s.id === servicioEditandoId);
+        if(!srv) return;
+        
+        editorDiv.style.display = 'block';
+        document.getElementById('editor-servicio-titulo').innerText = `Editando: ${srv.nombre}`;
+        tbody.innerHTML = '';
+        
+        srv.proveedores.forEach((prov, index) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;"><input type="text" value="${prov.nombre}" onchange="updateProv(${index}, 'nombre', this.value)" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;"></td>
+                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;"><input type="number" step="0.1" value="${prov.tasa}" onchange="updateProv(${index}, 'tasa', this.value)" style="width:80px; padding:8px; border:1px solid #ccc; border-radius:4px;"></td>
+                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">
+                    <select onchange="updateProv(${index}, 'tipo', this.value)" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        <option value="markup" ${prov.tipo === 'markup' ? 'selected' : ''}>Suma (Markup)</option>
+                        <option value="descuento" ${prov.tipo === 'descuento' ? 'selected' : ''}>Descuento Neta</option>
+                    </select>
+                </td>
+                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align:center;"><button onclick="deleteProv(${index})" style="background:#ef5a1a; color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;">Borrar</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    };
+
+    // FUNCIONES AUXILIARES DEL EDITOR
+    window.updateProv = (index, field, value) => { const srv = dbCalculadora.find(s => s.id === servicioEditandoId); srv.proveedores[index][field] = value; };
+    window.deleteProv = (index) => { const srv = dbCalculadora.find(s => s.id === servicioEditandoId); srv.proveedores.splice(index, 1); renderAdminEditor(); };
     
-    contTasas.innerHTML = ''; contProvs.innerHTML = '';
+    document.getElementById('btn-admin-nuevo-proveedor').addEventListener('click', () => {
+        const srv = dbCalculadora.find(s => s.id === servicioEditandoId);
+        srv.proveedores.push({ nombre: 'Nuevo Proveedor', tasa: 10, tipo: 'markup' });
+        renderAdminEditor();
+    });
 
-    // Dibujar Inputs de Tasas
-    for (const [key, value] of Object.entries(configCalculadora.tasas)) {
-        contTasas.innerHTML += `
-            <div>
-                <label style="font-size:0.8em; font-weight:bold; color:#11173d;">${key}</label>
-                <input type="number" step="0.001" id="tasa_${key}" value="${value}" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; margin-top:4px;">
-            </div>`;
-    }
-
-    // Dibujar Inputs de Proveedores
-    for (const [key, value] of Object.entries(configCalculadora.proveedores)) {
-        contProvs.innerHTML += `
-            <div>
-                <label style="font-size:0.8em; font-weight:bold; color:#11173d;">${key}</label>
-                <input type="text" id="prov_${key}" value="${value}" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; margin-top:4px;">
-            </div>`;
-    }
-}
-
-// --- GUARDAR CAMBIOS EN FIREBASE ---
-const btnSaveCalc = document.getElementById('btn-save-calculadora');
-if(btnSaveCalc) {
-    btnSaveCalc.addEventListener('click', async () => {
-        showLoader(true, "Guardando configuración...");
-        try {
-            // Recolectar tasas
-            for (const key of Object.keys(configCalculadora.tasas)) {
-                const val = document.getElementById(`tasa_${key}`).value;
-                configCalculadora.tasas[key] = parseFloat(val) || 0;
-            }
-            // Recolectar proveedores
-            for (const key of Object.keys(configCalculadora.proveedores)) {
-                configCalculadora.proveedores[key] = document.getElementById(`prov_${key}`).value;
-            }
-
-            // Guardar en Firebase
-            await db.collection('config').doc('calculadora_settings').set(configCalculadora);
-            window.showAlert("Configuración guardada. La calculadora ya usa los nuevos valores.", "success");
-        } catch (error) {
-            console.error("Error guardando:", error);
-            window.showAlert("Error al guardar en Firebase", "error");
+    document.getElementById('btn-admin-nuevo-servicio').addEventListener('click', async () => {
+        const nombreStr = prompt("Escribí el nombre del servicio con su emoji (Ej: 🚀 Viajes a Marte):");
+        if(nombreStr) {
+            const newId = 'srv_' + Date.now();
+            dbCalculadora.push({ id: newId, nombre: nombreStr, proveedores: [] });
+            servicioEditandoId = newId;
+            renderAdminListaServicios();
+            renderAdminEditor();
         }
+    });
+
+    // GUARDAR EN FIREBASE
+    btnSaveCalc.addEventListener('click', async () => {
+        showLoader(true, "Guardando base de datos...");
+        try {
+            await db.collection('config').doc('calculadora_v3').set({ servicios: dbCalculadora });
+            actualizarSelectServiciosVentas(); // Actualiza el boton flotante en vivo
+            window.showAlert("¡Estructura guardada con éxito!", "success");
+        } catch (e) { console.error(e); window.showAlert("Error guardando.", "error"); }
         showLoader(false);
     });
 }
