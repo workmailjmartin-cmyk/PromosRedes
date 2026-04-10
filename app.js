@@ -137,6 +137,47 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- UTILS ---
+    // Función para comprimir imágenes ANTES de subir 
+    async function comprimirImagen(file, maxWidth, maxHeight, quality) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Calcular nuevas dimensiones manteniendo la proporción
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width = Math.round((width * maxHeight) / height);
+                            height = maxHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Exportar como JPEG comprimido
+                    canvas.toBlob((blob) => {
+                        resolve(blob);
+                    }, 'image/jpeg', quality);
+                };
+            };
+            reader.onerror = error => reject(error);
+        });
+    }
+        
     const showLoader = (show, text = null) => { 
         if(dom.loader) {
             dom.loader.style.display = show ? 'flex' : 'none';
@@ -1287,7 +1328,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const mes = String(fechaActual.getMonth() + 1).padStart(2, '0');
         const anio = fechaActual.getFullYear();
         const fechaCreacionFormateada = `${dia}/${mes}/${anio}`;
+
+        // === MAGIA: SUBIDA Y COMPRESIÓN DE IMAGEN ===
+        let imageUrl = null;
+        const fileInput = document.getElementById('upload-imagen');
         
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+            showLoader(true, "Comprimiendo foto...");
+            try {
+                const file = fileInput.files[0];
+                // Comprime a max 800px y 70% de calidad (Súper liviana)
+                const compressedBlob = await comprimirImagen(file, 800, 800, 0.7);
+                
+                // Sube al Storage de Firebase
+                const storageRef = firebase.storage().ref();
+                const imageRef = storageRef.child(`paquetes/${Date.now()}_${file.name}`);
+                await imageRef.put(compressedBlob);
+                
+                // Obtiene el link público
+                imageUrl = await imageRef.getDownloadURL();
+            } catch (err) {
+                console.error("Error al subir imagen:", err);
+                showLoader(false);
+                return window.showAlert("Error al procesar la imagen. Intenta sin ella.", "error");
+            }
+        }
         const payload = { 
                     id_paquete: idGenerado, 
                     destino: document.getElementById('upload-destino').value, 
@@ -2088,7 +2153,7 @@ if(tabUsers && tabCalc) {
             showLoader(false);
         });
     }
-    
+     
 }
 // ==========================================
 // BUSCADOR EN TIEMPO REAL DE USUARIOS
