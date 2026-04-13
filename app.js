@@ -952,6 +952,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div>
                 <div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div>
             </div>
+            
             <div class="form-group-row">
                 <div class="form-group"><label>Escalas Ida</label>${crearContadorHTML('escalas_ida',0)}</div>
                 <div class="form-group"><label>Escalas Vuelta</label>${crearContadorHTML('escalas_vuelta',0)}</div>
@@ -963,26 +964,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         <option>Mochila + Carry On + Bodega</option>
                     </select>
                 </div>
-            <div class="form-group-row">
-                <div class="form-group" style="flex: 1;">
-                    <label>🛫 Aeropuerto de Salida (Opcional)</label>
+                <div class="form-group" style="flex: 1.5;">
+                    <label>🛫 Aeropuerto Salida (Opcional)</label>
                     <select name="aeropuerto_salida" class="form-control">
-                        <option value="">-- Selecciona una provincia de salida primero --</option>
+                        <option value="">-- Selecciona provincia primero --</option>
                     </select>
                 </div>
             </div>
-           <div class="form-group-row">
-                <div class="form-group" style="flex: 1;">
-                    <label style="font-weight: bold; color: #11173d;">📸 Capturas del Vuelo</label>
-                    
-                    <div class="dropzone-capturas" tabindex="0" title="Hacé clic acá y tocá Ctrl+V para pegar" style="border: 2px dashed #56DDE0; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; background: #f9fafb; outline: none; transition: background 0.2s;">
-                        <span style="color: #6b7280; font-size: 0.9em; pointer-events: none;">📎 Clic para buscar fotos, o <b>hacé clic acá y tocá Ctrl+V</b> para pegar tu captura de pantalla.</span>
-                        <input type="file" class="upload-captura-aereo" accept="image/png, image/jpeg, image/jpg" multiple style="display: none;">
-                    </div>
-                    
-                    <div class="preview-capturas" style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;"></div>
-                </div>
-            </div>
+
             <div class="form-group-row">
                 <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
                 <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
@@ -1400,6 +1389,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const anio = fechaActual.getFullYear();
         const fechaCreacionFormateada = `${dia}/${mes}/${anio}`;
 
+        /*
         // === MAGIA: FRANCOTIRADOR MÚLTIPLE DE IMÁGENES EN AÉREOS ===
         let imageUrls = []; 
         const fileInput = dom.containerServicios.querySelector('.upload-captura-aereo');
@@ -1429,7 +1419,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return window.showAlert("Error al procesar las capturas. Intenta sin ellas.", "error");
             }
         }
-        
+        */
         const payload = { 
                     id_paquete: idGenerado, 
                     destino: document.getElementById('upload-destino').value, 
