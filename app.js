@@ -2077,6 +2077,12 @@ if (btnToggle && panelCalc) {
         document.getElementById('res-rentabilidad').innerText = `${moneda}${formatter.format(resultado.profit)} (${(resultado.profitRate * 100).toFixed(1)}%)`;
         document.getElementById('res-total').innerText = `${moneda}${formatter.format(resultado.final)}`;
         boxResultados.style.display = 'block';
+        setTimeout(() => {
+            bodyCalc.scrollTo({
+                top: bodyCalc.scrollHeight,
+                behavior: 'smooth'
+            });
+        }, 50);
     });
 
     if(btnCalcNueva) btnCalcNueva.addEventListener('click', () => {
