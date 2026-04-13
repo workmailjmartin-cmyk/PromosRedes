@@ -177,6 +177,66 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onerror = error => reject(error);
         });
     }
+
+    // ==========================================
+    // UI DE CAPTURAS (Copiar, Pegar y Previsualizar)
+    // ==========================================
+
+    // 1. Si hacen clic en la caja, abrimos el buscador de archivos del sistema
+    document.addEventListener('click', (e) => {
+        const dz = e.target.closest('.dropzone-capturas');
+        if (dz) dz.querySelector('input[type="file"]').click();
+    });
+
+    // 2. Si eligen archivos manualmente, mostramos las miniaturas
+    document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('upload-captura-aereo')) {
+            actualizarMiniaturasAereo(e.target.files, e.target.closest('.form-group').querySelector('.preview-capturas'));
+        }
+    });
+
+    // 3. MAGIA: Si tocan Ctrl+V adentro de la caja
+    document.addEventListener('paste', (e) => {
+        // Verificamos si tienen "seleccionada" la caja
+        const dz = document.activeElement.closest('.dropzone-capturas');
+        if (!dz) return; 
+        
+        e.preventDefault();
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        const files = [];
+        
+        for (let index in items) {
+            const item = items[index];
+            if (item.kind === 'file') files.push(item.getAsFile()); // Rescatamos la imagen pegada
+        }
+        
+        if (files.length > 0) {
+            const input = dz.querySelector('input[type="file"]');
+            const dataTransfer = new DataTransfer();
+            
+            // Si ya habían subido otras fotos antes, las conservamos
+            if (input.files) { Array.from(input.files).forEach(f => dataTransfer.items.add(f)); }
+            
+            // Sumamos las nuevas fotos pegadas
+            files.forEach(f => dataTransfer.items.add(f));
+            input.files = dataTransfer.files;
+            
+            // Dibujamos las fotos
+            actualizarMiniaturasAereo(input.files, dz.parentElement.querySelector('.preview-capturas'));
+        }
+    });
+
+    function actualizarMiniaturasAereo(files, previewDiv) {
+        previewDiv.innerHTML = '';
+        Array.from(files).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                // Dibuja una miniatura linda con sombra
+                previewDiv.innerHTML += `<img src="${e.target.result}" style="height: 60px; border-radius: 6px; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">`;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
         
     const showLoader = (show, text = null) => { 
         if(dom.loader) {
@@ -911,11 +971,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     </select>
                 </div>
             </div>
-            </div>
-            <div class="form-group-row">
+           <div class="form-group-row">
                 <div class="form-group" style="flex: 1;">
-                    <label>📷 Captura de Pantalla (Opcional)</label>
-                    <input type="file" class="upload-captura-aereo" accept="image/png, image/jpeg, image/jpg" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; box-sizing: border-box;">
+                    <label style="font-weight: bold; color: #11173d;">📸 Capturas del Vuelo</label>
+                    
+                    <div class="dropzone-capturas" tabindex="0" title="Hacé clic acá y tocá Ctrl+V para pegar" style="border: 2px dashed #56DDE0; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; background: #f9fafb; outline: none; transition: background 0.2s;">
+                        <span style="color: #6b7280; font-size: 0.9em; pointer-events: none;">📎 Clic para buscar fotos, o <b>hacé clic acá y tocá Ctrl+V</b> para pegar tu captura de pantalla.</span>
+                        <input type="file" class="upload-captura-aereo" accept="image/png, image/jpeg, image/jpg" multiple style="display: none;">
+                    </div>
+                    
+                    <div class="preview-capturas" style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;"></div>
                 </div>
             </div>
             <div class="form-group-row">
@@ -1335,30 +1400,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const anio = fechaActual.getFullYear();
         const fechaCreacionFormateada = `${dia}/${mes}/${anio}`;
 
-        // === MAGIA: SUBIDA Y COMPRESIÓN DE IMAGEN ===
-        let imageUrl = null;
-        const fileInput = document.getElementById('upload-imagen');
+        // === MAGIA: FRANCOTIRADOR MÚLTIPLE DE IMÁGENES EN AÉREOS ===
+        let imageUrls = []; 
+        const fileInput = dom.containerServicios.querySelector('.upload-captura-aereo');
         
-        if (fileInput && fileInput.files && fileInput.files[0]) {
-            showLoader(true, "Comprimiendo foto...");
+        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+            showLoader(true, `Comprimiendo ${fileInput.files.length} captura(s)...`);
             try {
-                const file = fileInput.files[0];
-                // Comprime a max 800px y 70% de calidad (Súper liviana)
-                const compressedBlob = await comprimirImagen(file, 800, 800, 0.7);
+                for(let i=0; i < fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    const compressedBlob = await comprimirImagen(file, 800, 800, 0.7); 
+                    
+                    const storageRef = firebase.storage().ref();
+                    const imageRef = storageRef.child(`vuelos/${Date.now()}_${i}_${file.name || 'captura.jpg'}`);
+                    await imageRef.put(compressedBlob);
+                    
+                    const url = await imageRef.getDownloadURL();
+                    imageUrls.push(url);
+                }
                 
-                // Sube al Storage de Firebase
-                const storageRef = firebase.storage().ref();
-                const imageRef = storageRef.child(`paquetes/${Date.now()}_${file.name}`);
-                await imageRef.put(compressedBlob);
-                
-                // Obtiene el link público
-                imageUrl = await imageRef.getDownloadURL();
+                // Le inyectamos el ARRAY de URLs al aéreo
+                const aereoData = serviciosData.find(s => s.tipo === 'aereo');
+                if (aereoData) aereoData.capturas_urls = imageUrls;
+
             } catch (err) {
-                console.error("Error al subir imagen:", err);
+                console.error("Error al subir capturas:", err);
                 showLoader(false);
-                return window.showAlert("Error al procesar la imagen. Intenta sin ella.", "error");
+                return window.showAlert("Error al procesar las capturas. Intenta sin ellas.", "error");
             }
         }
+        
         const payload = { 
                     id_paquete: idGenerado, 
                     destino: document.getElementById('upload-destino').value, 
