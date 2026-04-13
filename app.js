@@ -913,6 +913,12 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             </div>
             <div class="form-group-row">
+                <div class="form-group" style="flex: 1;">
+                    <label>📷 Captura de Pantalla (Opcional)</label>
+                    <input type="file" class="upload-captura-aereo" accept="image/png, image/jpeg, image/jpg" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; box-sizing: border-box;">
+                </div>
+            </div>
+            <div class="form-group-row">
                 <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
                 <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
             </div>`;
