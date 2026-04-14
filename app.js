@@ -137,6 +137,107 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- UTILS ---
+    // Función para comprimir imágenes ANTES de subir 
+    async function comprimirImagen(file, maxWidth, maxHeight, quality) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    // Calcular nuevas dimensiones manteniendo la proporción
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width = Math.round((width * maxHeight) / height);
+                            height = maxHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Exportar como JPEG comprimido
+                    canvas.toBlob((blob) => {
+                        resolve(blob);
+                    }, 'image/jpeg', quality);
+                };
+            };
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    // ==========================================
+    // UI DE CAPTURAS (Copiar, Pegar y Previsualizar)
+    // ==========================================
+
+    // 1. Si hacen clic en la caja, abrimos el buscador de archivos del sistema
+    document.addEventListener('click', (e) => {
+        const dz = e.target.closest('.dropzone-capturas');
+        if (dz) dz.querySelector('input[type="file"]').click();
+    });
+
+    // 2. Si eligen archivos manualmente, mostramos las miniaturas
+    document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('upload-captura-aereo')) {
+            actualizarMiniaturasAereo(e.target.files, e.target.closest('.form-group').querySelector('.preview-capturas'));
+        }
+    });
+
+    // 3. MAGIA: Si tocan Ctrl+V adentro de la caja
+    document.addEventListener('paste', (e) => {
+        // Verificamos si tienen "seleccionada" la caja
+        const dz = document.activeElement.closest('.dropzone-capturas');
+        if (!dz) return; 
+        
+        e.preventDefault();
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        const files = [];
+        
+        for (let index in items) {
+            const item = items[index];
+            if (item.kind === 'file') files.push(item.getAsFile()); // Rescatamos la imagen pegada
+        }
+        
+        if (files.length > 0) {
+            const input = dz.querySelector('input[type="file"]');
+            const dataTransfer = new DataTransfer();
+            
+            // Si ya habían subido otras fotos antes, las conservamos
+            if (input.files) { Array.from(input.files).forEach(f => dataTransfer.items.add(f)); }
+            
+            // Sumamos las nuevas fotos pegadas
+            files.forEach(f => dataTransfer.items.add(f));
+            input.files = dataTransfer.files;
+            
+            // Dibujamos las fotos
+            actualizarMiniaturasAereo(input.files, dz.parentElement.querySelector('.preview-capturas'));
+        }
+    });
+
+    function actualizarMiniaturasAereo(files, previewDiv) {
+        previewDiv.innerHTML = '';
+        Array.from(files).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                // Dibuja una miniatura linda con sombra
+                previewDiv.innerHTML += `<img src="${e.target.result}" style="height: 60px; border-radius: 6px; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">`;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+        
     const showLoader = (show, text = null) => { 
         if(dom.loader) {
             dom.loader.style.display = show ? 'flex' : 'none';
@@ -529,11 +630,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return h+'</ul>'; 
     }
 
-    // --- ALERTAS ---
-    window.showAlert = (message, type = 'error') => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btn = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); if(btnCancel) btnCancel.style.display = 'none'; if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; } else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; } else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; } msg.innerText = message; overlay.style.display = 'flex'; btn.onclick = () => { overlay.style.display = 'none'; resolve(); }; }); };
-    window.showConfirm = (message) => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btnOk = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); title.innerText = 'Confirmación'; title.style.color = '#11173d'; icon.innerHTML = '❓'; msg.innerText = message; if(btnCancel) btnCancel.style.display = 'inline-block'; overlay.style.display = 'flex'; btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); }; if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); }; }); };
-
-   // --- CORE ---
+   // --- ALERTAS ---
+    window.showAlert = (message, type = 'error') => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); if(overlay) overlay.style.zIndex = "99999"; const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btn = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); if(btnCancel) btnCancel.style.display = 'none'; if (type === 'success') { title.innerText = '¡Éxito!'; title.style.color = '#4caf50'; icon.innerHTML = '✅'; } else if (type === 'info') { title.innerText = 'Información'; title.style.color = '#3498db'; icon.innerHTML = 'ℹ️'; } else { title.innerText = 'Atención'; title.style.color = '#ef5a1a'; icon.innerHTML = '⚠️'; } msg.innerText = message; overlay.style.display = 'flex'; btn.onclick = () => { overlay.style.display = 'none'; resolve(); }; }); };
+    window.showConfirm = (message) => { return new Promise((resolve) => { showLoader(false); const overlay = document.getElementById('custom-alert-overlay'); if(overlay) overlay.style.zIndex = "99999"; const title = document.getElementById('custom-alert-title'); const msg = document.getElementById('custom-alert-message'); const icon = document.getElementById('custom-alert-icon'); const btnOk = document.getElementById('custom-alert-btn'); const btnCancel = document.getElementById('custom-alert-cancel'); title.innerText = 'Confirmación'; title.style.color = '#11173d'; icon.innerHTML = '❓'; msg.innerText = message; if(btnCancel) btnCancel.style.display = 'inline-block'; overlay.style.display = 'flex'; btnOk.onclick = () => { overlay.style.display = 'none'; resolve(true); }; if(btnCancel) btnCancel.onclick = () => { overlay.style.display = 'none'; resolve(false); }; }); };
+   
+    // --- CORE ---
     if(dom.logoImg) {
         dom.logoImg.addEventListener('click', async (e) => {
             e.preventDefault(); // Evitamos cualquier comportamiento por defecto
@@ -734,7 +835,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     dom.loginContainer.style.display='none'; dom.appContainer.style.display='block';
                     const nombreMostrar = userData.franquicia || u.email;
                     if(dom.userEmail) dom.userEmail.innerHTML = `<b>${nombreMostrar}</b><br><small>${userData.rol.toUpperCase()}</small>`;
-                    configureUIByRole(); await fetchAndLoadPackages(); showView('search');
+                    configureUIByRole(); await fetchAndLoadPackages(); await loadCalculadoraConfig(); showView('search');
+                    if (document.getElementById('btn-toggle-calculadora')) document.getElementById('btn-toggle-calculadora').style.display = 'flex';
                 } else { await window.showAlert(`⛔ Sin permisos.`); auth.signOut(); }
             } catch (e) { 
                 console.error("🔥 ERROR REAL DE FIRESTORE:", e); // <--- Esto mostrará el detalle en consola (F12)
@@ -742,7 +844,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("Mensaje:", e.message);
                 await window.showAlert("Error de conexión: " + e.message); // Verás el error en la pantalla
             }
-        } else { currentUser = null; userData = null; dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none'; }
+        } else { currentUser = null; userData = null; dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none'; if (document.getElementById('btn-toggle-calculadora')) document.getElementById('btn-toggle-calculadora').style.display = 'none';}
         showLoader(false);
     });
 
@@ -850,6 +952,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="form-group"><label>Ida</label><input type="date" name="fecha_aereo" required></div>
                 <div class="form-group"><label>Vuelta</label><input type="date" name="fecha_regreso"></div>
             </div>
+            
             <div class="form-group-row">
                 <div class="form-group"><label>Escalas Ida</label>${crearContadorHTML('escalas_ida',0)}</div>
                 <div class="form-group"><label>Escalas Vuelta</label>${crearContadorHTML('escalas_vuelta',0)}</div>
@@ -861,15 +964,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         <option>Mochila + Carry On + Bodega</option>
                     </select>
                 </div>
-            <div class="form-group-row">
-                <div class="form-group" style="flex: 1;">
-                    <label>🛫 Aeropuerto de Salida (Opcional)</label>
+                <div class="form-group" style="flex: 1.5;">
+                    <label>🛫 Aeropuerto Salida (Opcional)</label>
                     <select name="aeropuerto_salida" class="form-control">
-                        <option value="">-- Selecciona una provincia de salida primero --</option>
+                        <option value="">-- Selecciona provincia primero --</option>
                     </select>
                 </div>
             </div>
-            </div>
+
             <div class="form-group-row">
                 <div class="form-group"><label>Proveedor</label><input type="text" name="proveedor" required></div>
                 <div class="form-group"><label>Costo</label><input type="number" name="costo" class="input-costo" onchange="window.calcularTotal()" required></div>
@@ -1286,7 +1388,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const mes = String(fechaActual.getMonth() + 1).padStart(2, '0');
         const anio = fechaActual.getFullYear();
         const fechaCreacionFormateada = `${dia}/${mes}/${anio}`;
+
+        /*
+        // === MAGIA: FRANCOTIRADOR MÚLTIPLE DE IMÁGENES EN AÉREOS ===
+        let imageUrls = []; 
+        const fileInput = dom.containerServicios.querySelector('.upload-captura-aereo');
         
+        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+            showLoader(true, `Comprimiendo ${fileInput.files.length} captura(s)...`);
+            try {
+                for(let i=0; i < fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    const compressedBlob = await comprimirImagen(file, 800, 800, 0.7); 
+                    
+                    const storageRef = firebase.storage().ref();
+                    const imageRef = storageRef.child(`vuelos/${Date.now()}_${i}_${file.name || 'captura.jpg'}`);
+                    await imageRef.put(compressedBlob);
+                    
+                    const url = await imageRef.getDownloadURL();
+                    imageUrls.push(url);
+                }
+                
+                // Le inyectamos el ARRAY de URLs al aéreo
+                const aereoData = serviciosData.find(s => s.tipo === 'aereo');
+                if (aereoData) aereoData.capturas_urls = imageUrls;
+
+            } catch (err) {
+                console.error("Error al subir capturas:", err);
+                showLoader(false);
+                return window.showAlert("Error al procesar las capturas. Intenta sin ellas.", "error");
+            }
+        }
+        */
         const payload = { 
                     id_paquete: idGenerado, 
                     destino: document.getElementById('upload-destino').value, 
@@ -1792,29 +1925,335 @@ window.approvePackage = async (pkg) => {
             await fetchAndLoadPackages();
         }
     }
+// ==========================================
+// MÓDULO CALCULADORA DINÁMICA Y ADMIN (V3)
+// ==========================================
+
+// 1. EL NUEVO MODELO DE DATOS UNIVERSAL
+let dbCalculadora = [];
+let servicioEditandoId = null;
+
+// Valores por defecto (Semilla) si Firebase está vacío
+const defaultData = [
+    { id: 'vuelo_nac', nombre: '✈️ Vuelo Nacional', proveedores: [ { nombre: 'Hoteldo', tasa: 11.7, tipo: 'markup' }, { nombre: 'Ola', tasa: 11.7, tipo: 'markup' } ] },
+    { id: 'vuelo_int', nombre: '✈️ Vuelo Internacional', proveedores: [ { nombre: 'Hoteldo', tasa: 9.7, tipo: 'markup' } ] },
+    { id: 'hoteles', nombre: '🏨 Alojamiento', proveedores: [ { nombre: 'Feliz Viaje', tasa: 18.5, tipo: 'markup' } ] },
+    { id: 'autos', nombre: '🚗 Autos', proveedores: [ { nombre: 'BookingCars', tasa: 12, tipo: 'descuento' }, { nombre: 'Hoteldo', tasa: 18.5, tipo: 'markup' } ] }
+];
+
+// Carga inicial
+async function loadCalculadoraConfig() {
+    try {
+        const doc = await db.collection('config').doc('calculadora_v3').get();
+        if (doc.exists) {
+            dbCalculadora = doc.data().servicios || [];
+        } else {
+            dbCalculadora = defaultData;
+            await db.collection('config').doc('calculadora_v3').set({ servicios: dbCalculadora });
+        }
+        if (typeof actualizarSelectServiciosVentas === 'function') {
+            actualizarSelectServiciosVentas();
+        }
+    } catch (e) {
+        console.error("Error cargando calculadora:", e);
+    }
+}
+
+// 2. MOTOR MATEMÁTICO UNIVERSAL
+function calcularVentaAgencia(montoBase, provData) {
+    let final = parseFloat(montoBase);
+    let base = parseFloat(montoBase);
+    let profit = 0;
+    let profitRate = parseFloat(provData.tasa) / 100;
+
+    if (provData.tipo === 'descuento') {
+        // Lógica BookingCars: El monto ingresado es el Final, la ganancia se resta de ahí.
+        base = final * (1 - profitRate);
+        profit = final - base;
+    } else {
+        // Lógica Normal (Markup): El monto ingresado es la Base, se le suma la ganancia.
+        profit = base * profitRate;
+        final = base + profit;
+    }
+    return { base, profit, final, profitRate };
+}
+
+// 3. LÓGICA DE LA INTERFAZ VISUAL (Ventas)
+const btnToggle = document.getElementById('btn-toggle-calculadora');
+const panelCalc = document.getElementById('panel-calculadora');
+const bodyCalc = document.getElementById('body-calculadora');
+const btnClose = document.getElementById('btn-close-calculadora');
+const btnMin = document.getElementById('btn-min-calculadora');
+const btnMax = document.getElementById('btn-max-calculadora');
+const selectServicio = document.getElementById('calc-servicio');
+const selectProveedor = document.getElementById('calc-proveedor');
+const selectMoneda = document.getElementById('calc-moneda');
+const inputMonto = document.getElementById('calc-monto');
+const btnCalcular = document.getElementById('btn-calcular-ya');
+const boxResultados = document.getElementById('calc-resultados');
+const btnCalcCopiar = document.getElementById('btn-calc-copiar');
+const btnCalcNueva = document.getElementById('btn-calc-nueva');
+const calcBackdrop = document.getElementById('calc-backdrop');
+
+if (btnToggle && panelCalc) {
+    let isMaximized = false;
+
+    btnToggle.addEventListener('click', () => {
+        panelCalc.style.display = panelCalc.style.display === 'none' || panelCalc.style.display === '' ? 'flex' : 'none';
+        bodyCalc.style.display = 'block';
+    });
+
+    btnClose.addEventListener('click', () => { 
+        panelCalc.style.display = 'none'; 
+        if(calcBackdrop) calcBackdrop.style.display = 'none';
+        if(btnCalcNueva) btnCalcNueva.click(); 
+        if (isMaximized) btnMax.click(); 
+    });
+    
+    btnMin.addEventListener('click', () => { bodyCalc.style.display = bodyCalc.style.display === 'none' ? 'block' : 'none'; });
+    
+    // RESPONSIVIDAD: Tamaño cómodo y centrado
+    btnMax.addEventListener('click', () => {
+        isMaximized = !isMaximized;
+        if (isMaximized) {
+            // Tamaño centrado y prolijo
+            panelCalc.style.width = '600px'; 
+            panelCalc.style.height = 'auto'; 
+            panelCalc.style.maxHeight = '80vh';
+            panelCalc.style.top = '50%'; 
+            panelCalc.style.left = '50%'; 
+            panelCalc.style.bottom = 'auto'; 
+            panelCalc.style.right = 'auto';
+            panelCalc.style.transform = 'translate(-50%, -50%)'; 
+            btnMax.innerText = '❐';
+            if(calcBackdrop) calcBackdrop.style.display = 'block'; // Prende el fondo oscuro
+        } else {
+            // Vuelve a su lugar flotante
+            panelCalc.style.width = '350px'; 
+            panelCalc.style.height = 'auto'; 
+            panelCalc.style.maxHeight = 'calc(100vh - 120px)';
+            panelCalc.style.top = 'auto'; 
+            panelCalc.style.left = 'auto'; 
+            panelCalc.style.bottom = '100px'; 
+            panelCalc.style.right = '30px';
+            panelCalc.style.transform = 'none'; 
+            btnMax.innerText = '⬜';
+            if(calcBackdrop) calcBackdrop.style.display = 'none'; // Apaga el fondo oscuro
+        }
+    });
+
+    // Llenar el primer select de Ventas
+    window.actualizarSelectServiciosVentas = () => {
+        if(!selectServicio) return;
+        selectServicio.innerHTML = '<option value="">Seleccionar Servicio...</option>';
+        dbCalculadora.forEach(s => { selectServicio.innerHTML += `<option value="${s.id}">${s.nombre}</option>`; });
+    };
+
+    selectServicio.addEventListener('change', (e) => {
+        const servId = e.target.value;
+        selectProveedor.innerHTML = '<option value="">Seleccionar Proveedor...</option>';
+        boxResultados.style.display = 'none';
+        const srv = dbCalculadora.find(s => s.id === servId);
+        if (srv && srv.proveedores) {
+            srv.proveedores.forEach(p => { selectProveedor.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`; });
+        }
+    });
+
+    btnCalcular.addEventListener('click', () => {
+        const servId = selectServicio.value;
+        const provName = selectProveedor.value;
+        const monto = inputMonto.value;
+        const moneda = selectMoneda.value; // Obtener USD o $
+
+        if (!servId || !provName || !monto) return window.showAlert("Completá servicio, proveedor y monto.", "error");
+
+        const srv = dbCalculadora.find(s => s.id === servId);
+        const provData = srv.proveedores.find(p => p.nombre === provName);
+        
+        const resultado = calcularVentaAgencia(monto, provData);
+        const formatter = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        // Se aplica la moneda elegida
+        document.getElementById('res-rentabilidad').innerText = `${moneda}${formatter.format(resultado.profit)} (${(resultado.profitRate * 100).toFixed(1)}%)`;
+        document.getElementById('res-total').innerText = `${moneda}${formatter.format(resultado.final)}`;
+        boxResultados.style.display = 'block';
+        setTimeout(() => {
+            bodyCalc.scrollTo({
+                top: bodyCalc.scrollHeight,
+                behavior: 'smooth'
+            });
+        }, 50);
+    });
+
+    if(btnCalcNueva) btnCalcNueva.addEventListener('click', () => {
+        selectServicio.value = ''; selectProveedor.innerHTML = '<option value="">Seleccionar Servicio Primero...</option>';
+        inputMonto.value = ''; boxResultados.style.display = 'none'; selectServicio.focus(); 
+    });
+
+    if(btnCalcCopiar) btnCalcCopiar.addEventListener('click', () => {
+        // Al copiar, limpiamos los signos raros para dejar solo el número puro
+        let totalTexto = document.getElementById('res-total').innerText.replace('USD', '').replace('$', '').trim();
+        totalTexto = totalTexto.replace(/\./g, '').replace(',', '.'); // Formato de base de datos
+        
+        navigator.clipboard.writeText(totalTexto).then(() => {
+            const old = btnCalcCopiar.innerHTML; btnCalcCopiar.innerHTML = '✅ Copiado'; btnCalcCopiar.style.background = '#e6f4ea'; btnCalcCopiar.style.color = '#1e8e3e';
+            setTimeout(() => { btnCalcCopiar.innerHTML = old; btnCalcCopiar.style.background = 'white'; btnCalcCopiar.style.color = '#11173d'; }, 2000);
+        });
+    });
+}
+
+// 4. LÓGICA DEL PANEL DE ADMINISTRACIÓN (BACKOFFICE)
+const tabUsers = document.getElementById('tab-admin-usuarios');
+const tabCalc = document.getElementById('tab-admin-calculadora');
+const secUsers = document.getElementById('admin-seccion-usuarios');
+const secCalc = document.getElementById('admin-seccion-calculadora');
+const btnSaveCalc = document.getElementById('btn-save-calculadora');
+
+if(tabUsers && tabCalc) {
+    tabUsers.addEventListener('click', () => { secUsers.style.display = 'block'; secCalc.style.display = 'none'; tabUsers.style.background = '#11173d'; tabUsers.style.color = 'white'; tabCalc.style.background = '#f3f4f6'; tabCalc.style.color = '#6b7280'; });
+    tabCalc.addEventListener('click', () => { secUsers.style.display = 'none'; secCalc.style.display = 'block'; tabCalc.style.background = '#11173d'; tabCalc.style.color = 'white'; tabUsers.style.background = '#f3f4f6'; tabUsers.style.color = '#6b7280'; renderAdminListaServicios(); });
+
+    // RENDERIZAR LISTA IZQUIERDA
+    window.renderAdminListaServicios = () => {
+        const listaDiv = document.getElementById('admin-lista-servicios');
+        if(!listaDiv) return;
+        listaDiv.innerHTML = '';
+        dbCalculadora.forEach(srv => {
+            const btn = document.createElement('div');
+            btn.style.cssText = `padding: 12px; border-bottom: 1px solid #e5e7eb; cursor: pointer; transition: background 0.2s; background: ${servicioEditandoId === srv.id ? '#e6f4ea' : 'white'}; font-weight: ${servicioEditandoId === srv.id ? 'bold' : 'normal'};`;
+            btn.innerText = srv.nombre;
+            btn.onclick = () => { servicioEditandoId = srv.id; renderAdminListaServicios(); renderAdminEditor(); };
+            listaDiv.appendChild(btn);
+        });
+        if(dbCalculadora.length > 0 && !servicioEditandoId) { servicioEditandoId = dbCalculadora[0].id; renderAdminListaServicios(); renderAdminEditor(); }
+    };
+
+    // RENDERIZAR TABLA DERECHA
+    window.renderAdminEditor = () => {
+        const editorDiv = document.getElementById('admin-editor-servicio');
+        const tbody = document.getElementById('editor-proveedores-tbody');
+        if(!editorDiv || !tbody) return;
+        
+        btnSaveCalc.style.display = 'block';
+        
+        const srv = dbCalculadora.find(s => s.id === servicioEditandoId);
+        if(!srv) return;
+        
+        editorDiv.style.display = 'block';
+        editorDiv.style.display = 'block';
+        
+        // NUEVO TÍTULO CON BOTONES DE EDITAR Y BORRAR
+        document.getElementById('editor-servicio-titulo').innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="cursor: pointer; border-bottom: 2px dashed #11173d;" onclick="editarNombreServicio()" title="Tocar para editar nombre">
+                    ✏️ ${srv.nombre}
+                </span>
+                <button onclick="borrarServicioActual()" style="background: #ef5a1a; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.6em; cursor: pointer; font-weight: bold; transition: opacity 0.2s;">
+                    🗑️ Borrar Servicio
+                </button>
+            </div>
+        `;
+        tbody.innerHTML = '';
+        
+        srv.proveedores.forEach((prov, index) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;"><input type="text" value="${prov.nombre}" onchange="updateProv(${index}, 'nombre', this.value)" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;"></td>
+                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;"><input type="number" step="0.1" value="${prov.tasa}" onchange="updateProv(${index}, 'tasa', this.value)" style="width:80px; padding:8px; border:1px solid #ccc; border-radius:4px;"></td>
+                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">
+                    <select onchange="updateProv(${index}, 'tipo', this.value)" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                        <option value="markup" ${prov.tipo === 'markup' ? 'selected' : ''}>Suma (Markup)</option>
+                        <option value="descuento" ${prov.tipo === 'descuento' ? 'selected' : ''}>Descuento Neta</option>
+                    </select>
+                </td>
+                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align:center;"><button onclick="deleteProv(${index})" style="background:#ef5a1a; color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;">Borrar</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    };
+
+    // FUNCIONES AUXILIARES DEL EDITOR
+    // FUNCIONES AUXILIARES DEL EDITOR
+    window.editarNombreServicio = () => {
+        const srv = dbCalculadora.find(s => s.id === servicioEditandoId);
+        const nuevoNombre = prompt("Editá el nombre y el emoji (Ej: 🚌 Paquete en BUS):", srv.nombre);
+        if(nuevoNombre) { srv.nombre = nuevoNombre; renderAdminListaServicios(); renderAdminEditor(); }
+    };
+
+    window.borrarServicioActual = () => {
+        const srv = dbCalculadora.find(s => s.id === servicioEditandoId);
+        if(confirm(`¿Seguro que querés borrar el servicio "${srv.nombre}" y todos sus proveedores?`)) {
+            dbCalculadora = dbCalculadora.filter(s => s.id !== servicioEditandoId);
+            servicioEditandoId = null;
+            renderAdminListaServicios();
+            document.getElementById('admin-editor-servicio').style.display = 'none';
+        }
+    };
+    window.updateProv = (index, field, value) => { const srv = dbCalculadora.find(s => s.id === servicioEditandoId); srv.proveedores[index][field] = value; };
+    window.deleteProv = (index) => { const srv = dbCalculadora.find(s => s.id === servicioEditandoId); srv.proveedores.splice(index, 1); renderAdminEditor(); };
+    
+    const btnNuevoProv = document.getElementById('btn-admin-nuevo-proveedor');
+    if(btnNuevoProv) {
+        btnNuevoProv.addEventListener('click', () => {
+            const srv = dbCalculadora.find(s => s.id === servicioEditandoId);
+            if(srv) { srv.proveedores.push({ nombre: 'Nuevo Proveedor', tasa: 10, tipo: 'markup' }); renderAdminEditor(); }
+        });
+    }
+
+    const btnNuevoServ = document.getElementById('btn-admin-nuevo-servicio');
+    if(btnNuevoServ) {
+        btnNuevoServ.addEventListener('click', async () => {
+            const nombreStr = prompt("Escribí el nombre del servicio con su emoji (Ej: 🚀 Viajes a Marte):");
+            if(nombreStr) {
+                const newId = 'srv_' + Date.now();
+                dbCalculadora.push({ id: newId, nombre: nombreStr, proveedores: [] });
+                servicioEditandoId = newId;
+                renderAdminListaServicios();
+                renderAdminEditor();
+            }
+        });
+    }
+
+    // GUARDAR EN FIREBASE
+    if(btnSaveCalc) {
+        btnSaveCalc.addEventListener('click', async () => {
+            showLoader(true, "Guardando base de datos...");
+            try {
+                await db.collection('config').doc('calculadora_v3').set({ servicios: dbCalculadora });
+                if(typeof actualizarSelectServiciosVentas === 'function') actualizarSelectServiciosVentas();
+                window.showAlert("¡Estructura guardada con éxito!", "success");
+            } catch (e) { console.error(e); window.showAlert("Error guardando.", "error"); }
+            showLoader(false);
+        });
+    }
+     
+}
+// ==========================================
+// BUSCADOR EN TIEMPO REAL DE USUARIOS
+// ==========================================
+const searchUsersInput = document.getElementById('admin-search-users');
+
+if (searchUsersInput) {
+    searchUsersInput.addEventListener('input', function() {
+        const termino = this.value.toLowerCase();
+        const listaUsuarios = document.getElementById('users-list');
+        
+        if (listaUsuarios) {
+            // Agarramos a todos los usuarios de la lista
+            const items = listaUsuarios.children;
+            
+            for (let i = 0; i < items.length; i++) {
+                // Leemos todo el texto que tiene ese renglón (email, rol, franquicia)
+                const textoRenglon = items[i].innerText.toLowerCase();
+                
+                // Si el renglón contiene lo que escribimos, lo mostramos. Si no, lo ocultamos.
+                if (textoRenglon.includes(termino)) {
+                    items[i].style.display = ''; 
+                } else {
+                    items[i].style.display = 'none'; 
+                }
+            }
+        }
+    });
+}
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

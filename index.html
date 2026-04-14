@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="styles.css">
     
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
@@ -38,7 +39,7 @@
                         Gestión
                         <span id="badge-gestion" class="nav-badge">0</span>
                     </button> //--> 
-                    <button class="nav-button" id="nav-users" style="display:none;">Usuarios</button>
+                    <button class="nav-button" id="nav-users" style="display:none;">Panel de Configuración</button>
                 </nav>
 
                 <div class="user-info">
@@ -244,18 +245,82 @@
             </div>
 
             <div id="view-users" class="view">
-                <div class="user-create-card">
-                    <h3 style="margin-top:0; color:#11173d;">Crear Nuevo Usuario</h3>
-                    <form id="user-form" style="display:flex; gap:10px; align-items:flex-end;">
-                        <div class="form-group" style="flex:2;"><label>Email</label><input type="email" id="user-email-input" required></div>
-                        <div class="form-group"><label>Rol</label><select id="user-role-input"><option value="usuario">Usuario</option><option value="editor">Editor</option><option value="admin">Admin</option></select></div>
-                        <div class="form-group" style="flex:2;"><label>Franquicia/Alias</label><input type="text" id="user-franchise-input" required></div>
-                        <button type="submit" class="btn btn-primario" style="height:45px;">Guardar</button>
-                    </form>
-                </div>
-                <div class="user-list-card">
-                    <h3 style="padding:0 20px; color:#777;">Usuarios Existentes</h3>
-                    <div id="users-list"></div>
+                <div style="max-width: 900px; margin: 0 auto; padding: 20px;">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e5e7eb; padding-bottom: 15px; margin-bottom: 20px;">
+                        <h2 style="color: #11173d; margin: 0;">Panel de Configuración</h2>
+                        
+                        <div style="display: flex; gap: 10px;">
+                            <button id="tab-admin-usuarios" style="background: #11173d; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer;">👥 Usuarios</button>
+                            <button id="tab-admin-calculadora" style="background: #f3f4f6; color: #6b7280; border: none; padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="14.01"></line><line x1="16" y1="10" x2="16" y2="10.01"></line><line x1="16" y1="18" x2="16" y2="18.01"></line><line x1="12" y1="14" x2="12" y2="14.01"></line><line x1="12" y1="10" x2="12" y2="10.01"></line><line x1="12" y1="18" x2="12" y2="18.01"></line><line x1="8" y1="14" x2="8" y2="14.01"></line><line x1="8" y1="10" x2="8" y2="10.01"></line><line x1="8" y1="18" x2="8" y2="18.01"></line></svg>
+                                Calculadora
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="admin-seccion-usuarios" style="display: block;">
+                        <div class="user-create-card" style="margin-bottom: 20px;">
+                            <h3 style="margin-top:0; color:#11173d;">Crear Nuevo Usuario</h3>
+                            <form id="user-form" style="display:flex; gap:10px; align-items:flex-end;">
+                                <div class="form-group" style="flex:2;"><label>Email</label><input type="email" id="user-email-input" required></div>
+                                <div class="form-group"><label>Rol</label><select id="user-role-input"><option value="usuario">Usuario</option><option value="editor">Editor</option><option value="admin">Admin</option></select></div>
+                                <div class="form-group" style="flex:2;"><label>Franquicia/Alias</label><input type="text" id="user-franchise-input" required></div>
+                                <button type="submit" class="btn btn-primario" style="height:45px;">Guardar</button>
+                            </form>
+                        </div>
+                        <div class="user-list-card">
+                            <h3 style="padding:0 20px; color:#777;">Usuarios Existentes</h3>
+                            
+                            <div style="padding: 0 20px 15px 20px;">
+                                <input type="text" id="admin-search-users" placeholder="🔍 Buscar por email o franquicia..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; box-sizing: border-box; font-size: 0.9em;">
+                            </div>
+
+                            <div id="users-list"></div>
+                        </div>
+                    </div>
+
+                    <div id="admin-seccion-calculadora" style="display: none;">
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                            
+                            <div style="flex: 1; min-width: 250px; max-width: 300px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; display: flex; flex-direction: column;">
+                                <div style="background: #11173d; color: white; padding: 15px; font-weight: bold;">Mis Servicios</div>
+                                <div id="admin-lista-servicios" style="overflow-y: auto; flex: 1; padding: 10px;">
+                                    </div>
+                                <button id="btn-admin-nuevo-servicio" style="width: 100%; padding: 15px; background: #f9fafb; border: none; border-top: 1px solid #e5e7eb; cursor: pointer; color: #ef5a1a; font-weight: bold; transition: background 0.2s;">
+                                    + Crear Servicio Nuevo
+                                </button>
+                            </div>
+                            
+                            <div style="flex: 2; min-width: 300px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 20px; display: none;" id="admin-editor-servicio">
+                                <h3 id="editor-servicio-titulo" style="margin-top: 0; color: #11173d; font-size: 1.5em;">Seleccioná un servicio</h3>
+                                <p style="color: #6b7280; font-size: 0.9em;">Acá podés gestionar los proveedores y sus comisiones para este servicio.</p>
+                                
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%; text-align: left; border-collapse: collapse; margin-top: 15px; font-size: 0.9em;">
+                                        <thead>
+                                            <tr style="border-bottom: 2px solid #11173d; color: #11173d;">
+                                                <th style="padding: 12px 10px;">Proveedor</th>
+                                                <th style="padding: 12px 10px;">Porcentaje (%)</th>
+                                                <th style="padding: 12px 10px;">Lógica Matemática</th>
+                                                <th style="padding: 12px 10px; text-align: center;">Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="editor-proveedores-tbody">
+                                            </tbody>
+                                    </table>
+                                </div>
+                                <button id="btn-admin-nuevo-proveedor" style="margin-top: 20px; padding: 10px 15px; background: #56DDE0; color: #11173d; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                                    + Agregar Proveedor
+                                </button>
+                            </div>
+                        </div>
+
+                        <button id="btn-save-calculadora" style="width: 100%; background: linear-gradient(135deg, #ef5a1a 0%, #ff7a3d 100%); color: white; padding: 15px; border: none; border-radius: 8px; font-weight: bold; font-size: 1.1em; cursor: pointer; margin-top: 20px; display: none;">
+                            💾 Guardar Cambios en Firebase
+                        </button>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -284,6 +349,89 @@
         <div class="hourglassBackground">
             <div class="hourglassContainer">
                 <div class="hourglassCurves"></div><div class="hourglassCapTop"></div><div class="hourglassGlassTop"></div><div class="hourglassSand"></div><div class="hourglassSandStream"></div><div class="hourglassCapBottom"></div><div class="hourglassGlass"></div>
+            </div>
+        </div>
+    </div>
+    <button id="btn-toggle-calculadora" style="position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px; border-radius: 50%; background-color: #11173d; border: 2px solid #ef5a1a; color: #ef5a1a; box-shadow: 0 4px 15px rgba(17, 23, 61, 0.4); z-index: 9999; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" title="Abrir Cotizador">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+            <line x1="8" y1="6" x2="16" y2="6"></line>
+            <line x1="16" y1="14" x2="16" y2="14.01"></line>
+            <line x1="16" y1="10" x2="16" y2="10.01"></line>
+            <line x1="16" y1="18" x2="16" y2="18.01"></line>
+            <line x1="12" y1="14" x2="12" y2="14.01"></line>
+            <line x1="12" y1="10" x2="12" y2="10.01"></line>
+            <line x1="12" y1="18" x2="12" y2="18.01"></line>
+            <line x1="8" y1="14" x2="8" y2="14.01"></line>
+            <line x1="8" y1="10" x2="8" y2="10.01"></line>
+            <line x1="8" y1="18" x2="8" y2="18.01"></line>
+        </svg>
+    </button>
+
+   <div id="calc-backdrop" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(17, 23, 61, 0.6); z-index: 9997; backdrop-filter: blur(3px); transition: all 0.3s ease;"></div>
+
+    <div id="panel-calculadora" style="position: fixed; bottom: 100px; right: 30px; width: 350px; max-height: calc(100vh - 120px); background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 9998; display: none; flex-direction: column; overflow: hidden; border: 1px solid #e5e7eb; transition: all 0.3s ease;">
+        
+        <div style="background: #11173d; color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ef5a1a;">
+            <h3 style="margin: 0; font-size: 1em; display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="14.01"></line><line x1="16" y1="10" x2="16" y2="10.01"></line><line x1="16" y1="18" x2="16" y2="18.01"></line><line x1="12" y1="14" x2="12" y2="14.01"></line><line x1="12" y1="10" x2="12" y2="10.01"></line><line x1="12" y1="18" x2="12" y2="18.01"></line><line x1="8" y1="14" x2="8" y2="14.01"></line><line x1="8" y1="10" x2="8" y2="10.01"></line><line x1="8" y1="18" x2="8" y2="18.01"></line></svg>
+                Cotizador
+            </h3>
+            <div style="display: flex; gap: 12px;">
+                <button id="btn-min-calculadora" style="background: none; border: none; color: white; cursor: pointer; font-size: 14px; font-weight: bold; padding: 0;">_</button>
+                <button id="btn-max-calculadora" style="background: none; border: none; color: white; cursor: pointer; font-size: 14px; padding: 0;">⬜</button>
+                <button id="btn-close-calculadora" style="background: none; border: none; color: white; cursor: pointer; font-size: 14px; padding: 0;">✖</button>
+            </div>
+        </div>
+
+        <div id="body-calculadora" style="overflow-y: auto; flex: 1;">
+            <div style="padding: 20px;">
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Servicio</label>
+                    <select id="calc-servicio" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
+                        <option value="">Cargando servicios...</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Proveedor</label>
+                    <select id="calc-proveedor" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
+                        <option value="">Seleccionar Servicio Primero...</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Moneda</label>
+                        <select id="calc-moneda" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
+                            <option value="USD ">USD</option>
+                            <option value="$">ARS ($)</option>
+                        </select>
+                    </div>
+                    <div style="flex: 2;">
+                        <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Monto Base (Neto)</label>
+                        <input type="number" id="calc-monto" placeholder="0.00" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px; font-size: 1.1em; box-sizing: border-box;">
+                    </div>
+                </div>
+
+                <button id="btn-calcular-ya" style="width: 100%; background: linear-gradient(135deg, #ef5a1a 0%, #ff7a3d 100%); color: white; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                    Calcular Venta
+                </button>
+            </div>
+
+            <div id="calc-resultados" style="display: none; background: #f9fafb; padding: 20px; border-top: 1px solid #e5e7eb;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span style="color: #6b7280; font-size: 0.9em;">Rentabilidad:</span>
+                    <span id="res-rentabilidad" style="color: #56DDE0; font-weight: bold;">$0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #e5e7eb; margin-bottom: 20px;">
+                    <span style="color: #11173d; font-weight: bold; font-size: 1.1em;">Total Venta:</span>
+                    <span id="res-total" style="color: #ef5a1a; font-weight: bold; font-size: 1.5em;">$0</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button id="btn-calc-copiar" style="flex: 1; background: white; color: #11173d; border: 1px solid #e5e7eb; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 5px;">📋 Copiar</button>
+                    <button id="btn-calc-nueva" style="flex: 1; background: #11173d; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">🔄 Nueva</button>
+                </div>
             </div>
         </div>
     </div>
