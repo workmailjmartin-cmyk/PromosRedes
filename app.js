@@ -2256,4 +2256,70 @@ if (searchUsersInput) {
         }
     });
 }
+// ==========================================
+// MÓDULO: GESTIÓN DE FRANQUICIAS DINÁMICAS
+// ==========================================
+const inputNuevaFranquicia = document.getElementById('admin-nueva-franquicia');
+const btnAgregarFranquicia = document.getElementById('btn-agregar-franquicia');
+const contenedorFranquicias = document.getElementById('lista-franquicias-admin');
+
+// 1. Función para descargar y dibujar las franquicias
+window.cargarFranquiciasAdmin = async () => {
+    if(!contenedorFranquicias) return;
+    try {
+        const doc = await db.collection('metadata').doc('config').get();
+        let franquicias = [];
+        
+        if(doc.exists && doc.data().franquicias) {
+            franquicias = doc.data().franquicias;
+        }
+
+        contenedorFranquicias.innerHTML = '';
+        if (franquicias.length === 0) {
+            contenedorFranquicias.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay franquicias cargadas aún.</span>';
+        } else {
+            franquicias.forEach(franq => {
+                contenedorFranquicias.innerHTML += `
+                    <span style="background: #e6f4ea; color: #1e8e3e; padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; border: 1px solid #ceead6;">
+                        🏢 ${franq}
+                    </span>`;
+            });
+        }
+    } catch(e) { 
+        console.error("Error cargando franquicias:", e); 
+    }
+};
+
+// 2. Evento del botón para guardar una nueva
+if(btnAgregarFranquicia) {
+    btnAgregarFranquicia.addEventListener('click', async () => {
+        const nueva = inputNuevaFranquicia.value.trim();
+        if(!nueva) return window.showAlert("Escribí el nombre de la franquicia primero.", "error");
+
+        showLoader(true, "Guardando franquicia...");
+        try {
+            // Se guarda en la colección 'metadata', documento 'config'
+            await db.collection('metadata').doc('config').set({
+                franquicias: firebase.firestore.FieldValue.arrayUnion(nueva)
+            }, { merge: true }); // Merge true evita que se borren otras configuraciones futuras
+
+            inputNuevaFranquicia.value = '';
+            await window.cargarFranquiciasAdmin(); // Recarga la vista al instante
+            window.showAlert("Franquicia guardada correctamente.", "success");
+        } catch(e) {
+            console.error(e);
+            window.showAlert("Error al conectar con la base de datos.", "error");
+        }
+        showLoader(false);
+    });
+}
+
+// 3. Que se carguen solas cuando abrimos la página
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        if(typeof window.cargarFranquiciasAdmin === 'function') {
+            window.cargarFranquiciasAdmin();
+        }
+    }, 1500); // Pequeño delay para asegurar que Firebase ya se conectó
+});
 });

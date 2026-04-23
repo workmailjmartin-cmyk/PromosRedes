@@ -260,6 +260,22 @@
                     </div>
 
                     <div id="admin-seccion-usuarios" style="display: block;">
+                        <div class="user-list-card" style="margin-bottom: 20px;">
+                            <h3 style="padding:15px 20px 5px 20px; color:#11173d; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                🏢 Gestión de Franquicias
+                            </h3>
+                            <p style="padding: 0 20px; color: #6b7280; font-size: 0.85em; margin-top: 5px;">Agregá sucursales para que aparezcan en los menús desplegables.</p>
+                            
+                            <div style="padding: 0 20px 20px 20px; display: flex; gap: 10px;">
+                                <input type="text" id="admin-nueva-franquicia" placeholder="Ej: Mendoza Centro..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                                <button id="btn-agregar-franquicia" style="background: #11173d; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                                    + Sumar Franquicia
+                                </button>
+                            </div>
+                            
+                            <div id="lista-franquicias-admin" style="padding: 0 20px 20px 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                                </div>
+                        </div>
                         <div class="user-create-card" style="margin-bottom: 20px;">
                             <h3 style="margin-top:0; color:#11173d;">Crear Nuevo Usuario</h3>
                             <form id="user-form" style="display:flex; gap:10px; align-items:flex-end;">
