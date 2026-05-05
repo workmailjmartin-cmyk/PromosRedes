@@ -2380,14 +2380,35 @@ window.renderizarCalendario = async () => {
     }
 };
 
-// Función para ver los detalles de una tarea al hacerle clic
-window.verDetalleTareaMkt = (event, idTarea) => {
+// Función para ver los detalles de una tarea al hacerle clic y BORRARLA
+window.verDetalleTareaMkt = async (event, idTarea) => {
     event.stopPropagation(); // Evita que se abra el modal de "Crear Nueva Tarea"
     const tarea = tareasMarketingGlobal.find(t => t.id === idTarea);
     if(!tarea) return;
 
     const msj = `📢 Contenido: ${tarea.tipo}\n🏢 Asignado a: ${tarea.asignado}\n🔗 Drive: ${tarea.drive}\n\n📝 Instrucciones:\n${tarea.notas}`;
-    window.showAlert(msj, 'info');
+
+    // Verificamos si el usuario tiene permisos para borrar (es Admin, Editor, o él mismo creó la tarea)
+    const puedeBorrar = userData && (userData.rol === 'admin' || userData.rol === 'editor' || currentUser.email === tarea.creador);
+
+    if (puedeBorrar) {
+        // Usamos el showConfirm para mostrar la info Y preguntar si quiere borrar en la misma ventana
+        if(await window.showConfirm(msj + "\n\n⚠️ ¿Querés ELIMINAR esta tarea del calendario?")) {
+            showLoader(true, "Borrando tarea...");
+            try {
+                await db.collection('calendario_marketing').doc(idTarea).delete();
+                await window.renderizarCalendario(); // Recargamos el mes
+                window.showAlert("Tarea eliminada", "success");
+            } catch(e) {
+                console.error(e);
+                window.showAlert("Error al borrar", "error");
+            }
+            showLoader(false);
+        }
+    } else {
+        // Si es un usuario común, solo ve la información como venía funcionando
+        window.showAlert(msj, 'info');
+    }
 };
 
 // --- 2. CONTROLES DEL CALENDARIO ---
@@ -2518,23 +2539,57 @@ setTimeout(() => { if(typeof window.cargarEtiquetasMarketing === 'function') win
 // ==========================================
 const inputNuevaFranquicia = document.getElementById('admin-nueva-franquicia');
 const btnAgregarFranquicia = document.getElementById('btn-agregar-franquicia');
-const contenedorFranquicias = document.getElementById('lista-franquicias-admin');
+
+let modoEdicionFranquicias = false;
+
+// Botón Lápiz para activar/desactivar el modo edición
+const btnToggleEditFranq = document.getElementById('btn-toggle-edit-franq');
+if (btnToggleEditFranq) {
+    btnToggleEditFranq.addEventListener('click', () => {
+        modoEdicionFranquicias = !modoEdicionFranquicias;
+        btnToggleEditFranq.style.background = modoEdicionFranquicias ? '#e5e7eb' : 'transparent';
+        window.cargarFranquiciasAdmin(); // Redibujar las pastillas
+    });
+}
 
 // 1. Función para descargar y dibujar las franquicias
 window.cargarFranquiciasAdmin = async () => {
     const contenedorFranquicias = document.getElementById('lista-franquicias-admin');
-    const selectCrearUsuario = document.getElementById('user-franchise-input'); // NUEVO
+    const selectCrearUsuario = document.getElementById('user-franchise-input');
+    const contadorDiv = document.getElementById('contador-franquicias'); 
     
     try {
         const doc = await db.collection('metadata').doc('config').get();
         let franquicias = [];
         if(doc.exists && doc.data().franquicias) franquicias = doc.data().franquicias;
 
+        // Actualizar el mini-contador
+        if (contadorDiv) contadorDiv.innerText = franquicias.length;
+
         // Dibujar pastillitas
         if(contenedorFranquicias) {
             contenedorFranquicias.innerHTML = '';
-            if (franquicias.length === 0) contenedorFranquicias.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay franquicias cargadas aún.</span>';
-            else franquicias.forEach(franq => contenedorFranquicias.innerHTML += `<span style="background: #e6f4ea; color: #1e8e3e; padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; border: 1px solid #ceead6;">🏢 ${franq}</span>`);
+            if (franquicias.length === 0) {
+                contenedorFranquicias.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay franquicias cargadas aún.</span>';
+            } else {
+                franquicias.forEach((franq, index) => {
+                    if (modoEdicionFranquicias) {
+                        // MODO EDICIÓN (Rojas y clickeables)
+                        contenedorFranquicias.innerHTML += `
+                            <span onclick="window.gestionarFranquicia(${index}, '${franq}')" 
+                                  style="cursor: pointer; background: #fce8e6; color: #d93025; padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; border: 1px solid #fad2cf; transition: 0.2s;" 
+                                  onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1" title="Clic para Editar o Borrar">
+                                ✏️ ${franq}
+                            </span>`;
+                    } else {
+                        // MODO NORMAL (Verdes)
+                        contenedorFranquicias.innerHTML += `
+                            <span style="background: #e6f4ea; color: #1e8e3e; padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; border: 1px solid #ceead6;">
+                                🏢 ${franq}
+                            </span>`;
+                    }
+                });
+            }
         }
 
         // Llenar combo de Crear Usuario
@@ -2547,6 +2602,37 @@ window.cargarFranquiciasAdmin = async () => {
     } catch(e) { console.error("Error cargando franquicias:", e); }
 };
 
+// Función para Editar o Borrar una franquicia
+window.gestionarFranquicia = async (index, nombreActual) => {
+    const accion = prompt(`Franquicia: ${nombreActual}\n\nEscribí un NUEVO NOMBRE para editarla.\nO escribí la palabra BORRAR para eliminarla.`, nombreActual);
+    
+    if (!accion || accion === nombreActual) return;
+
+    let franquicias = [];
+    try {
+        const doc = await db.collection('metadata').doc('config').get();
+        if(doc.exists && doc.data().franquicias) franquicias = doc.data().franquicias;
+
+        if (accion.trim().toUpperCase() === 'BORRAR') {
+            if(!confirm(`⚠️ ¿Seguro que querés eliminar "${nombreActual}" permanentemente?`)) return;
+            franquicias.splice(index, 1);
+        } else {
+            franquicias[index] = accion.trim();
+        }
+
+        showLoader(true, "Actualizando franquicias...");
+        await db.collection('metadata').doc('config').update({ franquicias });
+        await window.cargarFranquiciasAdmin();
+        showLoader(false);
+        window.showAlert("¡Lista actualizada!", "success");
+
+    } catch(e) {
+        console.error(e);
+        window.showAlert("Error al modificar.", "error");
+        showLoader(false);
+    }
+};
+
 // 2. Evento del botón para guardar una nueva
 if(btnAgregarFranquicia) {
     btnAgregarFranquicia.addEventListener('click', async () => {
@@ -2555,13 +2641,12 @@ if(btnAgregarFranquicia) {
 
         showLoader(true, "Guardando franquicia...");
         try {
-            // Se guarda en la colección 'metadata', documento 'config'
             await db.collection('metadata').doc('config').set({
                 franquicias: firebase.firestore.FieldValue.arrayUnion(nueva)
-            }, { merge: true }); // Merge true evita que se borren otras configuraciones futuras
+            }, { merge: true });
 
             inputNuevaFranquicia.value = '';
-            await window.cargarFranquiciasAdmin(); // Recarga la vista al instante
+            await window.cargarFranquiciasAdmin();
             window.showAlert("Franquicia guardada correctamente.", "success");
         } catch(e) {
             console.error(e);
@@ -2577,7 +2662,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(typeof window.cargarFranquiciasAdmin === 'function') {
             window.cargarFranquiciasAdmin();
         }
-    }, 1500); // Pequeño delay para asegurar que Firebase ya se conectó
+    }, 1500);
 });
 
 });
