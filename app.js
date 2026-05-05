@@ -1754,28 +1754,16 @@ window.approvePackage = async (pkg) => {
         };
     }
     dom.nav.users.onclick = async () => { await loadUsersList(); showView('users'); };
-    // NAVEGACIÓN: PLAN DE CONTENIDOS (MARKETING)
-    const navMarketing = document.getElementById('nav-marketing');
-    const viewMarketing = document.getElementById('view-marketing');
-
-    if (navMarketing && viewMarketing) {
-        navMarketing.addEventListener('click', () => {
-            // 1. Ocultar todas las vistas principales
-            document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
-            
-            // 2. Sacarle la clase "active" a todos los botones del menú
-            document.querySelectorAll('.nav-button, .nav-btn').forEach(btn => btn.classList.remove('active'));
-            
-            // 3. Mostrar la vista de Marketing y marcar el botón como activo
-            viewMarketing.style.display = 'block';
-            navMarketing.classList.add('active');
-            
-            // 4. Disparar la carga del calendario
-            if (typeof window.renderizarCalendario === 'function') {
-                window.renderizarCalendario();
-            }
-        });
-    }
+    // ==========================================
+    // CONECTAMOS EL CALENDARIO AL SISTEMA NATIVO
+    // ==========================================
+    dom.views.marketing = document.getElementById('view-marketing');
+    dom.nav.marketing = document.getElementById('nav-marketing');
+    dom.nav.marketing.onclick = () => { 
+        showView('marketing'); 
+        if (typeof window.renderizarCalendario === 'function') window.renderizarCalendario(); 
+    };
+    // ==========================================
     dom.modalClose.onclick = () => dom.modal.style.display = 'none';
     window.onclick = e => { if(e.target === dom.modal) dom.modal.style.display='none'; };
     dom.btnBuscar.addEventListener('click', applyFilters);
@@ -2342,4 +2330,107 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 1500); // Pequeño delay para asegurar que Firebase ya se conectó
 });
+// ==========================================
+// LÓGICA DEL CALENDARIO DE MARKETING
+// ==========================================
+let currentDateMarketing = new Date(); // Variable global para saber qué mes estamos mirando
+
+window.renderizarCalendario = () => {
+    const grid = document.getElementById('grid-calendario-marketing');
+    const labelMes = document.getElementById('mes-actual-label');
+    if (!grid || !labelMes) return;
+
+    grid.innerHTML = ''; // Limpiamos la grilla para dibujar el mes nuevo
+
+    const mes = currentDateMarketing.getMonth();
+    const anio = currentDateMarketing.getFullYear();
+
+    // 1. Ponemos el título del mes
+    const nombresMeses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    labelMes.innerText = `${nombresMeses[mes]} ${anio}`;
+
+    // 2. Calculamos los días
+    const primerDia = new Date(anio, mes, 1).getDay(); // 0 (Domingo) a 6 (Sábado)
+    const diasEnMes = new Date(anio, mes + 1, 0).getDate(); // La cantidad total de días (28, 30 o 31)
+
+    // 3. Rellenamos los días vacíos al principio del mes (si el mes arranca un Miércoles, deja Dom, Lun y Mar vacíos)
+    for (let i = 0; i < primerDia; i++) {
+        const divVacio = document.createElement('div');
+        divVacio.style.cssText = "background: transparent; min-height: 100px;";
+        grid.appendChild(divVacio);
+    }
+
+    // 4. Dibujamos los días reales
+    const hoyReal = new Date();
+    for (let dia = 1; dia <= diasEnMes; dia++) {
+        const esHoy = (dia === hoyReal.getDate() && mes === hoyReal.getMonth() && anio === hoyReal.getFullYear());
+        
+        const divDia = document.createElement('div');
+        
+        // Estilos de la "cajita" de cada día
+        divDia.style.cssText = `
+            background: white; 
+            border: 1px solid ${esHoy ? '#ef5a1a' : '#e5e7eb'}; 
+            border-radius: 8px; 
+            min-height: 120px; 
+            padding: 10px; 
+            display: flex; 
+            flex-direction: column; 
+            cursor: pointer;
+            transition: box-shadow 0.2s, transform 0.2s;
+            box-shadow: ${esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none'};
+        `;
+        
+        // Animación sutil al pasar el mouse
+        divDia.onmouseover = () => divDia.style.boxShadow = '0 4px 10px rgba(0,0,0,0.05)';
+        divDia.onmouseout = () => divDia.style.boxShadow = esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none';
+
+        // El número del día
+        divDia.innerHTML = `
+            <div style="font-weight: bold; font-size: 1.1em; color: ${esHoy ? '#ef5a1a' : '#11173d'}; margin-bottom: 5px;">
+                ${dia}
+            </div>
+            <div class="tareas-container" id="tareas-${anio}-${mes}-${dia}" style="flex: 1; display: flex; flex-direction: column; gap: 4px; overflow-y: auto;">
+                <!-- Acá se van a inyectar los posteos/tareas de Firebase -->
+            </div>
+        `;
+
+        // 5. ¡El clic mágico!
+        divDia.onclick = () => {
+            // Formateamos la fecha a YYYY-MM-DD para inyectarla directo en el formulario
+            const fechaElegida = `${anio}-${String(mes+1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+            window.abrirFormularioMarketing(fechaElegida);
+        };
+
+        grid.appendChild(divDia);
+    }
+};
+
+// ==========================================
+// CONTROLES DEL CALENDARIO (Avanzar / Retroceder)
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const btnAnt = document.getElementById('btn-mes-anterior');
+    const btnSig = document.getElementById('btn-mes-siguiente');
+
+    if(btnAnt) {
+        btnAnt.addEventListener('click', () => {
+            currentDateMarketing.setMonth(currentDateMarketing.getMonth() - 1);
+            window.renderizarCalendario();
+        });
+    }
+    if(btnSig) {
+        btnSig.addEventListener('click', () => {
+            currentDateMarketing.setMonth(currentDateMarketing.getMonth() + 1);
+            window.renderizarCalendario();
+        });
+    }
+});
+
+// Función "puente" que prepararemos en el próximo paso
+window.abrirFormularioMarketing = (fechaElegida) => {
+    console.log("¡Clic en el día!", fechaElegida);
+    // Próximo paso: Crear el modal/formulario y hacer que aparezca acá.
+};
+
 });
