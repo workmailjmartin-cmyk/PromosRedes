@@ -2380,36 +2380,70 @@ window.renderizarCalendario = async () => {
     }
 };
 
-// Función para ver los detalles de una tarea al hacerle clic y BORRARLA
-window.verDetalleTareaMkt = async (event, idTarea) => {
-    event.stopPropagation(); // Evita que se abra el modal de "Crear Nueva Tarea"
+// Función para ver los detalles de una tarea en el MODAL PREMIUM
+window.verDetalleTareaMkt = (event, idTarea) => {
+    event.stopPropagation(); // Evita que se abra el modal de "Crear Tarea" al hacer clic
+    
     const tarea = tareasMarketingGlobal.find(t => t.id === idTarea);
     if(!tarea) return;
 
-    const msj = `📢 Contenido: ${tarea.tipo}\n🏢 Asignado a: ${tarea.asignado}\n🔗 Drive: ${tarea.drive}\n\n📝 Instrucciones:\n${tarea.notas}`;
+    const modal = document.getElementById('modal-detalle-tarea');
+    if(!modal) return;
 
-    // Verificamos si el usuario tiene permisos para borrar (es Admin, Editor, o él mismo creó la tarea)
+    // 1. Formatear la fecha linda (De 2026-05-15 a 15/05/2026)
+    const partes = tarea.fecha.split('-');
+    const fechaFormat = `${partes[2]}/${partes[1]}/${partes[0]}`;
+
+    // 2. Llenar los textos
+    document.getElementById('detalle-tarea-tipo').innerText = tarea.tipo;
+    document.getElementById('detalle-tarea-fecha').innerText = `📅 Entrega: ${fechaFormat}`;
+    document.getElementById('detalle-tarea-asignado').innerText = tarea.asignado;
+    
+    // 3. Llenar el Link (Ahora es un link real clickeable)
+    const driveLink = document.getElementById('detalle-tarea-drive');
+    driveLink.href = tarea.drive;
+    driveLink.innerText = tarea.drive;
+
+    document.getElementById('detalle-tarea-notas').innerText = tarea.notas;
+    document.getElementById('detalle-tarea-creador').innerText = tarea.creador;
+
+    // 4. Chequear permisos para mostrar el botón de Borrar
     const puedeBorrar = userData && (userData.rol === 'admin' || userData.rol === 'editor' || currentUser.email === tarea.creador);
-
+    const btnBorrar = document.getElementById('btn-borrar-tarea');
+    
     if (puedeBorrar) {
-        // Usamos el showConfirm para mostrar la info Y preguntar si quiere borrar en la misma ventana
-        if(await window.showConfirm(msj + "\n\n⚠️ ¿Querés ELIMINAR esta tarea del calendario?")) {
-            showLoader(true, "Borrando tarea...");
-            try {
-                await db.collection('calendario_marketing').doc(idTarea).delete();
-                await window.renderizarCalendario(); // Recargamos el mes
-                window.showAlert("Tarea eliminada", "success");
-            } catch(e) {
-                console.error(e);
-                window.showAlert("Error al borrar", "error");
+        btnBorrar.style.display = 'flex'; // Muestra el botón rojo
+        btnBorrar.onclick = async () => {
+            // Confirmación de seguridad
+            if(await window.showConfirm("⚠️ ¿Seguro que querés ELIMINAR esta tarea del calendario?")) {
+                showLoader(true, "Borrando tarea...");
+                try {
+                    await db.collection('calendario_marketing').doc(idTarea).delete();
+                    modal.style.display = 'none'; // Cierra el modal lindo
+                    await window.renderizarCalendario(); // Redibuja el mes
+                    window.showAlert("Tarea eliminada", "success");
+                } catch(e) {
+                    console.error(e);
+                    window.showAlert("Error al borrar", "error");
+                }
+                showLoader(false);
             }
-            showLoader(false);
-        }
+        };
     } else {
-        // Si es un usuario común, solo ve la información como venía funcionando
-        window.showAlert(msj, 'info');
+        btnBorrar.style.display = 'none'; // Oculta el botón si no tiene permisos
     }
+
+    // 5. Mostrar el modal en pantalla
+    modal.style.display = 'flex';
 };
+
+// Cerrar el modal tocando el fondo oscuro
+const modalDetalleMkt = document.getElementById('modal-detalle-tarea');
+if(modalDetalleMkt) {
+    modalDetalleMkt.addEventListener('click', (e) => {
+        if(e.target === modalDetalleMkt) modalDetalleMkt.style.display = 'none';
+    });
+}
 
 // --- 2. CONTROLES DEL CALENDARIO ---
 const btnAnt = document.getElementById('btn-mes-anterior');
