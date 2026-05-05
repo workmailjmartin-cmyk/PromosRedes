@@ -40,6 +40,7 @@
                         <span id="badge-gestion" class="nav-badge">0</span>
                     </button> //--> 
                     <button class="nav-button" id="nav-users" style="display:none;">Panel de Configuración</button>
+                    <button class="nav-button" id="nav-marketing">Plan de Contenidos</button>
                 </nav>
 
                 <div class="user-info">
@@ -242,6 +243,42 @@
             <div id="view-gestion" class="view">
                 <h2 style="color:#11173d;">Aprobaciones Pendientes</h2>
                 <div id="grid-gestion" class="grilla-resultados"></div>
+            </div>
+
+
+            <!-- VISTA: CALENDARIO DE MARKETING -->
+            <div id="view-marketing" class="view" style="display: none; max-width: 1200px; margin: 0 auto; padding: 20px;">
+                
+                <!-- Cabecera del Calendario -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e5e7eb; padding-bottom: 15px; margin-bottom: 20px;">
+                    <h2 style="color: #11173d; margin: 0; display: flex; align-items: center; gap: 10px;">
+                        📅 Calendario de Contenidos
+                    </h2>
+                    
+                    <!-- Controles de Mes -->
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <button id="btn-mes-anterior" style="background: #f3f4f6; color: #11173d; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;">&lt; Anterior</button>
+                        <h3 id="mes-actual-label" style="margin: 0; color: #ef5a1a; min-width: 180px; text-align: center; text-transform: capitalize;">Mes Año</h3>
+                        <button id="btn-mes-siguiente" style="background: #f3f4f6; color: #11173d; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;">Siguiente &gt;</button>
+                    </div>
+                </div>
+
+                <!-- Encabezado de los días de la semana -->
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-bottom: 10px;">
+                    <div style="text-align: center; font-weight: bold; color: #6b7280; padding: 10px 0; background: #f9fafb; border-radius: 6px;">Dom</div>
+                    <div style="text-align: center; font-weight: bold; color: #6b7280; padding: 10px 0; background: #f9fafb; border-radius: 6px;">Lun</div>
+                    <div style="text-align: center; font-weight: bold; color: #6b7280; padding: 10px 0; background: #f9fafb; border-radius: 6px;">Mar</div>
+                    <div style="text-align: center; font-weight: bold; color: #6b7280; padding: 10px 0; background: #f9fafb; border-radius: 6px;">Mié</div>
+                    <div style="text-align: center; font-weight: bold; color: #6b7280; padding: 10px 0; background: #f9fafb; border-radius: 6px;">Jue</div>
+                    <div style="text-align: center; font-weight: bold; color: #6b7280; padding: 10px 0; background: #f9fafb; border-radius: 6px;">Vie</div>
+                    <div style="text-align: center; font-weight: bold; color: #6b7280; padding: 10px 0; background: #f9fafb; border-radius: 6px;">Sáb</div>
+                </div>
+                
+                <!-- Grilla donde JavaScript va a dibujar los cuadraditos de los días -->
+                <div id="grid-calendario-marketing" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; min-height: 600px;">
+                    <!-- Vacío por ahora. La magia la haremos con JS -->
+                </div>
+
             </div>
 
             <div id="view-users" class="view">

@@ -1754,6 +1754,28 @@ window.approvePackage = async (pkg) => {
         };
     }
     dom.nav.users.onclick = async () => { await loadUsersList(); showView('users'); };
+    // NAVEGACIÓN: PLAN DE CONTENIDOS (MARKETING)
+    const navMarketing = document.getElementById('nav-marketing');
+    const viewMarketing = document.getElementById('view-marketing');
+
+    if (navMarketing && viewMarketing) {
+        navMarketing.addEventListener('click', () => {
+            // 1. Ocultar todas las vistas principales
+            document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+            
+            // 2. Sacarle la clase "active" a todos los botones del menú
+            document.querySelectorAll('.nav-button, .nav-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // 3. Mostrar la vista de Marketing y marcar el botón como activo
+            viewMarketing.style.display = 'block';
+            navMarketing.classList.add('active');
+            
+            // 4. Disparar la carga del calendario
+            if (typeof window.renderizarCalendario === 'function') {
+                window.renderizarCalendario();
+            }
+        });
+    }
     dom.modalClose.onclick = () => dom.modal.style.display = 'none';
     window.onclick = e => { if(e.target === dom.modal) dom.modal.style.display='none'; };
     dom.btnBuscar.addEventListener('click', applyFilters);
@@ -1761,9 +1783,7 @@ window.approvePackage = async (pkg) => {
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
     if(dom.filtroCreador) dom.filtroCreador.addEventListener('change', applyFilters);
 
-    // =========================================
     // 14. LOGICA CALENDARIO SEMANAL
-    // =========================================
     
     // Toggle Desplegable
     if(domPlanner.header) {
