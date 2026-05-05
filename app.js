@@ -2409,28 +2409,98 @@ window.renderizarCalendario = () => {
 // ==========================================
 // CONTROLES DEL CALENDARIO (Avanzar / Retroceder)
 // ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-    const btnAnt = document.getElementById('btn-mes-anterior');
-    const btnSig = document.getElementById('btn-mes-siguiente');
+const btnAnt = document.getElementById('btn-mes-anterior');
+const btnSig = document.getElementById('btn-mes-siguiente');
 
-    if(btnAnt) {
-        btnAnt.addEventListener('click', () => {
-            currentDateMarketing.setMonth(currentDateMarketing.getMonth() - 1);
-            window.renderizarCalendario();
-        });
-    }
-    if(btnSig) {
-        btnSig.addEventListener('click', () => {
-            currentDateMarketing.setMonth(currentDateMarketing.getMonth() + 1);
-            window.renderizarCalendario();
-        });
-    }
-});
+if(btnAnt) {
+    btnAnt.addEventListener('click', () => {
+        currentDateMarketing.setMonth(currentDateMarketing.getMonth() - 1);
+        window.renderizarCalendario();
+    });
+}
+if(btnSig) {
+    btnSig.addEventListener('click', () => {
+        currentDateMarketing.setMonth(currentDateMarketing.getMonth() + 1);
+        window.renderizarCalendario();
+    });
+}
 
-// Función "puente" que prepararemos en el próximo paso
-window.abrirFormularioMarketing = (fechaElegida) => {
-    console.log("¡Clic en el día!", fechaElegida);
-    // Próximo paso: Crear el modal/formulario y hacer que aparezca acá.
+// ==========================================
+// FORMULARIO Y MODAL DE TAREAS MARKETING
+// ==========================================
+const modalMkt = document.getElementById('modal-marketing');
+const formMkt = document.getElementById('form-marketing');
+const selectAsignado = document.getElementById('marketing-asignado');
+
+// 1. Abrir Modal al tocar un día
+window.abrirFormularioMarketing = async (fechaElegida) => {
+    if (!modalMkt) return;
+    
+    // Formatear la fecha para que se lea linda (Ej: 15/05/2026)
+    const partes = fechaElegida.split('-');
+    document.getElementById('marketing-fecha-display').innerText = `${partes[2]}/${partes[1]}/${partes[0]}`;
+    document.getElementById('marketing-fecha-input').value = fechaElegida;
+    
+    // Rellenamos inteligentemente el combo de franquicias
+    await cargarOpcionesAsignacion();
+    
+    modalMkt.style.display = 'flex';
 };
+
+// 2. Cerrar Modal
+const btnCerrarMkt = document.getElementById('modal-marketing-cerrar');
+if(btnCerrarMkt) {
+    btnCerrarMkt.onclick = () => {
+        modalMkt.style.display = 'none';
+        formMkt.reset();
+    };
+}
+
+// 3. Traer las franquicias de la Base de Datos para el selector
+async function cargarOpcionesAsignacion() {
+    selectAsignado.innerHTML = '<option value="">Seleccionar...</option><option value="TODOS">📢 A Todas las Franquicias</option>';
+    try {
+        const doc = await db.collection('metadata').doc('config').get();
+        if (doc.exists && doc.data().franquicias) {
+            doc.data().franquicias.forEach(f => {
+                selectAsignado.innerHTML += `<option value="${f}">🏢 ${f}</option>`;
+            });
+        }
+    } catch(e) { console.error("Error trayendo franquicias:", e); }
+}
+
+// 4. Guardar Tarea en Firebase
+if (formMkt) {
+    formMkt.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        showLoader(true, "Guardando tarea en calendario...");
+        
+        const payload = {
+            fecha: document.getElementById('marketing-fecha-input').value,
+            tipo: document.getElementById('marketing-tipo').value,
+            asignado: document.getElementById('marketing-asignado').value,
+            drive: document.getElementById('marketing-drive').value,
+            notas: document.getElementById('marketing-notas').value,
+            creador: currentUser.email,
+            timestamp: Date.now()
+        };
+
+        try {
+            // Guardamos en una colección totalmente nueva y separada de las ventas
+            await db.collection('calendario_marketing').add(payload);
+            window.showAlert("¡Tarea asignada con éxito!", "success");
+            
+            modalMkt.style.display = 'none';
+            formMkt.reset();
+            
+            // TODO (Próximo paso): Refrescar la vista para dibujar la pastillita en el calendario
+            
+        } catch(error) {
+            console.error(error);
+            window.showAlert("Error de conexión al guardar.", "error");
+        }
+        showLoader(false);
+    });
+}
 
 });
