@@ -2273,29 +2273,29 @@ const contenedorFranquicias = document.getElementById('lista-franquicias-admin')
 
 // 1. Función para descargar y dibujar las franquicias
 window.cargarFranquiciasAdmin = async () => {
-    if(!contenedorFranquicias) return;
+    const contenedorFranquicias = document.getElementById('lista-franquicias-admin');
+    const selectCrearUsuario = document.getElementById('user-franchise-input'); // NUEVO
+    
     try {
         const doc = await db.collection('metadata').doc('config').get();
         let franquicias = [];
-        
-        if(doc.exists && doc.data().franquicias) {
-            franquicias = doc.data().franquicias;
+        if(doc.exists && doc.data().franquicias) franquicias = doc.data().franquicias;
+
+        // Dibujar pastillitas
+        if(contenedorFranquicias) {
+            contenedorFranquicias.innerHTML = '';
+            if (franquicias.length === 0) contenedorFranquicias.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay franquicias cargadas aún.</span>';
+            else franquicias.forEach(franq => contenedorFranquicias.innerHTML += `<span style="background: #e6f4ea; color: #1e8e3e; padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; border: 1px solid #ceead6;">🏢 ${franq}</span>`);
         }
 
-        contenedorFranquicias.innerHTML = '';
-        if (franquicias.length === 0) {
-            contenedorFranquicias.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay franquicias cargadas aún.</span>';
-        } else {
-            franquicias.forEach(franq => {
-                contenedorFranquicias.innerHTML += `
-                    <span style="background: #e6f4ea; color: #1e8e3e; padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; border: 1px solid #ceead6;">
-                        🏢 ${franq}
-                    </span>`;
-            });
+        // Llenar combo de Crear Usuario
+        if(selectCrearUsuario) {
+            const valorPrevio = selectCrearUsuario.value;
+            selectCrearUsuario.innerHTML = '<option value="">Seleccioná de la lista...</option>';
+            franquicias.forEach(f => selectCrearUsuario.innerHTML += `<option value="${f}">${f}</option>`);
+            if(valorPrevio) selectCrearUsuario.value = valorPrevio;
         }
-    } catch(e) { 
-        console.error("Error cargando franquicias:", e); 
-    }
+    } catch(e) { console.error("Error cargando franquicias:", e); }
 };
 
 // 2. Evento del botón para guardar una nueva
@@ -2502,5 +2502,88 @@ if (formMkt) {
         showLoader(false);
     });
 }
+// ==========================================
+// GESTIÓN DE ETIQUETAS DE MARKETING
+// ==========================================
+let etiquetasMarketingGlobal = [];
+
+window.cargarEtiquetasMarketing = async () => {
+    const contenedor = document.getElementById('lista-etiquetas-admin');
+    const selectModal = document.getElementById('marketing-tipo');
+    
+    try {
+        const doc = await db.collection('metadata').doc('config').get();
+        if(doc.exists && doc.data().tipos_marketing) {
+            etiquetasMarketingGlobal = doc.data().tipos_marketing;
+        }
+
+        // Dibujar en el panel de admin
+        if(contenedor) {
+            contenedor.innerHTML = '';
+            if(etiquetasMarketingGlobal.length === 0) contenedor.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay etiquetas creadas.</span>';
+            
+            etiquetasMarketingGlobal.forEach((eti, index) => {
+                contenedor.innerHTML += `
+                <div style="background: ${eti.color}15; border: 1px solid ${eti.color}; color: #11173d; padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 0.85em;">
+                    <span style="background: ${eti.color}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">${eti.abrev}</span>
+                    <b>${eti.nombre}</b>
+                    <button onclick="borrarEtiquetaMkt(${index})" style="background: transparent; border: none; color: #e74c3c; cursor: pointer; font-weight: bold;">×</button>
+                </div>`;
+            });
+        }
+
+        // Llenar el combo del Modal de Carga
+        if(selectModal) {
+            selectModal.innerHTML = '<option value="">Seleccionar...</option>';
+            etiquetasMarketingGlobal.forEach(eti => {
+                selectModal.innerHTML += `<option value="${eti.nombre}">${eti.nombre}</option>`;
+            });
+        }
+    } catch(e) { console.error(e); }
+};
+
+// Crear nueva etiqueta
+const btnNuevaEti = document.getElementById('btn-agregar-etiqueta');
+if(btnNuevaEti) {
+    btnNuevaEti.addEventListener('click', async () => {
+        const nombre = document.getElementById('admin-etiqueta-nombre').value.trim();
+        const abrev = document.getElementById('admin-etiqueta-abrev').value.trim().toUpperCase();
+        const color = document.getElementById('admin-etiqueta-color').value;
+
+        if(!nombre || !abrev) return window.showAlert("Completá nombre y abreviatura", "error");
+
+        const nuevaEtiqueta = { nombre, abrev, color };
+        etiquetasMarketingGlobal.push(nuevaEtiqueta);
+
+        showLoader(true, "Guardando etiqueta...");
+        try {
+            await db.collection('metadata').doc('config').set({ tipos_marketing: etiquetasMarketingGlobal }, { merge: true });
+            document.getElementById('admin-etiqueta-nombre').value = '';
+            document.getElementById('admin-etiqueta-abrev').value = '';
+            await window.cargarEtiquetasMarketing();
+        } catch(e) { window.showAlert("Error al guardar", "error"); }
+        showLoader(false);
+    });
+}
+
+// Borrar etiqueta
+window.borrarEtiquetaMkt = async (index) => {
+    if(!confirm("¿Borrar esta etiqueta?")) return;
+    etiquetasMarketingGlobal.splice(index, 1);
+    
+    showLoader(true, "Borrando...");
+    try {
+        await db.collection('metadata').doc('config').update({ tipos_marketing: etiquetasMarketingGlobal });
+        await window.cargarEtiquetasMarketing();
+    } catch(e) { window.showAlert("Error", "error"); }
+    showLoader(false);
+};
+
+// Arrancar al inicio
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        if(typeof window.cargarEtiquetasMarketing === 'function') window.cargarEtiquetasMarketing();
+    }, 1600);
+});
 
 });
