@@ -2264,6 +2264,183 @@ if (searchUsersInput) {
         }
     });
 }
+
+// ====================================================================
+// 🚀 MÓDULO MARKETING Y CALENDARIO (CONECTADO A FIREBASE)
+// ====================================================================
+
+// --- 1. LÓGICA DEL CALENDARIO ---
+let currentDateMarketing = new Date();
+
+window.renderizarCalendario = () => {
+    const grid = document.getElementById('grid-calendario-marketing');
+    const labelMes = document.getElementById('mes-actual-label');
+    if (!grid || !labelMes) return;
+
+    grid.innerHTML = '';
+    const mes = currentDateMarketing.getMonth();
+    const anio = currentDateMarketing.getFullYear();
+    const nombresMeses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    labelMes.innerText = `${nombresMeses[mes]} ${anio}`;
+
+    const primerDia = new Date(anio, mes, 1).getDay();
+    const diasEnMes = new Date(anio, mes + 1, 0).getDate();
+
+    for (let i = 0; i < primerDia; i++) {
+        const divVacio = document.createElement('div');
+        divVacio.style.cssText = "background: transparent; min-height: 100px;";
+        grid.appendChild(divVacio);
+    }
+
+    const hoyReal = new Date();
+    for (let dia = 1; dia <= diasEnMes; dia++) {
+        const esHoy = (dia === hoyReal.getDate() && mes === hoyReal.getMonth() && anio === hoyReal.getFullYear());
+        const divDia = document.createElement('div');
+        
+        divDia.style.cssText = `
+            background: white; border: 1px solid ${esHoy ? '#ef5a1a' : '#e5e7eb'}; border-radius: 8px; 
+            min-height: 120px; padding: 10px; display: flex; flex-direction: column; cursor: pointer;
+            transition: box-shadow 0.2s, transform 0.2s; box-shadow: ${esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none'};
+        `;
+        
+        divDia.onmouseover = () => divDia.style.boxShadow = '0 4px 10px rgba(0,0,0,0.05)';
+        divDia.onmouseout = () => divDia.style.boxShadow = esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none';
+
+        divDia.innerHTML = `
+            <div style="font-weight: bold; font-size: 1.1em; color: ${esHoy ? '#ef5a1a' : '#11173d'}; margin-bottom: 5px;">${dia}</div>
+            <div id="tareas-${anio}-${mes}-${dia}" style="flex: 1; display: flex; flex-direction: column; gap: 4px; overflow-y: auto;"></div>
+        `;
+
+        divDia.onclick = () => {
+            const fechaElegida = `${anio}-${String(mes+1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+            window.abrirFormularioMarketing(fechaElegida);
+        };
+
+        grid.appendChild(divDia);
+    }
+};
+
+// --- 2. CONTROLES DEL CALENDARIO ---
+const btnAnt = document.getElementById('btn-mes-anterior');
+const btnSig = document.getElementById('btn-mes-siguiente');
+if(btnAnt) btnAnt.addEventListener('click', () => { currentDateMarketing.setMonth(currentDateMarketing.getMonth() - 1); window.renderizarCalendario(); });
+if(btnSig) btnSig.addEventListener('click', () => { currentDateMarketing.setMonth(currentDateMarketing.getMonth() + 1); window.renderizarCalendario(); });
+
+// --- 3. GESTIÓN DE ETIQUETAS DE MARKETING ---
+let etiquetasMarketingGlobal = [];
+
+window.cargarEtiquetasMarketing = async () => {
+    const contenedor = document.getElementById('lista-etiquetas-admin');
+    const selectModal = document.getElementById('marketing-tipo');
+    try {
+        const doc = await db.collection('metadata').doc('config').get();
+        if(doc.exists && doc.data().tipos_marketing) etiquetasMarketingGlobal = doc.data().tipos_marketing;
+
+        if(contenedor) {
+            contenedor.innerHTML = '';
+            if(etiquetasMarketingGlobal.length === 0) contenedor.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay etiquetas creadas.</span>';
+            etiquetasMarketingGlobal.forEach((eti, index) => {
+                contenedor.innerHTML += `
+                <div style="background: ${eti.color}15; border: 1px solid ${eti.color}; color: #11173d; padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 0.85em;">
+                    <span style="background: ${eti.color}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">${eti.abrev}</span>
+                    <b>${eti.nombre}</b>
+                    <button onclick="borrarEtiquetaMkt(${index})" style="background: transparent; border: none; color: #e74c3c; cursor: pointer; font-weight: bold;">×</button>
+                </div>`;
+            });
+        }
+
+        if(selectModal) {
+            selectModal.innerHTML = '<option value="">Seleccionar...</option>';
+            etiquetasMarketingGlobal.forEach(eti => { selectModal.innerHTML += `<option value="${eti.nombre}">${eti.nombre}</option>`; });
+        }
+    } catch(e) { console.error("Error al cargar etiquetas:", e); }
+};
+
+const btnNuevaEti = document.getElementById('btn-agregar-etiqueta');
+if(btnNuevaEti) {
+    btnNuevaEti.addEventListener('click', async () => {
+        const nombre = document.getElementById('admin-etiqueta-nombre').value.trim();
+        const abrev = document.getElementById('admin-etiqueta-abrev').value.trim().toUpperCase();
+        const color = document.getElementById('admin-etiqueta-color').value;
+        if(!nombre || !abrev) return window.showAlert("Completá nombre y abreviatura", "error");
+
+        etiquetasMarketingGlobal.push({ nombre, abrev, color });
+        showLoader(true, "Guardando etiqueta...");
+        try {
+            await db.collection('metadata').doc('config').set({ tipos_marketing: etiquetasMarketingGlobal }, { merge: true });
+            document.getElementById('admin-etiqueta-nombre').value = '';
+            document.getElementById('admin-etiqueta-abrev').value = '';
+            await window.cargarEtiquetasMarketing();
+        } catch(e) { window.showAlert("Error al guardar", "error"); }
+        showLoader(false);
+    });
+}
+
+window.borrarEtiquetaMkt = async (index) => {
+    if(!confirm("¿Borrar esta etiqueta?")) return;
+    etiquetasMarketingGlobal.splice(index, 1);
+    showLoader(true, "Borrando...");
+    try { await db.collection('metadata').doc('config').update({ tipos_marketing: etiquetasMarketingGlobal }); await window.cargarEtiquetasMarketing(); } 
+    catch(e) { window.showAlert("Error", "error"); }
+    showLoader(false);
+};
+
+// --- 4. FORMULARIO Y MODAL DE TAREAS ---
+const modalMkt = document.getElementById('modal-marketing');
+const formMkt = document.getElementById('form-marketing');
+const selectAsignado = document.getElementById('marketing-asignado');
+
+window.abrirFormularioMarketing = async (fechaElegida) => {
+    if (!modalMkt) return;
+    const partes = fechaElegida.split('-');
+    document.getElementById('marketing-fecha-display').innerText = `${partes[2]}/${partes[1]}/${partes[0]}`;
+    document.getElementById('marketing-fecha-input').value = fechaElegida;
+    
+    selectAsignado.innerHTML = '<option value="">Seleccionar...</option><option value="TODOS">📢 A Todas las Franquicias</option>';
+    try {
+        const doc = await db.collection('metadata').doc('config').get();
+        if (doc.exists && doc.data().franquicias) {
+            doc.data().franquicias.forEach(f => selectAsignado.innerHTML += `<option value="${f}">🏢 ${f}</option>`);
+        }
+    } catch(e) { console.error(e); }
+    
+    modalMkt.style.display = 'flex';
+};
+
+const btnCerrarMkt = document.getElementById('modal-marketing-cerrar');
+if(btnCerrarMkt) btnCerrarMkt.onclick = () => { modalMkt.style.display = 'none'; formMkt.reset(); };
+
+if (formMkt) {
+    formMkt.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        showLoader(true, "Guardando tarea...");
+        const payload = {
+            fecha: document.getElementById('marketing-fecha-input').value,
+            tipo: document.getElementById('marketing-tipo').value,
+            asignado: document.getElementById('marketing-asignado').value,
+            drive: document.getElementById('marketing-drive').value,
+            notas: document.getElementById('marketing-notas').value,
+            creador: currentUser ? currentUser.email : 'Admin',
+            timestamp: Date.now()
+        };
+
+        try {
+            await db.collection('calendario_marketing').add(payload);
+            window.showAlert("¡Tarea asignada con éxito!", "success");
+            modalMkt.style.display = 'none';
+            formMkt.reset();
+            // Acá en el próximo paso inyectaremos la función para dibujar la tarea en pantalla
+        } catch(error) {
+            console.error(error);
+            window.showAlert("Error al guardar en BD.", "error");
+        }
+        showLoader(false);
+    });
+}
+
+// --- 5. INICIALIZADOR AUTOMÁTICO ---
+setTimeout(() => { if(typeof window.cargarEtiquetasMarketing === 'function') window.cargarEtiquetasMarketing(); }, 1500);
+
 // ==========================================
 // MÓDULO: GESTIÓN DE FRANQUICIAS DINÁMICAS
 // ==========================================
@@ -2329,261 +2506,6 @@ document.addEventListener('DOMContentLoaded', () => {
             window.cargarFranquiciasAdmin();
         }
     }, 1500); // Pequeño delay para asegurar que Firebase ya se conectó
-});
-// ==========================================
-// LÓGICA DEL CALENDARIO DE MARKETING
-// ==========================================
-let currentDateMarketing = new Date(); // Variable global para saber qué mes estamos mirando
-
-window.renderizarCalendario = () => {
-    const grid = document.getElementById('grid-calendario-marketing');
-    const labelMes = document.getElementById('mes-actual-label');
-    if (!grid || !labelMes) return;
-
-    grid.innerHTML = ''; // Limpiamos la grilla para dibujar el mes nuevo
-
-    const mes = currentDateMarketing.getMonth();
-    const anio = currentDateMarketing.getFullYear();
-
-    // 1. Ponemos el título del mes
-    const nombresMeses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    labelMes.innerText = `${nombresMeses[mes]} ${anio}`;
-
-    // 2. Calculamos los días
-    const primerDia = new Date(anio, mes, 1).getDay(); // 0 (Domingo) a 6 (Sábado)
-    const diasEnMes = new Date(anio, mes + 1, 0).getDate(); // La cantidad total de días (28, 30 o 31)
-
-    // 3. Rellenamos los días vacíos al principio del mes (si el mes arranca un Miércoles, deja Dom, Lun y Mar vacíos)
-    for (let i = 0; i < primerDia; i++) {
-        const divVacio = document.createElement('div');
-        divVacio.style.cssText = "background: transparent; min-height: 100px;";
-        grid.appendChild(divVacio);
-    }
-
-    // 4. Dibujamos los días reales
-    const hoyReal = new Date();
-    for (let dia = 1; dia <= diasEnMes; dia++) {
-        const esHoy = (dia === hoyReal.getDate() && mes === hoyReal.getMonth() && anio === hoyReal.getFullYear());
-        
-        const divDia = document.createElement('div');
-        
-        // Estilos de la "cajita" de cada día
-        divDia.style.cssText = `
-            background: white; 
-            border: 1px solid ${esHoy ? '#ef5a1a' : '#e5e7eb'}; 
-            border-radius: 8px; 
-            min-height: 120px; 
-            padding: 10px; 
-            display: flex; 
-            flex-direction: column; 
-            cursor: pointer;
-            transition: box-shadow 0.2s, transform 0.2s;
-            box-shadow: ${esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none'};
-        `;
-        
-        // Animación sutil al pasar el mouse
-        divDia.onmouseover = () => divDia.style.boxShadow = '0 4px 10px rgba(0,0,0,0.05)';
-        divDia.onmouseout = () => divDia.style.boxShadow = esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none';
-
-        // El número del día
-        divDia.innerHTML = `
-            <div style="font-weight: bold; font-size: 1.1em; color: ${esHoy ? '#ef5a1a' : '#11173d'}; margin-bottom: 5px;">
-                ${dia}
-            </div>
-            <div class="tareas-container" id="tareas-${anio}-${mes}-${dia}" style="flex: 1; display: flex; flex-direction: column; gap: 4px; overflow-y: auto;">
-                <!-- Acá se van a inyectar los posteos/tareas de Firebase -->
-            </div>
-        `;
-
-        // 5. ¡El clic mágico!
-        divDia.onclick = () => {
-            // Formateamos la fecha a YYYY-MM-DD para inyectarla directo en el formulario
-            const fechaElegida = `${anio}-${String(mes+1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-            window.abrirFormularioMarketing(fechaElegida);
-        };
-
-        grid.appendChild(divDia);
-    }
-};
-
-// ==========================================
-// CONTROLES DEL CALENDARIO (Avanzar / Retroceder)
-// ==========================================
-const btnAnt = document.getElementById('btn-mes-anterior');
-const btnSig = document.getElementById('btn-mes-siguiente');
-
-if(btnAnt) {
-    btnAnt.addEventListener('click', () => {
-        currentDateMarketing.setMonth(currentDateMarketing.getMonth() - 1);
-        window.renderizarCalendario();
-    });
-}
-if(btnSig) {
-    btnSig.addEventListener('click', () => {
-        currentDateMarketing.setMonth(currentDateMarketing.getMonth() + 1);
-        window.renderizarCalendario();
-    });
-}
-
-// ==========================================
-// FORMULARIO Y MODAL DE TAREAS MARKETING
-// ==========================================
-const modalMkt = document.getElementById('modal-marketing');
-const formMkt = document.getElementById('form-marketing');
-const selectAsignado = document.getElementById('marketing-asignado');
-
-// 1. Abrir Modal al tocar un día
-window.abrirFormularioMarketing = async (fechaElegida) => {
-    if (!modalMkt) return;
-    
-    // Formatear la fecha para que se lea linda (Ej: 15/05/2026)
-    const partes = fechaElegida.split('-');
-    document.getElementById('marketing-fecha-display').innerText = `${partes[2]}/${partes[1]}/${partes[0]}`;
-    document.getElementById('marketing-fecha-input').value = fechaElegida;
-    
-    // Rellenamos inteligentemente el combo de franquicias
-    await cargarOpcionesAsignacion();
-    
-    modalMkt.style.display = 'flex';
-};
-
-// 2. Cerrar Modal
-const btnCerrarMkt = document.getElementById('modal-marketing-cerrar');
-if(btnCerrarMkt) {
-    btnCerrarMkt.onclick = () => {
-        modalMkt.style.display = 'none';
-        formMkt.reset();
-    };
-}
-
-// 3. Traer las franquicias de la Base de Datos para el selector
-async function cargarOpcionesAsignacion() {
-    selectAsignado.innerHTML = '<option value="">Seleccionar...</option><option value="TODOS">📢 A Todas las Franquicias</option>';
-    try {
-        const doc = await db.collection('metadata').doc('config').get();
-        if (doc.exists && doc.data().franquicias) {
-            doc.data().franquicias.forEach(f => {
-                selectAsignado.innerHTML += `<option value="${f}">🏢 ${f}</option>`;
-            });
-        }
-    } catch(e) { console.error("Error trayendo franquicias:", e); }
-}
-
-// 4. Guardar Tarea en Firebase
-if (formMkt) {
-    formMkt.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        showLoader(true, "Guardando tarea en calendario...");
-        
-        const payload = {
-            fecha: document.getElementById('marketing-fecha-input').value,
-            tipo: document.getElementById('marketing-tipo').value,
-            asignado: document.getElementById('marketing-asignado').value,
-            drive: document.getElementById('marketing-drive').value,
-            notas: document.getElementById('marketing-notas').value,
-            creador: currentUser.email,
-            timestamp: Date.now()
-        };
-
-        try {
-            // Guardamos en una colección totalmente nueva y separada de las ventas
-            await db.collection('calendario_marketing').add(payload);
-            window.showAlert("¡Tarea asignada con éxito!", "success");
-            
-            modalMkt.style.display = 'none';
-            formMkt.reset();
-            
-            // TODO (Próximo paso): Refrescar la vista para dibujar la pastillita en el calendario
-            
-        } catch(error) {
-            console.error(error);
-            window.showAlert("Error de conexión al guardar.", "error");
-        }
-        showLoader(false);
-    });
-}
-// ==========================================
-// GESTIÓN DE ETIQUETAS DE MARKETING
-// ==========================================
-let etiquetasMarketingGlobal = [];
-
-window.cargarEtiquetasMarketing = async () => {
-    const contenedor = document.getElementById('lista-etiquetas-admin');
-    const selectModal = document.getElementById('marketing-tipo');
-    
-    try {
-        const doc = await db.collection('metadata').doc('config').get();
-        if(doc.exists && doc.data().tipos_marketing) {
-            etiquetasMarketingGlobal = doc.data().tipos_marketing;
-        }
-
-        // Dibujar en el panel de admin
-        if(contenedor) {
-            contenedor.innerHTML = '';
-            if(etiquetasMarketingGlobal.length === 0) contenedor.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay etiquetas creadas.</span>';
-            
-            etiquetasMarketingGlobal.forEach((eti, index) => {
-                contenedor.innerHTML += `
-                <div style="background: ${eti.color}15; border: 1px solid ${eti.color}; color: #11173d; padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 0.85em;">
-                    <span style="background: ${eti.color}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">${eti.abrev}</span>
-                    <b>${eti.nombre}</b>
-                    <button onclick="borrarEtiquetaMkt(${index})" style="background: transparent; border: none; color: #e74c3c; cursor: pointer; font-weight: bold;">×</button>
-                </div>`;
-            });
-        }
-
-        // Llenar el combo del Modal de Carga
-        if(selectModal) {
-            selectModal.innerHTML = '<option value="">Seleccionar...</option>';
-            etiquetasMarketingGlobal.forEach(eti => {
-                selectModal.innerHTML += `<option value="${eti.nombre}">${eti.nombre}</option>`;
-            });
-        }
-    } catch(e) { console.error(e); }
-};
-
-// Crear nueva etiqueta
-const btnNuevaEti = document.getElementById('btn-agregar-etiqueta');
-if(btnNuevaEti) {
-    btnNuevaEti.addEventListener('click', async () => {
-        const nombre = document.getElementById('admin-etiqueta-nombre').value.trim();
-        const abrev = document.getElementById('admin-etiqueta-abrev').value.trim().toUpperCase();
-        const color = document.getElementById('admin-etiqueta-color').value;
-
-        if(!nombre || !abrev) return window.showAlert("Completá nombre y abreviatura", "error");
-
-        const nuevaEtiqueta = { nombre, abrev, color };
-        etiquetasMarketingGlobal.push(nuevaEtiqueta);
-
-        showLoader(true, "Guardando etiqueta...");
-        try {
-            await db.collection('metadata').doc('config').set({ tipos_marketing: etiquetasMarketingGlobal }, { merge: true });
-            document.getElementById('admin-etiqueta-nombre').value = '';
-            document.getElementById('admin-etiqueta-abrev').value = '';
-            await window.cargarEtiquetasMarketing();
-        } catch(e) { window.showAlert("Error al guardar", "error"); }
-        showLoader(false);
-    });
-}
-
-// Borrar etiqueta
-window.borrarEtiquetaMkt = async (index) => {
-    if(!confirm("¿Borrar esta etiqueta?")) return;
-    etiquetasMarketingGlobal.splice(index, 1);
-    
-    showLoader(true, "Borrando...");
-    try {
-        await db.collection('metadata').doc('config').update({ tipos_marketing: etiquetasMarketingGlobal });
-        await window.cargarEtiquetasMarketing();
-    } catch(e) { window.showAlert("Error", "error"); }
-    showLoader(false);
-};
-
-// Arrancar al inicio
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        if(typeof window.cargarEtiquetasMarketing === 'function') window.cargarEtiquetasMarketing();
-    }, 1600);
 });
 
 });
