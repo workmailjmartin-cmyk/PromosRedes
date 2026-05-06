@@ -1381,7 +1381,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         
         let creadorFinal;
-        if (isEditingId && originalCreator) { creadorFinal = originalCreator; } else { creadorFinal = userData.franquicia || 'Desconocido'; }
+        if (isEditingId && originalCreator) { 
+            // EDITANDO: Respetamos a muerte al creador original (La franquicia que lo subió)
+            creadorFinal = originalCreator; 
+        } else { 
+            // PAQUETE NUEVO: Usamos la franquicia oficial. Si por algún motivo no tiene, usamos su mail.
+            creadorFinal = (userData && userData.franquicia) ? userData.franquicia : currentUser.email; 
+        }
 
         const fechaActual = new Date();
         const dia = String(fechaActual.getDate()).padStart(2, '0');
@@ -2545,7 +2551,7 @@ if (formMkt) {
             asignado: document.getElementById('marketing-asignado').value,
             drive: document.getElementById('marketing-drive').value,
             notas: document.getElementById('marketing-notas').value,
-            creador: currentUser ? currentUser.email : 'Admin',
+            creador: (userData && userData.franquicia) ? userData.franquicia : (currentUser ? currentUser.email : 'Anónimo'),
             timestamp: Date.now()
         };
 
@@ -2565,8 +2571,6 @@ if (formMkt) {
     });
 }
 
-// --- 5. INICIALIZADOR AUTOMÁTICO ---
-setTimeout(() => { if(typeof window.cargarEtiquetasMarketing === 'function') window.cargarEtiquetasMarketing(); }, 1500);
 
 // ==========================================
 // MÓDULO: GESTIÓN DE FRANQUICIAS DINÁMICAS
@@ -2690,13 +2694,16 @@ if(btnAgregarFranquicia) {
     });
 }
 
-// 3. Que se carguen solas cuando abrimos la página
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
+firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+        // Apenas Firebase confirma que el usuario está logueado, descargamos todo:
         if(typeof window.cargarFranquiciasAdmin === 'function') {
             window.cargarFranquiciasAdmin();
         }
-    }, 1500);
+        if(typeof window.cargarEtiquetasMarketing === 'function') {
+            window.cargarEtiquetasMarketing();
+        }
+    }
 });
 
 });
