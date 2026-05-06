@@ -32,16 +32,18 @@
                     <img src="logo.png" alt="Logo Feliz Viaje" id="app-logo">
                 </div>
 
-                <div class="nav-links">
-                    <a href="#" id="nav-search" class="active">🔥 Solo X Hoy</a>
+                <nav class="app-nav">
+                    <button class="nav-button active" id="nav-search">🔥 Solo X Hoy</button>
                     
-                    <!-- Ocultamos el botón Cargar pero sigue estando para no romper nada -->
-                    <a href="#" id="nav-upload" style="display: none;">Cargar</a>
+                    <!-- Ocultamos el botón Cargar (lo van a activar los sub-botones azules) -->
+                    <button class="nav-button" id="nav-upload" style="display:none;">Cargar</button>
                     
-                    <!-- ATENCIÓN: Cambiamos a nav-users para que abra las pestañas de configuración -->
-                    <a href="#" id="nav-users">⚙️ Panel de Configuración</a>
-                    <a href="#" id="nav-marketing">📋 Plan de Contenidos</a>
-                </div>
+                    <!-- El panel de configuración (arranca oculto hasta que el JS ve que sos Admin) -->
+                    <button class="nav-button" id="nav-users" style="display:none;">⚙️ Panel de Configuración</button>
+                    
+                    <!-- El nuevo plan de contenidos -->
+                    <button class="nav-button" id="nav-marketing">📋 Plan de Contenidos</button>
+                </nav>
 
                 <div class="user-info">
                     <span id="user-email">Cargando...</span>
