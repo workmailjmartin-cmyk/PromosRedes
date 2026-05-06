@@ -2510,8 +2510,29 @@ window.cargarEtiquetasMarketing = async () => {
             selectModal.innerHTML = '<option value="">Seleccionar...</option>';
             etiquetasMarketingGlobal.forEach(eti => { selectModal.innerHTML += `<option value="${eti.nombre}">${eti.nombre}</option>`; });
         }
+
+        const leyendaCalendario = document.getElementById('leyenda-etiquetas-marketing');
+        if(leyendaCalendario) {
+            leyendaCalendario.innerHTML = '';
+            if(etiquetasMarketingGlobal.length === 0) {
+                leyendaCalendario.innerHTML = '<span style="color: #999; font-size: 0.8em;">No hay etiquetas creadas.</span>';
+            } else {
+                etiquetasMarketingGlobal.forEach(eti => {
+                    leyendaCalendario.innerHTML += `
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85em; color: #555; background: #f9fafb; padding: 4px 10px; border-radius: 6px; border: 1px solid #e5e7eb;">
+                            <span style="background: ${eti.color}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">${eti.abrev}</span>
+                            <span style="font-weight: 500;">= ${eti.nombre}</span>
+                        </div>
+                    `;
+                });
+            }
+        }
+        
     } catch(e) { console.error("Error al cargar etiquetas:", e); }
 };
+ 
+
+
 
 const btnNuevaEti = document.getElementById('btn-agregar-etiqueta');
 if(btnNuevaEti) {
