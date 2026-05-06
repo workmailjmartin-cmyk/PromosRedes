@@ -2802,30 +2802,36 @@ firebase.auth().onAuthStateChanged((user) => {
 });
 
 // ==========================================
-// CONEXIÓN DE SUB-PESTAÑAS "SOLO X HOY"
+// CONEXIÓN SEGURA DE SUB-PESTAÑAS "SOLO X HOY"
 // ==========================================
 const conectarPestanas = () => {
     const bs1 = document.getElementById('btn-sub-buscar');
     const cg1 = document.getElementById('btn-sub-cargar');
     const bs2 = document.getElementById('btn-sub-buscar-2');
     const cg2 = document.getElementById('btn-sub-cargar-2');
-        
-    const navSearch = document.getElementById('nav-search');
-    const navUpload = document.getElementById('nav-upload');
 
-    // Si tocan Buscar, hace clic invisible en el menú de arriba
-    if(bs1 && navSearch) bs1.onclick = () => navSearch.click();
-    if(bs2 && navSearch) bs2.onclick = () => navSearch.click();
+    // Función directa para ir al buscador
+    const abrirBuscar = () => showView('search');
+    
+    // Función directa para ir a la carga (limpiando formulario)
+    const abrirCargar = () => { 
+        isEditingId = null; 
+        originalCreator = ''; 
+        document.getElementById('upload-form').reset(); 
+        if(dom.containerServicios) dom.containerServicios.innerHTML=''; 
+        showView('upload'); 
         
-    // Si tocan Cargar, abre la pantalla de carga, y mantiene "Solo X Hoy" pintado
-    if(cg1 && navUpload) cg1.onclick = () => { 
-           navUpload.click(); 
-        setTimeout(() => { if(navSearch) navSearch.classList.add('active'); }, 50); 
+        // Truco visual para que el menú superior de "Solo X Hoy" siga resaltado
+        setTimeout(() => { 
+            if(dom.nav.search) dom.nav.search.classList.add('active'); 
+        }, 50); 
     };
-    if(cg2 && navUpload) cg2.onclick = () => { 
-        navUpload.click(); 
-        setTimeout(() => { if(navSearch) navSearch.classList.add('active'); }, 50); 
-    };
+
+    // Asignamos el clic a cada botón si existen en la pantalla
+    if(bs1) bs1.onclick = abrirBuscar;
+    if(bs2) bs2.onclick = abrirBuscar;
+    if(cg1) cg1.onclick = abrirCargar;
+    if(cg2) cg2.onclick = abrirCargar;
 };
 conectarPestanas();
 });
