@@ -1751,15 +1751,25 @@ window.approvePackage = async (pkg) => {
         if (dom.views[n]) dom.views[n].classList.add('active');
         if (dom.nav[n]) dom.nav[n].classList.add('active');
     }
-    dom.nav.search.onclick = () => showView('search');
-    dom.nav.upload.onclick = () => { isEditingId = null; originalCreator = ''; document.getElementById('upload-form').reset(); dom.containerServicios.innerHTML=''; showView('upload'); };
+    if (dom.nav.search) dom.nav.search.onclick = () => showView('search');
+    
+    if (dom.nav.upload) {
+        dom.nav.upload.onclick = () => { 
+            isEditingId = null; originalCreator = ''; document.getElementById('upload-form').reset(); dom.containerServicios.innerHTML=''; showView('upload'); 
+        };
+    }
+    
     if (dom.nav.gestion) {
         dom.nav.gestion.onclick = async () => { 
-            await fetchAndLoadPackages(); 
+            if(typeof fetchAndLoadPackages === 'function') await fetchAndLoadPackages(); 
             showView('gestion'); 
         };
     }
-    dom.nav.users.onclick = async () => { await loadUsersList(); showView('users'); };
+    
+    // Le ponemos un escudo por si el botón users no existe arriba
+    if (dom.nav.users) {
+        dom.nav.users.onclick = async () => { await loadUsersList(); showView('users'); };
+    }
     // ==========================================
     // CONECTAMOS EL CALENDARIO AL SISTEMA NATIVO
     // ==========================================
