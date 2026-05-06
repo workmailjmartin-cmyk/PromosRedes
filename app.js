@@ -2119,13 +2119,39 @@ if (btnToggle && panelCalc) {
 // 4. LÓGICA DEL PANEL DE ADMINISTRACIÓN (BACKOFFICE)
 const tabUsers = document.getElementById('tab-admin-usuarios');
 const tabCalc = document.getElementById('tab-admin-calculadora');
+const tabMkt = document.getElementById('tab-admin-marketing'); // NUEVO
 const secUsers = document.getElementById('admin-seccion-usuarios');
 const secCalc = document.getElementById('admin-seccion-calculadora');
+const secMkt = document.getElementById('admin-seccion-marketing'); // NUEVO
 const btnSaveCalc = document.getElementById('btn-save-calculadora');
 
 if(tabUsers && tabCalc) {
-    tabUsers.addEventListener('click', () => { secUsers.style.display = 'block'; secCalc.style.display = 'none'; tabUsers.style.background = '#11173d'; tabUsers.style.color = 'white'; tabCalc.style.background = '#f3f4f6'; tabCalc.style.color = '#6b7280'; });
-    tabCalc.addEventListener('click', () => { secUsers.style.display = 'none'; secCalc.style.display = 'block'; tabCalc.style.background = '#11173d'; tabCalc.style.color = 'white'; tabUsers.style.background = '#f3f4f6'; tabUsers.style.color = '#6b7280'; renderAdminListaServicios(); });
+    // Clic en Usuarios
+    tabUsers.addEventListener('click', () => { 
+        secUsers.style.display = 'block'; secCalc.style.display = 'none'; if(secMkt) secMkt.style.display = 'none'; 
+        tabUsers.style.background = '#11173d'; tabUsers.style.color = 'white'; 
+        tabCalc.style.background = '#f3f4f6'; tabCalc.style.color = '#6b7280'; 
+        if(tabMkt) { tabMkt.style.background = '#f3f4f6'; tabMkt.style.color = '#6b7280'; }
+    });
+    
+    // Clic en Calculadora
+    tabCalc.addEventListener('click', () => { 
+        secUsers.style.display = 'none'; secCalc.style.display = 'block'; if(secMkt) secMkt.style.display = 'none'; 
+        tabCalc.style.background = '#11173d'; tabCalc.style.color = 'white'; 
+        tabUsers.style.background = '#f3f4f6'; tabUsers.style.color = '#6b7280'; 
+        if(tabMkt) { tabMkt.style.background = '#f3f4f6'; tabMkt.style.color = '#6b7280'; }
+        if(typeof renderAdminListaServicios === 'function') renderAdminListaServicios(); 
+    });
+
+    // Clic en Marketing
+    if(tabMkt) {
+        tabMkt.addEventListener('click', () => {
+            secUsers.style.display = 'none'; secCalc.style.display = 'none'; if(secMkt) secMkt.style.display = 'block';
+            tabMkt.style.background = '#11173d'; tabMkt.style.color = 'white';
+            tabUsers.style.background = '#f3f4f6'; tabUsers.style.color = '#6b7280';
+            tabCalc.style.background = '#f3f4f6'; tabCalc.style.color = '#6b7280';
+        });
+    }
 
     // RENDERIZAR LISTA IZQUIERDA
     window.renderAdminListaServicios = () => {
@@ -2640,11 +2666,28 @@ window.cargarFranquiciasAdmin = async () => {
     } catch(e) { console.error("Error cargando franquicias:", e); }
 };
 
+// Función para mostrar el cartel lindo de edición
+window.showPromptFranq = (message, defaultValue = '') => {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('custom-prompt-overlay');
+        const input = document.getElementById('custom-prompt-input');
+        
+        input.value = defaultValue;
+        overlay.style.display = 'flex';
+        input.focus();
+
+        document.getElementById('custom-prompt-btn').onclick = () => { overlay.style.display = 'none'; resolve(input.value); };
+        document.getElementById('custom-prompt-cancel').onclick = () => { overlay.style.display = 'none'; resolve(null); };
+        document.getElementById('custom-prompt-borrar').onclick = () => { overlay.style.display = 'none'; resolve('BORRAR'); };
+    });
+};
+
 // Función para Editar o Borrar una franquicia
 window.gestionarFranquicia = async (index, nombreActual) => {
-    const accion = prompt(`Franquicia: ${nombreActual}\n\nEscribí un NUEVO NOMBRE para editarla.\nO escribí la palabra BORRAR para eliminarla.`, nombreActual);
+    // Usamos el cartel premium en vez del feo del navegador
+    const accion = await window.showPromptFranq(`Franquicia original: ${nombreActual}`, nombreActual);
     
-    if (!accion || accion === nombreActual) return;
+    if (!accion || accion === nombreActual) return; // Si cancela o no cambia nada
 
     let franquicias = [];
     try {
@@ -2652,17 +2695,38 @@ window.gestionarFranquicia = async (index, nombreActual) => {
         if(doc.exists && doc.data().franquicias) franquicias = doc.data().franquicias;
 
         if (accion.trim().toUpperCase() === 'BORRAR') {
-            if(!confirm(`⚠️ ¿Seguro que querés eliminar "${nombreActual}" permanentemente?`)) return;
+            if(!await window.showConfirm(`⚠️ ¿Seguro que querés eliminar "${nombreActual}" permanentemente?`)) return;
             franquicias.splice(index, 1);
+            showLoader(true, "Borrando franquicia...");
+            await db.collection('metadata').doc('config').update({ franquicias });
         } else {
-            franquicias[index] = accion.trim();
+            const nuevoNombre = accion.trim();
+            franquicias[index] = nuevoNombre;
+
+            showLoader(true, "Actualizando franquicias y usuarios...");
+            
+            // 1. Guardamos el nuevo nombre en la lista maestra
+            await db.collection('metadata').doc('config').update({ franquicias });
+
+            // 2. MAGIA: Buscamos a todos los usuarios con el nombre viejo y los actualizamos
+            const usersRef = db.collection('usuarios');
+            const snapshot = await usersRef.where('franquicia', '==', nombreActual).get();
+            
+            if (!snapshot.empty) {
+                const batch = db.batch(); // El batch hace los cambios todos juntos de golpe
+                snapshot.forEach(userDoc => {
+                    batch.update(userDoc.ref, { franquicia: nuevoNombre });
+                });
+                await batch.commit();
+                
+                // Recargamos la lista visual de usuarios para que veas el cambio
+                if(typeof loadUsersList === 'function') await loadUsersList(); 
+            }
         }
 
-        showLoader(true, "Actualizando franquicias...");
-        await db.collection('metadata').doc('config').update({ franquicias });
-        await window.cargarFranquiciasAdmin();
+        await window.cargarFranquiciasAdmin(); // Refrescar pastillitas
         showLoader(false);
-        window.showAlert("¡Lista actualizada!", "success");
+        window.showAlert("¡Actualizado con éxito!", "success");
 
     } catch(e) {
         console.error(e);
