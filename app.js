@@ -2802,7 +2802,7 @@ firebase.auth().onAuthStateChanged((user) => {
 });
 
 // ==========================================
-// CONEXIÓN SEGURA DE SUB-PESTAÑAS "SOLO X HOY"
+// CONEXIÓN DE SUB-PESTAÑAS "SOLO X HOY"
 // ==========================================
 const conectarPestanas = () => {
     const bs1 = document.getElementById('btn-sub-buscar');
@@ -2813,11 +2813,13 @@ const conectarPestanas = () => {
     const navSearch = document.getElementById('nav-search');
     const navUpload = document.getElementById('nav-upload');
 
+    // Si tocan Buscar, hace clic invisible en el menú de arriba
     if(bs1 && navSearch) bs1.onclick = () => navSearch.click();
     if(bs2 && navSearch) bs2.onclick = () => navSearch.click();
         
+    // Si tocan Cargar, abre la pantalla de carga, y mantiene "Solo X Hoy" pintado
     if(cg1 && navUpload) cg1.onclick = () => { 
-        navUpload.click(); 
+           navUpload.click(); 
         setTimeout(() => { if(navSearch) navSearch.classList.add('active'); }, 50); 
     };
     if(cg2 && navUpload) cg2.onclick = () => { 
@@ -2826,5 +2828,4 @@ const conectarPestanas = () => {
     };
 };
 conectarPestanas();
-
 });
