@@ -2791,4 +2791,19 @@ firebase.auth().onAuthStateChanged((user) => {
     }
 });
 
+// ==========================================
+    // CONEXIÓN DE SUB-PESTAÑAS "SOLO X HOY"
+    // ==========================================
+    const btnSubBuscar = document.getElementById('btn-sub-buscar');
+    const btnSubCargar = document.getElementById('btn-sub-cargar');
+    const btnSubBuscar2 = document.getElementById('btn-sub-buscar-2');
+    
+    if (btnSubBuscar) btnSubBuscar.onclick = () => dom.nav.search.click();
+    if (btnSubBuscar2) btnSubBuscar2.onclick = () => dom.nav.search.click();
+    if (btnSubCargar) btnSubCargar.onclick = () => {
+        dom.nav.upload.click(); // Cambia a la vista de carga
+        // Truco visual para que el menú de arriba ("Solo X Hoy") siga resaltado
+        setTimeout(() => dom.nav.search.classList.add('active'), 10);
+    };
+
 });
