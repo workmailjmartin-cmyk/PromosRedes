@@ -2792,18 +2792,29 @@ firebase.auth().onAuthStateChanged((user) => {
 });
 
 // ==========================================
-// CONEXIÓN DE SUB-PESTAÑAS "SOLO X HOY"
-    // ==========================================
-const btnSubBuscar = document.getElementById('btn-sub-buscar');
-const btnSubCargar = document.getElementById('btn-sub-cargar');
-const btnSubBuscar2 = document.getElementById('btn-sub-buscar-2');
-    
-if (btnSubBuscar) btnSubBuscar.onclick = () => dom.nav.search.click();
-if (btnSubBuscar2) btnSubBuscar2.onclick = () => dom.nav.search.click();
-if (btnSubCargar) btnSubCargar.onclick = () => {
-    dom.nav.upload.click(); // Cambia a la vista de carga
-    // Truco visual para que el menú de arriba ("Solo X Hoy") siga resaltado
-    setTimeout(() => dom.nav.search.classList.add('active'), 10);
+// CONEXIÓN SEGURA DE SUB-PESTAÑAS "SOLO X HOY"
+// ==========================================
+const conectarPestanas = () => {
+    const bs1 = document.getElementById('btn-sub-buscar');
+    const cg1 = document.getElementById('btn-sub-cargar');
+    const bs2 = document.getElementById('btn-sub-buscar-2');
+    const cg2 = document.getElementById('btn-sub-cargar-2');
+        
+    const navSearch = document.getElementById('nav-search');
+    const navUpload = document.getElementById('nav-upload');
+
+    if(bs1 && navSearch) bs1.onclick = () => navSearch.click();
+    if(bs2 && navSearch) bs2.onclick = () => navSearch.click();
+        
+    if(cg1 && navUpload) cg1.onclick = () => { 
+        navUpload.click(); 
+        setTimeout(() => { if(navSearch) navSearch.classList.add('active'); }, 50); 
+    };
+    if(cg2 && navUpload) cg2.onclick = () => { 
+        navUpload.click(); 
+        setTimeout(() => { if(navSearch) navSearch.classList.add('active'); }, 50); 
+    };
 };
+conectarPestanas();
 
 });
