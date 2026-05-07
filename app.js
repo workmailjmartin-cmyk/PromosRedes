@@ -809,7 +809,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // 3. Tus funciones de filtrado y dibujado quedan intactas
             uniquePackages = processPackageHistory(allPackages); 
-            populateFranchiseFilter(uniquePackages); 
             autoCleanupPackages(uniquePackages);
             applyFilters();
             updatePendingBadge(); 
@@ -1474,8 +1473,6 @@ document.addEventListener('DOMContentLoaded', () => {
             showLoader(false);
         }
     });
-
-    function populateFranchiseFilter(packages) { const selector = dom.filtroCreador; if(!selector) return; const currentVal = selector.value; const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))]; selector.innerHTML = '<option value="">Todas las Franquicias</option>'; creadores.sort().forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt); }); selector.value = currentVal; }
    
     function applyFilters() {
         // Normalizador de texto (borra tildes y mayúsculas)
@@ -2634,15 +2631,18 @@ window.cargarFranquiciasAdmin = async () => {
     const selectCrearUsuario = document.getElementById('user-franchise-input');
     const contadorDiv = document.getElementById('contador-franquicias'); 
     
+    // 👇 NUEVO: Atrapamos el selector del buscador de "Solo X Hoy"
+    const filtroCreador = document.getElementById('filtro-creador'); 
+    
     try {
         const doc = await db.collection('metadata').doc('config').get();
         let franquicias = [];
         if(doc.exists && doc.data().franquicias) franquicias = doc.data().franquicias;
 
-        // Actualizar el mini-contador
+        // Actualizar el mini-contador (INTACTO)
         if (contadorDiv) contadorDiv.innerText = franquicias.length;
 
-        // Dibujar pastillitas
+        // Dibujar pastillitas (INTACTO)
         if(contenedorFranquicias) {
             contenedorFranquicias.innerHTML = '';
             if (franquicias.length === 0) {
@@ -2668,13 +2668,29 @@ window.cargarFranquiciasAdmin = async () => {
             }
         }
 
-        // Llenar combo de Crear Usuario
+        // Llenar combo de Crear Usuario (INTACTO)
         if(selectCrearUsuario) {
             const valorPrevio = selectCrearUsuario.value;
             selectCrearUsuario.innerHTML = '<option value="">Seleccioná de la lista...</option>';
             franquicias.forEach(f => selectCrearUsuario.innerHTML += `<option value="${f}">${f}</option>`);
             if(valorPrevio) selectCrearUsuario.value = valorPrevio;
         }
+
+        // 👇 NUEVO: Llenar el filtro del Buscador "Solo X Hoy"
+        if(filtroCreador) {
+            const valorPrevioFiltro = filtroCreador.value;
+            filtroCreador.innerHTML = '<option value="">Todas las Franquicias</option>';
+            
+            // Le agregamos Casa Central fijo arriba de todo por si no la tenés en la base de franquicias general
+            if (!franquicias.includes("Casa Central")) {
+                filtroCreador.innerHTML += `<option value="Casa Central">Casa Central</option>`;
+            }
+            
+            franquicias.forEach(f => filtroCreador.innerHTML += `<option value="${f}">${f}</option>`);
+            
+            if(valorPrevioFiltro) filtroCreador.value = valorPrevioFiltro;
+        }
+
     } catch(e) { console.error("Error cargando franquicias:", e); }
 };
 
