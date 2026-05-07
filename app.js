@@ -870,23 +870,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
         if (rol === 'admin' && typeof loadUsersList === 'function') loadUsersList();
     
-        const selectPromo = document.getElementById('upload-promo');
-        if (selectPromo) {
-            selectPromo.innerHTML = '';
-            if (rol === 'usuario') {
-                selectPromo.innerHTML = `
-                    <option value="Solo X Hoy">Solo X Hoy</option>
-                    <option value="FEED">FEED (Requiere Aprobación)</option>
-                    <option value="ADS">ADS (Requiere Aprobación)</option>
-                `;
-            } else {
-                selectPromo.innerHTML = `
-                    <option value="FEED">FEED</option>
-                    <option value="Solo X Hoy">Solo X Hoy</option>
-                    <option value="ADS">ADS</option>
-                `;
-            }
-        }
     
         // --- 3. LO QUE FALTABA AL FINAL (Planificación y Badge) ---
         // Agregamos un pequeño chequeo de seguridad también aquí por si acaso
@@ -1495,47 +1478,45 @@ document.addEventListener('DOMContentLoaded', () => {
     function populateFranchiseFilter(packages) { const selector = dom.filtroCreador; if(!selector) return; const currentVal = selector.value; const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))]; selector.innerHTML = '<option value="">Todas las Franquicias</option>'; creadores.sort().forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt); }); selector.value = currentVal; }
    
     function applyFilters() {
-        // NUEVO HELPER: Función para quitar tildes y pasar todo a minúscula
+        // Normalizador de texto (borra tildes y mayúsculas)
         const normalizeText = (text) => {
             if (!text) return '';
-            // El normalize("NFD") separa la letra del tilde, y el replace los borra.
             return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
         };
 
-        // Pasamos por la "trituradora" lo que el vendedor escribió en el buscador
         const fDestino = normalizeText(document.getElementById('filtro-destino').value);
-        
         const fCreador = dom.filtroCreador ? dom.filtroCreador.value : '';
         const fPromo = document.getElementById('filtro-promo').value;
         const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
-        
-        // NUEVO: Capturamos el valor del selector de salida
         const fSalida = dom.filtroSalida ? dom.filtroSalida.value : '';
 
+        // Obtenemos qué promociones son exclusivas de Casa Central
+        const promosSecretas = typeof promocionesGlobal !== 'undefined' 
+            ? promocionesGlobal.filter(p => p.alcance === 'casa_central').map(p => p.nombre) 
+            : [];
+        const esAdmin = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+
         let result = uniquePackages.filter(pkg => {
-            // También pasamos por la "trituradora" el destino del paquete para compararlos limpios
             const destinoNormalizado = normalizeText(pkg.destino);
             const mDestino = !fDestino || destinoNormalizado.includes(fDestino);
-            
             const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
             const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
-            
-            // NUEVO: Comparamos si la salida coincide (si hay algo seleccionado)
             const mSalida = !fSalida || (pkg.salida && pkg.salida === fSalida);
 
-            // Agregamos mSalida a la condición final
             if (!mDestino || !mCreador || !mPromo || !mSalida) return false;
+
+            // 👻 FILTRO DE INVISIBILIDAD: Si es promo secreta y no es admin, ocultar tarjeta
+            if (!esAdmin && promosSecretas.includes(pkg.tipo_promo)) return false;
 
             const isOwner = pkg.editor_email === currentUser.email;
             const isPending = pkg.status === 'pending';
-            if (isPending && !isOwner && userData.rol !== 'admin' && userData.rol !== 'editor') return false;
+            if (isPending && !isOwner && !esAdmin) return false;
             
             return true;
         });
 
         if (fOrden === 'reciente') {
             result.sort((a, b) => {
-                // BONUS FIX: Actualizado para que no rompa el orden de los paquetes nuevos de Firebase
                 const getTs = (pkg) => { 
                     if (pkg.timestamp) return pkg.timestamp;
                     if (pkg.id_paquete && pkg.id_paquete.startsWith('pkg_')) return parseInt(pkg.id_paquete.split('_')[1]) || 0; 
@@ -1548,7 +1529,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderCards(result, dom.grid);
         
-        if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) {
+        if (esAdmin) {
             const pendientes = uniquePackages.filter(p => p.status === 'pending');
             renderCards(pendientes, dom.gridGestion);
         }
@@ -2798,6 +2779,9 @@ firebase.auth().onAuthStateChanged((user) => {
         if(typeof window.cargarEtiquetasMarketing === 'function') {
             window.cargarEtiquetasMarketing();
         }
+        if(typeof window.cargarPromocionesAdmin === 'function') {
+            window.cargarPromocionesAdmin();
+        }
     }
 });
 
@@ -2834,4 +2818,104 @@ const conectarPestanas = () => {
     if(cg2) cg2.onclick = abrirCargar;
 };
 conectarPestanas();
+// ==========================================
+// GESTIÓN DINÁMICA DE PROMOCIONES
+// ==========================================
+var promocionesGlobal = [];
+
+window.cargarPromocionesAdmin = async () => {
+    const contenedor = document.getElementById('lista-promos-admin');
+    const filtroPromo = document.getElementById('filtro-promo');
+    const uploadPromo = document.getElementById('upload-promo');
+
+    try {
+        const doc = await db.collection('metadata').doc('config').get();
+        if (doc.exists && doc.data().tipos_promocion) {
+            promocionesGlobal = doc.data().tipos_promocion;
+        } else {
+            promocionesGlobal = [
+                { nombre: "Solo X Hoy", alcance: "todos" },
+                { nombre: "FEED", alcance: "todos" },
+                { nombre: "ADS", alcance: "todos" }
+            ];
+        }
+
+        const esAdmin = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+
+        // 1. RENDERIZAR PANEL ADMIN
+        if(contenedor) {
+            contenedor.innerHTML = '';
+            if(promocionesGlobal.length === 0) contenedor.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay promociones.</span>';
+            promocionesGlobal.forEach((promo, index) => {
+                const isCc = promo.alcance === 'casa_central';
+                contenedor.innerHTML += `
+                <div style="background: #f9fafb; border: 1px solid #e5e7eb; color: #11173d; padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 0.85em;">
+                    <b>${promo.nombre}</b>
+                    <span style="background: ${isCc ? '#e74c3c' : '#2ecc71'}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em;">
+                        ${isCc ? 'Solo C. Central' : 'Todos'}
+                    </span>
+                    <button onclick="borrarPromoAdmin(${index})" style="background: transparent; border: none; color: #e74c3c; cursor: pointer; font-weight: bold;">×</button>
+                </div>`;
+            });
+        }
+
+        // 2. RENDERIZAR BUSCADOR Y CARGA
+        if(filtroPromo && uploadPromo) {
+            const valorFiltro = filtroPromo.value;
+            const valorUpload = uploadPromo.value;
+            
+            filtroPromo.innerHTML = '<option value="">Todas</option>';
+            uploadPromo.innerHTML = '';
+
+            promocionesGlobal.forEach(promo => {
+                // Si es secreta y NO es admin, omitimos todo (Filtro e Invisibilidad)
+                if (promo.alcance === 'casa_central' && !esAdmin) return;
+                
+                filtroPromo.innerHTML += `<option value="${promo.nombre}">${promo.nombre}</option>`;
+
+                let textoExtra = '';
+                if(!esAdmin && promo.nombre !== 'Solo X Hoy') textoExtra = ' (Requiere Aprobación)';
+                uploadPromo.innerHTML += `<option value="${promo.nombre}">${promo.nombre}${textoExtra}</option>`;
+            });
+
+            if(valorFiltro) filtroPromo.value = valorFiltro;
+            if(valorUpload) uploadPromo.value = valorUpload;
+        }
+
+        // Refrescar grilla para aplicar invisibilidad si hubo cambios
+        if(typeof applyFilters === 'function') applyFilters();
+
+    } catch(e) { console.error("Error promociones:", e); }
+};
+
+const btnNuevaPromo = document.getElementById('btn-agregar-promo');
+if(btnNuevaPromo) {
+    btnNuevaPromo.addEventListener('click', async () => {
+        const nombre = document.getElementById('admin-promo-nombre').value.trim();
+        const alcance = document.getElementById('admin-promo-alcance').value;
+        if(!nombre) return window.showAlert("Completá el nombre de la promoción", "error");
+
+        promocionesGlobal.push({ nombre, alcance });
+        showLoader(true, "Guardando...");
+        try {
+            await db.collection('metadata').doc('config').set({ tipos_promocion: promocionesGlobal }, { merge: true });
+            document.getElementById('admin-promo-nombre').value = '';
+            await window.cargarPromocionesAdmin();
+        } catch(e) { window.showAlert("Error", "error"); }
+        showLoader(false);
+    });
+}
+
+window.borrarPromoAdmin = async (index) => {
+    if(!await window.showConfirm("¿Borrar esta promoción permanentemente?")) return;
+    promocionesGlobal.splice(index, 1);
+    showLoader(true, "Borrando...");
+    try { 
+        await db.collection('metadata').doc('config').update({ tipos_promocion: promocionesGlobal }); 
+        await window.cargarPromocionesAdmin(); 
+    } catch(e) { window.showAlert("Error", "error"); }
+    showLoader(false);
+};
+
+
 });

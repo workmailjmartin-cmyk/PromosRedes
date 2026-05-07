@@ -140,7 +140,7 @@
                     </div>
                     <div class="filtro-group">
                         <label>Promoción</label>
-                        <select id="filtro-promo"><option value="">Todas</option><option value="Solo X Hoy">Solo X Hoy</option><option value="FEED">FEED</option><option value="ADS">ADS</option></select>
+                        <select id="filtro-promo"><option value="">Todas</option></select>
                     </div>
                     <div class="filtro-group">
                         <label>Orden</label>
@@ -388,6 +388,35 @@
 
                                 <div id="lista-etiquetas-admin" style="display: flex; gap: 10px; flex-wrap: wrap;">
                                     <span style="color: #999; font-size: 0.9em;">Cargando etiquetas...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="user-list-card" style="background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow: hidden; margin-top: 20px;"> 
+                            <h3 style="padding:15px 20px 5px 20px; color:#11173d; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                🚀 Tipos de Promoción
+                            </h3>
+                            <p style="padding: 0 20px 10px 20px; margin: 0; color: #666; font-size: 0.9em;">
+                                Administrá las promociones disponibles y su privacidad.
+                            </p>
+                            
+                            <div style="padding: 20px; border-top: 1px solid #eee;">
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: flex-end;">
+                                    <div style="flex: 2;">
+                                        <input type="text" id="admin-promo-nombre" placeholder="Nombre (Ej: Black Friday)" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <select id="admin-promo-alcance" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                                            <option value="todos">Para Todos</option>
+                                            <option value="casa_central">Solo Casa Central</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <button id="btn-agregar-promo" style="background: #11173d; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; height: 40px;">+ Crear</button>
+                                    </div>
+                                </div>
+
+                                <div id="lista-promos-admin" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                    <span style="color: #999; font-size: 0.9em;">Cargando promociones...</span>
                                 </div>
                             </div>
                         </div>
