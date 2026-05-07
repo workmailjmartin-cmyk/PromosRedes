@@ -33,7 +33,7 @@
                 </div>
 
                 <nav class="app-nav">
-                    <button class="nav-button active" id="nav-search">🔥 Solo X Hoy</button>
+                    <button class="nav-button active" id="nav-search">🔥 Promociones</button>
                     
                     <!-- Ocultamos el botón Cargar (lo van a activar los sub-botones azules) -->
                     <button class="nav-button" id="nav-upload" style="display:none;">Cargar</button>
@@ -42,7 +42,10 @@
                     <button class="nav-button" id="nav-users" style="display:none;">⚙️ Panel de Configuración</button>
                     
                     <!-- El nuevo plan de contenidos -->
-                    <button class="nav-button" id="nav-marketing">📋 Plan de Contenidos</button>
+                    <button class="nav-button" id="nav-marketing" style="display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2;">
+                        <span>📋 Calendario de Contenido</span>
+                        <span style="font-size: 0.65em; font-weight: 400; opacity: 0.8; margin-top: 2px;">Cuenta Oficial</span>
+                    </button>
                 </nav>
 
                 <div class="user-info">
@@ -505,7 +508,7 @@
 
                 <div class="form-group" style="margin:0;">
                     <label>Link de Carpeta (Google Drive)</label>
-                    <input type="url" id="marketing-drive" placeholder="https://drive.google.com/..." required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <input type="url" id="marketing-drive" placeholder="https://drive.google.com/..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb;">
                 </div>
 
                 <div class="form-group" style="margin:0;">
