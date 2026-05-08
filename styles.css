@@ -437,5 +437,20 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     }
 }
 
+/* ========================================== */
+/* ALINEACIÓN PERFECTA DEL MENÚ SUPERIOR      */
+/* ========================================== */
+.app-nav {
+    display: flex;
+    align-items: center; /* Esto centra todos los botones en el medio de la barra */
+}
 
+.nav-button {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    vertical-align: middle;
+    height: 55px; /* Al darle una altura fija, la línea naranja de abajo va a quedar a la misma altura para todos */
+}
 
