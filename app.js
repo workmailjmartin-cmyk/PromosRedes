@@ -1868,62 +1868,63 @@ window.approvePackage = async (pkg) => {
         
         applyFilters();
     });
-    // --- LIMPIEZA AUTOMÁTICA (MODO FILA INDIA) ---
     async function autoCleanupPackages(packages) {
-        // 1. SEGURIDAD (Solo el admin dispara la limpieza)
         if (!userData || (userData.rol !== 'admin')) return;
 
-        // 2. FRENO DE MANO (Diario)
-        const hoy = new Date().toISOString().split('T')[0];
+        const hoyString = new Date().toISOString().split('T')[0];
         const ultimoChequeo = localStorage.getItem('ultimo_mantenimiento');
-        if (ultimoChequeo === hoy) return; 
+        if (ultimoChequeo === hoyString) return; 
 
-        console.log("🧹 Buscando paquetes vencidos...");
+        console.log("🧹 Iniciando mantenimiento general...");
         const now = new Date();
-        
-        // 3. FILTRAR CANDIDATOS
-        const candidatos = packages.filter(pkg => {
+        now.setHours(0, 0, 0, 0); 
+
+        // --- 1. LIMPIEZA DE PAQUETES (Reglas anteriores) ---
+        const candidatosPaquetes = packages.filter(pkg => {
+            if (pkg.fecha_salida) {
+                const fechaSalida = new Date(pkg.fecha_salida + 'T00:00:00');
+                if (fechaSalida <= now) return true;
+            }
             if (!pkg.fecha_creacion || !pkg.tipo_promo) return false;
             const parts = pkg.fecha_creacion.split('/');
-            if (parts.length !== 3) return false;
-            const fechaPkg = new Date(parts[2], parts[1] - 1, parts[0]);
-            const diffDays = Math.ceil(Math.abs(now - fechaPkg) / (1000 * 60 * 60 * 24)); 
-
-            if (pkg.tipo_promo === 'Solo X Hoy' && diffDays > 7) return true;
-            if (pkg.tipo_promo === 'FEED' && diffDays > 30) return true;
+            if (parts.length === 3) {
+                const fechaPkg = new Date(parts[2], parts[1] - 1, parts[0]);
+                const diffDays = Math.ceil((now - fechaPkg) / (1000 * 60 * 60 * 24)); 
+                if (pkg.tipo_promo === 'Solo X Hoy' && diffDays > 7) return true;
+                if (pkg.tipo_promo !== 'Solo X Hoy' && diffDays > 30) return true;
+            }
             return false;
         });
 
-        if (candidatos.length === 0) {
-            localStorage.setItem('ultimo_mantenimiento', hoy);
-            return;
+        for (const pkg of candidatosPaquetes) {
+            await db.collection('paquetes').doc(pkg.id_paquete || pkg.id).delete();
         }
 
-        // 4. PROCESAR TODOS JUNTOS (Firebase no tiene límites molestos)
-        console.log(`🗑️ Iniciando desinfección de ${candidatos.length} paquetes viejos...`);
+        // --- 2. NUEVO: LIMPIEZA DE CALENDARIO DE MARKETING (60 días) ---
+        console.log("📅 Limpiando tareas de marketing viejas...");
+        try {
+            const limiteMkt = new Date();
+            limiteMkt.setDate(limiteMkt.getDate() - 60); // 60 días hacia atrás (2 meses)
+            
+            const snapMkt = await db.collection('calendario_marketing').get();
+            let borradosMkt = 0;
+            
+            snapMkt.forEach(async (doc) => {
+                const tarea = doc.data();
+                if (tarea.fecha) {
+                    const fechaTarea = new Date(tarea.fecha + 'T00:00:00');
+                    if (fechaTarea < limiteMkt) {
+                        await doc.ref.delete();
+                        borradosMkt++;
+                    }
+                }
+            });
+            if(borradosMkt > 0) console.log(`✅ Se eliminaron ${borradosMkt} tareas antiguas de marketing.`);
+        } catch(e) { console.error("Error limpieza Mkt:", e); }
 
-        let borradosExitosos = 0;
-
-        for (const pkg of candidatos) {
-            const id = pkg.id_paquete || pkg.id || pkg['item.id'];
-            try {
-                // Borrado real e instantáneo en Firebase
-                await db.collection('paquetes').doc(id).delete();
-                console.log(`✅ Borrado silencioso: ${pkg.destino} (Tenía ${pkg.tipo_promo})`);
-                borradosExitosos++;
-            } catch (error) {
-                console.error(`❌ Error al borrar ${pkg.destino}:`, error);
-            }
-        }
-
-        console.log(`✨ Fin del ciclo. Se borraron ${borradosExitosos} de ${candidatos.length}.`);
-
-        // Firmamos el mantenimiento de hoy
-        localStorage.setItem('ultimo_mantenimiento', hoy);
-        console.log("🏆 Limpieza total del día completada.");
-
-        // Si se borró basura, actualizamos la pantalla para que el admin vea la grilla limpia
-        if (borradosExitosos > 0 && typeof fetchAndLoadPackages === 'function') {
+        localStorage.setItem('ultimo_mantenimiento', hoyString);
+        console.log("🏆 Mantenimiento total completado.");
+        if (candidatosPaquetes.length > 0 && typeof fetchAndLoadPackages === 'function') {
             await fetchAndLoadPackages();
         }
     }
@@ -2468,8 +2469,31 @@ if(modalDetalleMkt) {
 // --- 2. CONTROLES DEL CALENDARIO ---
 const btnAnt = document.getElementById('btn-mes-anterior');
 const btnSig = document.getElementById('btn-mes-siguiente');
-if(btnAnt) btnAnt.addEventListener('click', () => { currentDateMarketing.setMonth(currentDateMarketing.getMonth() - 1); window.renderizarCalendario(); });
-if(btnSig) btnSig.addEventListener('click', () => { currentDateMarketing.setMonth(currentDateMarketing.getMonth() + 1); window.renderizarCalendario(); });
+
+if(btnAnt) {
+    btnAnt.addEventListener('click', () => {
+        const hoy = new Date();
+        // Calculamos el mes mínimo permitido (hace 2 meses)
+        const mesMinimo = new Date(hoy.getFullYear(), hoy.getMonth() - 2, 1);
+        // El mes al que queremos ir
+        const mesDestino = new Date(currentDateMarketing.getFullYear(), currentDateMarketing.getMonth() - 1, 1);
+
+        if (mesDestino < mesMinimo) {
+            window.showAlert("Solo se puede visualizar hasta 2 meses atrás.", "info");
+            return;
+        }
+
+        currentDateMarketing.setMonth(currentDateMarketing.getMonth() - 1);
+        window.renderizarCalendario();
+    });
+}
+
+if(btnSig) {
+    btnSig.addEventListener('click', () => {
+        currentDateMarketing.setMonth(currentDateMarketing.getMonth() + 1);
+        window.renderizarCalendario();
+    });
+}
 
 // --- 3. GESTIÓN DE ETIQUETAS DE MARKETING ---
 let etiquetasMarketingGlobal = [];
