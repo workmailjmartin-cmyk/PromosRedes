@@ -32,18 +32,15 @@
                     <img src="logo.png" alt="Logo Feliz Viaje" id="app-logo">
                 </div>
 
-                <nav class="app-nav">
-                    <button class="nav-button active" id="nav-search">🔥 Promociones</button>
+                <nav class="app-nav" style="display: flex; align-items: center; justify-content: center; gap: 15px;">
+                    <button class="nav-button active" id="nav-search" style="vertical-align: middle; margin: 0;">🔥 Promociones</button>
                     
-                    <!-- Ocultamos el botón Cargar (lo van a activar los sub-botones azules) -->
-                    <button class="nav-button" id="nav-upload" style="display:none;">Cargar</button>
+                    <button class="nav-button" id="nav-upload" style="display: none; vertical-align: middle; margin: 0;">Cargar</button>
                     
-                    <!-- El panel de configuración (arranca oculto hasta que el JS ve que sos Admin) -->
-                    <button class="nav-button" id="nav-users" style="display:none;">⚙️ Panel de Configuración</button>
+                    <button class="nav-button" id="nav-users" style="display: none; vertical-align: middle; margin: 0;">⚙️ Panel de Configuración</button>
                     
-                    <!-- El nuevo plan de contenidos -->
-                    <button class="nav-button" id="nav-marketing" style="display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2;">
-                        <span>📋 Calendario de Contenido</span>
+                    <button class="nav-button" id="nav-marketing" style="display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; vertical-align: middle; margin: 0;">
+                        <span>📋 Calendario de Contenidos</span>
                         <span style="font-size: 0.65em; font-weight: 400; opacity: 0.8; margin-top: 2px;">Cuenta Oficial</span>
                     </button>
                 </nav>
