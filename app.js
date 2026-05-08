@@ -809,7 +809,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // 3. Tus funciones de filtrado y dibujado quedan intactas
             uniquePackages = processPackageHistory(allPackages); 
-            populateFranchiseFilter(uniquePackages); 
             autoCleanupPackages(uniquePackages);
             applyFilters();
             updatePendingBadge(); 
@@ -870,23 +869,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
         if (rol === 'admin' && typeof loadUsersList === 'function') loadUsersList();
     
-        const selectPromo = document.getElementById('upload-promo');
-        if (selectPromo) {
-            selectPromo.innerHTML = '';
-            if (rol === 'usuario') {
-                selectPromo.innerHTML = `
-                    <option value="Solo X Hoy">Solo X Hoy</option>
-                    <option value="FEED">FEED (Requiere Aprobación)</option>
-                    <option value="ADS">ADS (Requiere Aprobación)</option>
-                `;
-            } else {
-                selectPromo.innerHTML = `
-                    <option value="FEED">FEED</option>
-                    <option value="Solo X Hoy">Solo X Hoy</option>
-                    <option value="ADS">ADS</option>
-                `;
-            }
-        }
     
         // --- 3. LO QUE FALTABA AL FINAL (Planificación y Badge) ---
         // Agregamos un pequeño chequeo de seguridad también aquí por si acaso
@@ -1381,7 +1363,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const idGenerado = isEditingId || 'pkg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         
         let creadorFinal;
-        if (isEditingId && originalCreator) { creadorFinal = originalCreator; } else { creadorFinal = userData.franquicia || 'Desconocido'; }
+        if (isEditingId && originalCreator) { 
+            // EDITANDO: Respetamos a muerte al creador original (La franquicia que lo subió)
+            creadorFinal = originalCreator; 
+        } else { 
+            // PAQUETE NUEVO: Usamos la franquicia oficial. Si por algún motivo no tiene, usamos su mail.
+            creadorFinal = (userData && userData.franquicia) ? userData.franquicia : currentUser.email; 
+        }
 
         const fechaActual = new Date();
         const dia = String(fechaActual.getDate()).padStart(2, '0');
@@ -1485,51 +1473,47 @@ document.addEventListener('DOMContentLoaded', () => {
             showLoader(false);
         }
     });
-
-    function populateFranchiseFilter(packages) { const selector = dom.filtroCreador; if(!selector) return; const currentVal = selector.value; const creadores = [...new Set(packages.map(p => p.creador).filter(Boolean))]; selector.innerHTML = '<option value="">Todas las Franquicias</option>'; creadores.sort().forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.innerText = c; selector.appendChild(opt); }); selector.value = currentVal; }
    
     function applyFilters() {
-        // NUEVO HELPER: Función para quitar tildes y pasar todo a minúscula
+        // Normalizador de texto (borra tildes y mayúsculas)
         const normalizeText = (text) => {
             if (!text) return '';
-            // El normalize("NFD") separa la letra del tilde, y el replace los borra.
             return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
         };
 
-        // Pasamos por la "trituradora" lo que el vendedor escribió en el buscador
         const fDestino = normalizeText(document.getElementById('filtro-destino').value);
-        
         const fCreador = dom.filtroCreador ? dom.filtroCreador.value : '';
         const fPromo = document.getElementById('filtro-promo').value;
         const fOrden = dom.filtroOrden ? dom.filtroOrden.value : 'reciente';
-        
-        // NUEVO: Capturamos el valor del selector de salida
         const fSalida = dom.filtroSalida ? dom.filtroSalida.value : '';
 
+        // Obtenemos qué promociones son exclusivas de Casa Central
+        const promosSecretas = typeof promocionesGlobal !== 'undefined' 
+            ? promocionesGlobal.filter(p => p.alcance === 'casa_central').map(p => p.nombre) 
+            : [];
+        const esAdmin = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+
         let result = uniquePackages.filter(pkg => {
-            // También pasamos por la "trituradora" el destino del paquete para compararlos limpios
             const destinoNormalizado = normalizeText(pkg.destino);
             const mDestino = !fDestino || destinoNormalizado.includes(fDestino);
-            
             const mCreador = !fCreador || (pkg.creador && pkg.creador === fCreador);
             const mPromo = !fPromo || (pkg.tipo_promo && pkg.tipo_promo === fPromo);
-            
-            // NUEVO: Comparamos si la salida coincide (si hay algo seleccionado)
             const mSalida = !fSalida || (pkg.salida && pkg.salida === fSalida);
 
-            // Agregamos mSalida a la condición final
             if (!mDestino || !mCreador || !mPromo || !mSalida) return false;
+
+            // 👻 FILTRO DE INVISIBILIDAD: Si es promo secreta y no es admin, ocultar tarjeta
+            if (!esAdmin && promosSecretas.includes(pkg.tipo_promo)) return false;
 
             const isOwner = pkg.editor_email === currentUser.email;
             const isPending = pkg.status === 'pending';
-            if (isPending && !isOwner && userData.rol !== 'admin' && userData.rol !== 'editor') return false;
+            if (isPending && !isOwner && !esAdmin) return false;
             
             return true;
         });
 
         if (fOrden === 'reciente') {
             result.sort((a, b) => {
-                // BONUS FIX: Actualizado para que no rompa el orden de los paquetes nuevos de Firebase
                 const getTs = (pkg) => { 
                     if (pkg.timestamp) return pkg.timestamp;
                     if (pkg.id_paquete && pkg.id_paquete.startsWith('pkg_')) return parseInt(pkg.id_paquete.split('_')[1]) || 0; 
@@ -1542,7 +1526,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderCards(result, dom.grid);
         
-        if (userData && (userData.rol === 'admin' || userData.rol === 'editor')) {
+        if (esAdmin) {
             const pendientes = uniquePackages.filter(p => p.status === 'pending');
             renderCards(pendientes, dom.gridGestion);
         }
@@ -1745,15 +1729,35 @@ window.approvePackage = async (pkg) => {
         if (dom.views[n]) dom.views[n].classList.add('active');
         if (dom.nav[n]) dom.nav[n].classList.add('active');
     }
-    dom.nav.search.onclick = () => showView('search');
-    dom.nav.upload.onclick = () => { isEditingId = null; originalCreator = ''; document.getElementById('upload-form').reset(); dom.containerServicios.innerHTML=''; showView('upload'); };
+    if (dom.nav.search) dom.nav.search.onclick = () => showView('search');
+    
+    if (dom.nav.upload) {
+        dom.nav.upload.onclick = () => { 
+            isEditingId = null; originalCreator = ''; document.getElementById('upload-form').reset(); dom.containerServicios.innerHTML=''; showView('upload'); 
+        };
+    }
+    
     if (dom.nav.gestion) {
         dom.nav.gestion.onclick = async () => { 
-            await fetchAndLoadPackages(); 
+            if(typeof fetchAndLoadPackages === 'function') await fetchAndLoadPackages(); 
             showView('gestion'); 
         };
     }
-    dom.nav.users.onclick = async () => { await loadUsersList(); showView('users'); };
+    
+    // Le ponemos un escudo por si el botón users no existe arriba
+    if (dom.nav.users) {
+        dom.nav.users.onclick = async () => { await loadUsersList(); showView('users'); };
+    }
+    // ==========================================
+    // CONECTAMOS EL CALENDARIO AL SISTEMA NATIVO
+    // ==========================================
+    dom.views.marketing = document.getElementById('view-marketing');
+    dom.nav.marketing = document.getElementById('nav-marketing');
+    dom.nav.marketing.onclick = () => { 
+        showView('marketing'); 
+        if (typeof window.renderizarCalendario === 'function') window.renderizarCalendario(); 
+    };
+    // ==========================================
     dom.modalClose.onclick = () => dom.modal.style.display = 'none';
     window.onclick = e => { if(e.target === dom.modal) dom.modal.style.display='none'; };
     dom.btnBuscar.addEventListener('click', applyFilters);
@@ -1761,9 +1765,7 @@ window.approvePackage = async (pkg) => {
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
     if(dom.filtroCreador) dom.filtroCreador.addEventListener('change', applyFilters);
 
-    // =========================================
     // 14. LOGICA CALENDARIO SEMANAL
-    // =========================================
     
     // Toggle Desplegable
     if(domPlanner.header) {
@@ -1866,62 +1868,63 @@ window.approvePackage = async (pkg) => {
         
         applyFilters();
     });
-    // --- LIMPIEZA AUTOMÁTICA (MODO FILA INDIA) ---
     async function autoCleanupPackages(packages) {
-        // 1. SEGURIDAD (Solo el admin dispara la limpieza)
         if (!userData || (userData.rol !== 'admin')) return;
 
-        // 2. FRENO DE MANO (Diario)
-        const hoy = new Date().toISOString().split('T')[0];
+        const hoyString = new Date().toISOString().split('T')[0];
         const ultimoChequeo = localStorage.getItem('ultimo_mantenimiento');
-        if (ultimoChequeo === hoy) return; 
+        if (ultimoChequeo === hoyString) return; 
 
-        console.log("🧹 Buscando paquetes vencidos...");
+        console.log("🧹 Iniciando mantenimiento general...");
         const now = new Date();
-        
-        // 3. FILTRAR CANDIDATOS
-        const candidatos = packages.filter(pkg => {
+        now.setHours(0, 0, 0, 0); 
+
+        // --- 1. LIMPIEZA DE PAQUETES (Reglas anteriores) ---
+        const candidatosPaquetes = packages.filter(pkg => {
+            if (pkg.fecha_salida) {
+                const fechaSalida = new Date(pkg.fecha_salida + 'T00:00:00');
+                if (fechaSalida <= now) return true;
+            }
             if (!pkg.fecha_creacion || !pkg.tipo_promo) return false;
             const parts = pkg.fecha_creacion.split('/');
-            if (parts.length !== 3) return false;
-            const fechaPkg = new Date(parts[2], parts[1] - 1, parts[0]);
-            const diffDays = Math.ceil(Math.abs(now - fechaPkg) / (1000 * 60 * 60 * 24)); 
-
-            if (pkg.tipo_promo === 'Solo X Hoy' && diffDays > 7) return true;
-            if (pkg.tipo_promo === 'FEED' && diffDays > 30) return true;
+            if (parts.length === 3) {
+                const fechaPkg = new Date(parts[2], parts[1] - 1, parts[0]);
+                const diffDays = Math.ceil((now - fechaPkg) / (1000 * 60 * 60 * 24)); 
+                if (pkg.tipo_promo === 'Solo X Hoy' && diffDays > 7) return true;
+                if (pkg.tipo_promo !== 'Solo X Hoy' && diffDays > 30) return true;
+            }
             return false;
         });
 
-        if (candidatos.length === 0) {
-            localStorage.setItem('ultimo_mantenimiento', hoy);
-            return;
+        for (const pkg of candidatosPaquetes) {
+            await db.collection('paquetes').doc(pkg.id_paquete || pkg.id).delete();
         }
 
-        // 4. PROCESAR TODOS JUNTOS (Firebase no tiene límites molestos)
-        console.log(`🗑️ Iniciando desinfección de ${candidatos.length} paquetes viejos...`);
+        // --- 2. NUEVO: LIMPIEZA DE CALENDARIO DE MARKETING (60 días) ---
+        console.log("📅 Limpiando tareas de marketing viejas...");
+        try {
+            const limiteMkt = new Date();
+            limiteMkt.setDate(limiteMkt.getDate() - 60); // 60 días hacia atrás (2 meses)
+            
+            const snapMkt = await db.collection('calendario_marketing').get();
+            let borradosMkt = 0;
+            
+            snapMkt.forEach(async (doc) => {
+                const tarea = doc.data();
+                if (tarea.fecha) {
+                    const fechaTarea = new Date(tarea.fecha + 'T00:00:00');
+                    if (fechaTarea < limiteMkt) {
+                        await doc.ref.delete();
+                        borradosMkt++;
+                    }
+                }
+            });
+            if(borradosMkt > 0) console.log(`✅ Se eliminaron ${borradosMkt} tareas antiguas de marketing.`);
+        } catch(e) { console.error("Error limpieza Mkt:", e); }
 
-        let borradosExitosos = 0;
-
-        for (const pkg of candidatos) {
-            const id = pkg.id_paquete || pkg.id || pkg['item.id'];
-            try {
-                // Borrado real e instantáneo en Firebase
-                await db.collection('paquetes').doc(id).delete();
-                console.log(`✅ Borrado silencioso: ${pkg.destino} (Tenía ${pkg.tipo_promo})`);
-                borradosExitosos++;
-            } catch (error) {
-                console.error(`❌ Error al borrar ${pkg.destino}:`, error);
-            }
-        }
-
-        console.log(`✨ Fin del ciclo. Se borraron ${borradosExitosos} de ${candidatos.length}.`);
-
-        // Firmamos el mantenimiento de hoy
-        localStorage.setItem('ultimo_mantenimiento', hoy);
-        console.log("🏆 Limpieza total del día completada.");
-
-        // Si se borró basura, actualizamos la pantalla para que el admin vea la grilla limpia
-        if (borradosExitosos > 0 && typeof fetchAndLoadPackages === 'function') {
+        localStorage.setItem('ultimo_mantenimiento', hoyString);
+        console.log("🏆 Mantenimiento total completado.");
+        if (candidatosPaquetes.length > 0 && typeof fetchAndLoadPackages === 'function') {
             await fetchAndLoadPackages();
         }
     }
@@ -1930,8 +1933,8 @@ window.approvePackage = async (pkg) => {
 // ==========================================
 
 // 1. EL NUEVO MODELO DE DATOS UNIVERSAL
-let dbCalculadora = [];
-let servicioEditandoId = null;
+var dbCalculadora = [];
+var servicioEditandoId = null;
 
 // Valores por defecto (Semilla) si Firebase está vacío
 const defaultData = [
@@ -2105,13 +2108,39 @@ if (btnToggle && panelCalc) {
 // 4. LÓGICA DEL PANEL DE ADMINISTRACIÓN (BACKOFFICE)
 const tabUsers = document.getElementById('tab-admin-usuarios');
 const tabCalc = document.getElementById('tab-admin-calculadora');
+const tabMkt = document.getElementById('tab-admin-marketing'); // NUEVO
 const secUsers = document.getElementById('admin-seccion-usuarios');
 const secCalc = document.getElementById('admin-seccion-calculadora');
+const secMkt = document.getElementById('admin-seccion-marketing'); // NUEVO
 const btnSaveCalc = document.getElementById('btn-save-calculadora');
 
 if(tabUsers && tabCalc) {
-    tabUsers.addEventListener('click', () => { secUsers.style.display = 'block'; secCalc.style.display = 'none'; tabUsers.style.background = '#11173d'; tabUsers.style.color = 'white'; tabCalc.style.background = '#f3f4f6'; tabCalc.style.color = '#6b7280'; });
-    tabCalc.addEventListener('click', () => { secUsers.style.display = 'none'; secCalc.style.display = 'block'; tabCalc.style.background = '#11173d'; tabCalc.style.color = 'white'; tabUsers.style.background = '#f3f4f6'; tabUsers.style.color = '#6b7280'; renderAdminListaServicios(); });
+    // Clic en Usuarios
+    tabUsers.addEventListener('click', () => { 
+        secUsers.style.display = 'block'; secCalc.style.display = 'none'; if(secMkt) secMkt.style.display = 'none'; 
+        tabUsers.style.background = '#11173d'; tabUsers.style.color = 'white'; 
+        tabCalc.style.background = '#f3f4f6'; tabCalc.style.color = '#6b7280'; 
+        if(tabMkt) { tabMkt.style.background = '#f3f4f6'; tabMkt.style.color = '#6b7280'; }
+    });
+    
+    // Clic en Calculadora
+    tabCalc.addEventListener('click', () => { 
+        secUsers.style.display = 'none'; secCalc.style.display = 'block'; if(secMkt) secMkt.style.display = 'none'; 
+        tabCalc.style.background = '#11173d'; tabCalc.style.color = 'white'; 
+        tabUsers.style.background = '#f3f4f6'; tabUsers.style.color = '#6b7280'; 
+        if(tabMkt) { tabMkt.style.background = '#f3f4f6'; tabMkt.style.color = '#6b7280'; }
+        if(typeof renderAdminListaServicios === 'function') renderAdminListaServicios(); 
+    });
+
+    // Clic en Marketing
+    if(tabMkt) {
+        tabMkt.addEventListener('click', () => {
+            secUsers.style.display = 'none'; secCalc.style.display = 'none'; if(secMkt) secMkt.style.display = 'block';
+            tabMkt.style.background = '#11173d'; tabMkt.style.color = 'white';
+            tabUsers.style.background = '#f3f4f6'; tabUsers.style.color = '#6b7280';
+            tabCalc.style.background = '#f3f4f6'; tabCalc.style.color = '#6b7280';
+        });
+    }
 
     // RENDERIZAR LISTA IZQUIERDA
     window.renderAdminListaServicios = () => {
@@ -2256,37 +2285,505 @@ if (searchUsersInput) {
         }
     });
 }
+
+// ====================================================================
+// 🚀 MÓDULO MARKETING Y CALENDARIO (CONECTADO A FIREBASE)
+// ====================================================================
+
+// --- 1. LÓGICA DEL CALENDARIO ---
+let currentDateMarketing = new Date();
+let tareasMarketingGlobal = []; // Guardamos las tareas acá para leerlas al hacer clic
+
+window.renderizarCalendario = async () => {
+    const grid = document.getElementById('grid-calendario-marketing');
+    const labelMes = document.getElementById('mes-actual-label');
+    if (!grid || !labelMes) return;
+
+    // Ponemos un mensajito de carga mientras buscamos en Firebase
+    grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6b7280; font-weight: bold;">Cargando tareas... ⏳</div>';
+
+    // 1. DESCARGAMOS LAS TAREAS DE LA BASE DE DATOS
+    try {
+        const snapshot = await db.collection('calendario_marketing').get();
+        tareasMarketingGlobal = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch(e) { 
+        console.error("Error al traer tareas:", e); 
+    }
+
+    grid.innerHTML = '';
+    const mes = currentDateMarketing.getMonth();
+    const anio = currentDateMarketing.getFullYear();
+    const nombresMeses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    labelMes.innerText = `${nombresMeses[mes]} ${anio}`;
+
+    const primerDia = new Date(anio, mes, 1).getDay();
+    const diasEnMes = new Date(anio, mes + 1, 0).getDate();
+
+    // Rellenar espacios vacíos antes del 1 del mes
+    for (let i = 0; i < primerDia; i++) {
+        const divVacio = document.createElement('div');
+        divVacio.style.cssText = "background: transparent; min-height: 100px;";
+        grid.appendChild(divVacio);
+    }
+
+    const hoyReal = new Date();
+    
+    // Dibujamos todos los días
+    for (let dia = 1; dia <= diasEnMes; dia++) {
+        const esHoy = (dia === hoyReal.getDate() && mes === hoyReal.getMonth() && anio === hoyReal.getFullYear());
+        const divDia = document.createElement('div');
+        
+        // El recuadro del día (naranja si es hoy)
+        divDia.style.cssText = `
+            background: white; border: 1px solid ${esHoy ? '#ef5a1a' : '#e5e7eb'}; border-radius: 8px; 
+            min-height: 120px; padding: 10px; display: flex; flex-direction: column; cursor: pointer;
+            transition: box-shadow 0.2s, transform 0.2s; box-shadow: ${esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none'};
+        `;
+        
+        divDia.onmouseover = () => divDia.style.boxShadow = '0 4px 10px rgba(0,0,0,0.05)';
+        divDia.onmouseout = () => divDia.style.boxShadow = esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none';
+
+        // Armamos la fecha exacta de este cuadradito
+        const fechaString = `${anio}-${String(mes+1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+
+        // Filtramos las tareas que caen EXACTAMENTE en este día
+        const tareasDelDia = tareasMarketingGlobal.filter(t => t.fecha === fechaString);
+
+        // Creamos el HTML de las tarjetitas
+        let htmlTareas = '';
+        tareasDelDia.forEach(tarea => {
+            
+            // LA MAGIA: Verificamos si esta tarea es para el usuario que está mirando la pantalla
+            const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
+            const esParaMi = (tarea.asignado === miFranquicia || tarea.asignado === 'TODOS');
+
+            // Buscamos el color y abreviatura de la etiqueta
+            const infoEtiqueta = etiquetasMarketingGlobal.find(e => e.nombre === tarea.tipo) || { abrev: 'MKT', color: '#6b7280' };
+
+            // Diseño: Si es para mí (azul vibrante). Si es de otro (gris neutro).
+            const fondoTarea = esParaMi ? '#eff6ff' : '#f9fafb';
+            const bordeIzquierdo = esParaMi ? '4px solid #3b82f6' : '2px solid #e5e7eb';
+            const colorTextoAsignado = esParaMi ? '#1e3a8a' : '#6b7280';
+
+            htmlTareas += `
+                <div onclick="window.verDetalleTareaMkt(event, '${tarea.id}')"
+                     style="background: ${fondoTarea}; border: 1px solid #e5e7eb; border-left: ${bordeIzquierdo}; 
+                            border-radius: 4px; padding: 6px; margin-bottom: 5px; transition: transform 0.1s;">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="background: ${infoEtiqueta.color}; color: white; padding: 2px 5px; border-radius: 4px; font-weight: bold; font-size: 0.7em; letter-spacing: 0.5px;">
+                            ${infoEtiqueta.abrev}
+                        </span>
+                        ${esParaMi ? '<span title="¡Esta tarea es para tu franquicia!" style="font-size: 1.1em; animation: pulse 2s infinite;">🔔</span>' : ''}
+                    </div>
+                    
+                    <div style="font-weight: 700; font-size: 0.75em; color: ${colorTextoAsignado}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        Para: ${tarea.asignado}
+                    </div>
+                </div>
+            `;
+        });
+
+        // Inyectamos todo adentro del día
+        divDia.innerHTML = `
+            <div style="font-weight: bold; font-size: 1.1em; color: ${esHoy ? '#ef5a1a' : '#11173d'}; margin-bottom: 8px;">${dia}</div>
+            <div style="flex: 1; display: flex; flex-direction: column;">
+                ${htmlTareas}
+            </div>
+        `;
+
+        // Al hacer clic en el espacio en blanco del día, abre para crear una tarea nueva
+        divDia.onclick = () => {
+            window.abrirFormularioMarketing(fechaString);
+        };
+
+        grid.appendChild(divDia);
+    }
+};
+
+// Función para ver los detalles de una tarea en el MODAL PREMIUM
+window.verDetalleTareaMkt = (event, idTarea) => {
+    event.stopPropagation(); // Evita que se abra el modal de "Crear Tarea" al hacer clic
+    
+    const tarea = tareasMarketingGlobal.find(t => t.id === idTarea);
+    if(!tarea) return;
+
+    const modal = document.getElementById('modal-detalle-tarea');
+    if(!modal) return;
+
+    // 1. Formatear la fecha linda (De 2026-05-15 a 15/05/2026)
+    const partes = tarea.fecha.split('-');
+    const fechaFormat = `${partes[2]}/${partes[1]}/${partes[0]}`;
+
+    // 2. Llenar los textos
+    document.getElementById('detalle-tarea-tipo').innerText = tarea.tipo;
+    document.getElementById('detalle-tarea-fecha').innerText = `📅 Entrega: ${fechaFormat}`;
+    document.getElementById('detalle-tarea-asignado').innerText = tarea.asignado;
+    
+    // 3. Llenar el Link (Ahora es un link real clickeable)
+    const driveLink = document.getElementById('detalle-tarea-drive');
+    driveLink.href = tarea.drive;
+    driveLink.innerText = tarea.drive;
+
+    document.getElementById('detalle-tarea-notas').innerText = tarea.notas;
+    document.getElementById('detalle-tarea-creador').innerText = tarea.creador;
+
+    // 4. Chequear permisos para mostrar el botón de Borrar
+    const puedeBorrar = userData && (userData.rol === 'admin' || userData.rol === 'editor' || currentUser.email === tarea.creador);
+    const btnBorrar = document.getElementById('btn-borrar-tarea');
+    
+    if (puedeBorrar) {
+        btnBorrar.style.display = 'flex'; // Muestra el botón rojo
+        btnBorrar.onclick = async () => {
+            // Confirmación de seguridad
+            if(await window.showConfirm("⚠️ ¿Seguro que querés ELIMINAR esta tarea del calendario?")) {
+                showLoader(true, "Borrando tarea...");
+                try {
+                    await db.collection('calendario_marketing').doc(idTarea).delete();
+                    modal.style.display = 'none'; // Cierra el modal lindo
+                    await window.renderizarCalendario(); // Redibuja el mes
+                    window.showAlert("Tarea eliminada", "success");
+                } catch(e) {
+                    console.error(e);
+                    window.showAlert("Error al borrar", "error");
+                }
+                showLoader(false);
+            }
+        };
+    } else {
+        btnBorrar.style.display = 'none'; // Oculta el botón si no tiene permisos
+    }
+
+    // 5. Mostrar el modal en pantalla
+    modal.style.display = 'flex';
+};
+
+// Cerrar el modal tocando el fondo oscuro
+const modalDetalleMkt = document.getElementById('modal-detalle-tarea');
+if(modalDetalleMkt) {
+    modalDetalleMkt.addEventListener('click', (e) => {
+        if(e.target === modalDetalleMkt) modalDetalleMkt.style.display = 'none';
+    });
+}
+
+// --- 2. CONTROLES DEL CALENDARIO ---
+const btnAnt = document.getElementById('btn-mes-anterior');
+const btnSig = document.getElementById('btn-mes-siguiente');
+
+if(btnAnt) {
+    btnAnt.addEventListener('click', () => {
+        const hoy = new Date();
+        // Calculamos el mes mínimo permitido (hace 2 meses)
+        const mesMinimo = new Date(hoy.getFullYear(), hoy.getMonth() - 2, 1);
+        // El mes al que queremos ir
+        const mesDestino = new Date(currentDateMarketing.getFullYear(), currentDateMarketing.getMonth() - 1, 1);
+
+        if (mesDestino < mesMinimo) {
+            window.showAlert("Solo se puede visualizar hasta 2 meses atrás.", "info");
+            return;
+        }
+
+        currentDateMarketing.setMonth(currentDateMarketing.getMonth() - 1);
+        window.renderizarCalendario();
+    });
+}
+
+if(btnSig) {
+    btnSig.addEventListener('click', () => {
+        currentDateMarketing.setMonth(currentDateMarketing.getMonth() + 1);
+        window.renderizarCalendario();
+    });
+}
+
+// --- 3. GESTIÓN DE ETIQUETAS DE MARKETING ---
+let etiquetasMarketingGlobal = [];
+
+window.cargarEtiquetasMarketing = async () => {
+    const contenedor = document.getElementById('lista-etiquetas-admin');
+    const selectModal = document.getElementById('marketing-tipo');
+    try {
+        const doc = await db.collection('metadata').doc('config').get();
+        if(doc.exists && doc.data().tipos_marketing) etiquetasMarketingGlobal = doc.data().tipos_marketing;
+
+        if(contenedor) {
+            contenedor.innerHTML = '';
+            if(etiquetasMarketingGlobal.length === 0) contenedor.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay etiquetas creadas.</span>';
+            etiquetasMarketingGlobal.forEach((eti, index) => {
+                contenedor.innerHTML += `
+                <div style="background: ${eti.color}15; border: 1px solid ${eti.color}; color: #11173d; padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 0.85em;">
+                    <span style="background: ${eti.color}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">${eti.abrev}</span>
+                    <b>${eti.nombre}</b>
+                    <button onclick="borrarEtiquetaMkt(${index})" style="background: transparent; border: none; color: #e74c3c; cursor: pointer; font-weight: bold;">×</button>
+                </div>`;
+            });
+        }
+
+        if(selectModal) {
+            selectModal.innerHTML = '<option value="">Seleccionar...</option>';
+            etiquetasMarketingGlobal.forEach(eti => { selectModal.innerHTML += `<option value="${eti.nombre}">${eti.nombre}</option>`; });
+        }
+
+        const leyendaCalendario = document.getElementById('leyenda-etiquetas-marketing');
+        if(leyendaCalendario) {
+            leyendaCalendario.innerHTML = '';
+            if(etiquetasMarketingGlobal.length === 0) {
+                leyendaCalendario.innerHTML = '<span style="color: #999; font-size: 0.8em;">No hay etiquetas creadas.</span>';
+            } else {
+                etiquetasMarketingGlobal.forEach(eti => {
+                    leyendaCalendario.innerHTML += `
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85em; color: #555; background: #f9fafb; padding: 4px 10px; border-radius: 6px; border: 1px solid #e5e7eb;">
+                            <span style="background: ${eti.color}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">${eti.abrev}</span>
+                            <span style="font-weight: 500;">= ${eti.nombre}</span>
+                        </div>
+                    `;
+                });
+            }
+        }
+        
+    } catch(e) { console.error("Error al cargar etiquetas:", e); }
+};
+ 
+
+
+
+const btnNuevaEti = document.getElementById('btn-agregar-etiqueta');
+if(btnNuevaEti) {
+    btnNuevaEti.addEventListener('click', async () => {
+        const nombre = document.getElementById('admin-etiqueta-nombre').value.trim();
+        const abrev = document.getElementById('admin-etiqueta-abrev').value.trim().toUpperCase();
+        const color = document.getElementById('admin-etiqueta-color').value;
+        if(!nombre || !abrev) return window.showAlert("Completá nombre y abreviatura", "error");
+
+        etiquetasMarketingGlobal.push({ nombre, abrev, color });
+        showLoader(true, "Guardando etiqueta...");
+        try {
+            await db.collection('metadata').doc('config').set({ tipos_marketing: etiquetasMarketingGlobal }, { merge: true });
+            document.getElementById('admin-etiqueta-nombre').value = '';
+            document.getElementById('admin-etiqueta-abrev').value = '';
+            await window.cargarEtiquetasMarketing();
+        } catch(e) { window.showAlert("Error al guardar", "error"); }
+        showLoader(false);
+    });
+}
+
+window.borrarEtiquetaMkt = async (index) => {
+    if(!confirm("¿Borrar esta etiqueta?")) return;
+    etiquetasMarketingGlobal.splice(index, 1);
+    showLoader(true, "Borrando...");
+    try { await db.collection('metadata').doc('config').update({ tipos_marketing: etiquetasMarketingGlobal }); await window.cargarEtiquetasMarketing(); } 
+    catch(e) { window.showAlert("Error", "error"); }
+    showLoader(false);
+};
+
+// --- 4. FORMULARIO Y MODAL DE TAREAS ---
+const modalMkt = document.getElementById('modal-marketing');
+const formMkt = document.getElementById('form-marketing');
+const selectAsignado = document.getElementById('marketing-asignado');
+
+window.abrirFormularioMarketing = async (fechaElegida) => {
+    if (!modalMkt) return;
+    const partes = fechaElegida.split('-');
+    document.getElementById('marketing-fecha-display').innerText = `${partes[2]}/${partes[1]}/${partes[0]}`;
+    document.getElementById('marketing-fecha-input').value = fechaElegida;
+    
+    selectAsignado.innerHTML = '<option value="">Seleccionar...</option><option value="TODOS">📢 A Todas las Franquicias</option>';
+    try {
+        const doc = await db.collection('metadata').doc('config').get();
+        if (doc.exists && doc.data().franquicias) {
+            doc.data().franquicias.forEach(f => selectAsignado.innerHTML += `<option value="${f}">🏢 ${f}</option>`);
+        }
+    } catch(e) { console.error(e); }
+    
+    modalMkt.style.display = 'flex';
+};
+
+const btnCerrarMkt = document.getElementById('modal-marketing-cerrar');
+if(btnCerrarMkt) btnCerrarMkt.onclick = () => { modalMkt.style.display = 'none'; formMkt.reset(); };
+
+if (formMkt) {
+    formMkt.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        showLoader(true, "Guardando tarea...");
+        const payload = {
+            fecha: document.getElementById('marketing-fecha-input').value,
+            tipo: document.getElementById('marketing-tipo').value,
+            asignado: document.getElementById('marketing-asignado').value,
+            drive: document.getElementById('marketing-drive').value,
+            notas: document.getElementById('marketing-notas').value,
+            creador: (userData && userData.franquicia) ? userData.franquicia : (currentUser ? currentUser.email : 'Anónimo'),
+            timestamp: Date.now()
+        };
+
+        try {
+            await db.collection('calendario_marketing').add(payload);
+            window.showAlert("¡Tarea asignada con éxito!", "success");
+            modalMkt.style.display = 'none';
+            formMkt.reset();
+
+            await window.renderizarCalendario();
+            // Acá en el próximo paso inyectaremos la función para dibujar la tarea en pantalla
+        } catch(error) {
+            console.error(error);
+            window.showAlert("Error al guardar en BD.", "error");
+        }
+        showLoader(false);
+    });
+}
+
+
 // ==========================================
 // MÓDULO: GESTIÓN DE FRANQUICIAS DINÁMICAS
 // ==========================================
 const inputNuevaFranquicia = document.getElementById('admin-nueva-franquicia');
 const btnAgregarFranquicia = document.getElementById('btn-agregar-franquicia');
-const contenedorFranquicias = document.getElementById('lista-franquicias-admin');
+
+let modoEdicionFranquicias = false;
+
+// Botón Lápiz para activar/desactivar el modo edición
+const btnToggleEditFranq = document.getElementById('btn-toggle-edit-franq');
+if (btnToggleEditFranq) {
+    btnToggleEditFranq.addEventListener('click', () => {
+        modoEdicionFranquicias = !modoEdicionFranquicias;
+        btnToggleEditFranq.style.background = modoEdicionFranquicias ? '#e5e7eb' : 'transparent';
+        window.cargarFranquiciasAdmin(); // Redibujar las pastillas
+    });
+}
 
 // 1. Función para descargar y dibujar las franquicias
 window.cargarFranquiciasAdmin = async () => {
-    if(!contenedorFranquicias) return;
+    const contenedorFranquicias = document.getElementById('lista-franquicias-admin');
+    const selectCrearUsuario = document.getElementById('user-franchise-input');
+    const contadorDiv = document.getElementById('contador-franquicias'); 
+    
+    // 👇 NUEVO: Atrapamos el selector del buscador de "Solo X Hoy"
+    const filtroCreador = document.getElementById('filtro-creador'); 
+    
     try {
         const doc = await db.collection('metadata').doc('config').get();
         let franquicias = [];
-        
-        if(doc.exists && doc.data().franquicias) {
-            franquicias = doc.data().franquicias;
+        if(doc.exists && doc.data().franquicias) franquicias = doc.data().franquicias;
+
+        // Actualizar el mini-contador (INTACTO)
+        if (contadorDiv) contadorDiv.innerText = franquicias.length;
+
+        // Dibujar pastillitas (INTACTO)
+        if(contenedorFranquicias) {
+            contenedorFranquicias.innerHTML = '';
+            if (franquicias.length === 0) {
+                contenedorFranquicias.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay franquicias cargadas aún.</span>';
+            } else {
+                franquicias.forEach((franq, index) => {
+                    if (modoEdicionFranquicias) {
+                        // MODO EDICIÓN (Rojas y clickeables)
+                        contenedorFranquicias.innerHTML += `
+                            <span onclick="window.gestionarFranquicia(${index}, '${franq}')" 
+                                  style="cursor: pointer; background: #fce8e6; color: #d93025; padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; border: 1px solid #fad2cf; transition: 0.2s;" 
+                                  onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1" title="Clic para Editar o Borrar">
+                                ✏️ ${franq}
+                            </span>`;
+                    } else {
+                        // MODO NORMAL (Verdes)
+                        contenedorFranquicias.innerHTML += `
+                            <span style="background: #e6f4ea; color: #1e8e3e; padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; border: 1px solid #ceead6;">
+                                🏢 ${franq}
+                            </span>`;
+                    }
+                });
+            }
         }
 
-        contenedorFranquicias.innerHTML = '';
-        if (franquicias.length === 0) {
-            contenedorFranquicias.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay franquicias cargadas aún.</span>';
-        } else {
-            franquicias.forEach(franq => {
-                contenedorFranquicias.innerHTML += `
-                    <span style="background: #e6f4ea; color: #1e8e3e; padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; border: 1px solid #ceead6;">
-                        🏢 ${franq}
-                    </span>`;
-            });
+        // Llenar combo de Crear Usuario (INTACTO)
+        if(selectCrearUsuario) {
+            const valorPrevio = selectCrearUsuario.value;
+            selectCrearUsuario.innerHTML = '<option value="">Seleccioná de la lista...</option>';
+            franquicias.forEach(f => selectCrearUsuario.innerHTML += `<option value="${f}">${f}</option>`);
+            if(valorPrevio) selectCrearUsuario.value = valorPrevio;
         }
-    } catch(e) { 
-        console.error("Error cargando franquicias:", e); 
+
+        // 👇 NUEVO: Llenar el filtro del Buscador "Solo X Hoy"
+        if(filtroCreador) {
+            const valorPrevioFiltro = filtroCreador.value;
+            filtroCreador.innerHTML = '<option value="">Todas las Franquicias</option>';
+            
+            // Le agregamos Casa Central fijo arriba de todo por si no la tenés en la base de franquicias general
+            if (!franquicias.includes("Casa Central")) {
+                filtroCreador.innerHTML += `<option value="Casa Central">Casa Central</option>`;
+            }
+            
+            franquicias.forEach(f => filtroCreador.innerHTML += `<option value="${f}">${f}</option>`);
+            
+            if(valorPrevioFiltro) filtroCreador.value = valorPrevioFiltro;
+        }
+
+    } catch(e) { console.error("Error cargando franquicias:", e); }
+};
+
+// Función para mostrar el cartel lindo de edición
+window.showPromptFranq = (message, defaultValue = '') => {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('custom-prompt-overlay');
+        const input = document.getElementById('custom-prompt-input');
+        
+        input.value = defaultValue;
+        overlay.style.display = 'flex';
+        input.focus();
+
+        document.getElementById('custom-prompt-btn').onclick = () => { overlay.style.display = 'none'; resolve(input.value); };
+        document.getElementById('custom-prompt-cancel').onclick = () => { overlay.style.display = 'none'; resolve(null); };
+        document.getElementById('custom-prompt-borrar').onclick = () => { overlay.style.display = 'none'; resolve('BORRAR'); };
+    });
+};
+
+// Función para Editar o Borrar una franquicia
+window.gestionarFranquicia = async (index, nombreActual) => {
+    // Usamos el cartel premium en vez del feo del navegador
+    const accion = await window.showPromptFranq(`Franquicia original: ${nombreActual}`, nombreActual);
+    
+    if (!accion || accion === nombreActual) return; // Si cancela o no cambia nada
+
+    let franquicias = [];
+    try {
+        const doc = await db.collection('metadata').doc('config').get();
+        if(doc.exists && doc.data().franquicias) franquicias = doc.data().franquicias;
+
+        if (accion.trim().toUpperCase() === 'BORRAR') {
+            if(!await window.showConfirm(`⚠️ ¿Seguro que querés eliminar "${nombreActual}" permanentemente?`)) return;
+            franquicias.splice(index, 1);
+            showLoader(true, "Borrando franquicia...");
+            await db.collection('metadata').doc('config').update({ franquicias });
+        } else {
+            const nuevoNombre = accion.trim();
+            franquicias[index] = nuevoNombre;
+
+            showLoader(true, "Actualizando franquicias y usuarios...");
+            
+            // 1. Guardamos el nuevo nombre en la lista maestra
+            await db.collection('metadata').doc('config').update({ franquicias });
+
+            // 2. MAGIA: Buscamos a todos los usuarios con el nombre viejo y los actualizamos
+            const usersRef = db.collection('usuarios');
+            const snapshot = await usersRef.where('franquicia', '==', nombreActual).get();
+            
+            if (!snapshot.empty) {
+                const batch = db.batch(); // El batch hace los cambios todos juntos de golpe
+                snapshot.forEach(userDoc => {
+                    batch.update(userDoc.ref, { franquicia: nuevoNombre });
+                });
+                await batch.commit();
+                
+                // Recargamos la lista visual de usuarios para que veas el cambio
+                if(typeof loadUsersList === 'function') await loadUsersList(); 
+            }
+        }
+
+        await window.cargarFranquiciasAdmin(); // Refrescar pastillitas
+        showLoader(false);
+        window.showAlert("¡Actualizado con éxito!", "success");
+
+    } catch(e) {
+        console.error(e);
+        window.showAlert("Error al modificar.", "error");
+        showLoader(false);
     }
 };
 
@@ -2298,13 +2795,12 @@ if(btnAgregarFranquicia) {
 
         showLoader(true, "Guardando franquicia...");
         try {
-            // Se guarda en la colección 'metadata', documento 'config'
             await db.collection('metadata').doc('config').set({
                 franquicias: firebase.firestore.FieldValue.arrayUnion(nueva)
-            }, { merge: true }); // Merge true evita que se borren otras configuraciones futuras
+            }, { merge: true });
 
             inputNuevaFranquicia.value = '';
-            await window.cargarFranquiciasAdmin(); // Recarga la vista al instante
+            await window.cargarFranquiciasAdmin();
             window.showAlert("Franquicia guardada correctamente.", "success");
         } catch(e) {
             console.error(e);
@@ -2314,12 +2810,152 @@ if(btnAgregarFranquicia) {
     });
 }
 
-// 3. Que se carguen solas cuando abrimos la página
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
+firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+        // Apenas Firebase confirma que el usuario está logueado, descargamos todo:
         if(typeof window.cargarFranquiciasAdmin === 'function') {
             window.cargarFranquiciasAdmin();
         }
-    }, 1500); // Pequeño delay para asegurar que Firebase ya se conectó
+        if(typeof window.cargarEtiquetasMarketing === 'function') {
+            window.cargarEtiquetasMarketing();
+        }
+        if(typeof window.cargarPromocionesAdmin === 'function') {
+            window.cargarPromocionesAdmin();
+        }
+    }
 });
+
+// ==========================================
+// CONEXIÓN SEGURA DE SUB-PESTAÑAS "SOLO X HOY"
+// ==========================================
+const conectarPestanas = () => {
+    const bs1 = document.getElementById('btn-sub-buscar');
+    const cg1 = document.getElementById('btn-sub-cargar');
+    const bs2 = document.getElementById('btn-sub-buscar-2');
+    const cg2 = document.getElementById('btn-sub-cargar-2');
+
+    // Función directa para ir al buscador
+    const abrirBuscar = () => showView('search');
+    
+    // Función directa para ir a la carga (limpiando formulario)
+    const abrirCargar = () => { 
+        isEditingId = null; 
+        originalCreator = ''; 
+        document.getElementById('upload-form').reset(); 
+        if(dom.containerServicios) dom.containerServicios.innerHTML=''; 
+        showView('upload'); 
+        
+        // Truco visual para que el menú superior de "Solo X Hoy" siga resaltado
+        setTimeout(() => { 
+            if(dom.nav.search) dom.nav.search.classList.add('active'); 
+        }, 50); 
+    };
+
+    // Asignamos el clic a cada botón si existen en la pantalla
+    if(bs1) bs1.onclick = abrirBuscar;
+    if(bs2) bs2.onclick = abrirBuscar;
+    if(cg1) cg1.onclick = abrirCargar;
+    if(cg2) cg2.onclick = abrirCargar;
+};
+conectarPestanas();
+// ==========================================
+// GESTIÓN DINÁMICA DE PROMOCIONES
+// ==========================================
+var promocionesGlobal = [];
+
+window.cargarPromocionesAdmin = async () => {
+    const contenedor = document.getElementById('lista-promos-admin');
+    const filtroPromo = document.getElementById('filtro-promo');
+    const uploadPromo = document.getElementById('upload-promo');
+
+    try {
+        const doc = await db.collection('metadata').doc('config').get();
+        if (doc.exists && doc.data().tipos_promocion) {
+            promocionesGlobal = doc.data().tipos_promocion;
+        } else {
+            promocionesGlobal = [
+                { nombre: "Solo X Hoy", alcance: "todos" },
+                { nombre: "FEED", alcance: "todos" },
+                { nombre: "ADS", alcance: "todos" }
+            ];
+        }
+
+        const esAdmin = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+
+        // 1. RENDERIZAR PANEL ADMIN
+        if(contenedor) {
+            contenedor.innerHTML = '';
+            if(promocionesGlobal.length === 0) contenedor.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay promociones.</span>';
+            promocionesGlobal.forEach((promo, index) => {
+                const isCc = promo.alcance === 'casa_central';
+                contenedor.innerHTML += `
+                <div style="background: #f9fafb; border: 1px solid #e5e7eb; color: #11173d; padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 0.85em;">
+                    <b>${promo.nombre}</b>
+                    <span style="background: ${isCc ? '#e74c3c' : '#2ecc71'}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em;">
+                        ${isCc ? 'Solo C. Central' : 'Todos'}
+                    </span>
+                    <button onclick="borrarPromoAdmin(${index})" style="background: transparent; border: none; color: #e74c3c; cursor: pointer; font-weight: bold;">×</button>
+                </div>`;
+            });
+        }
+
+        // 2. RENDERIZAR BUSCADOR Y CARGA
+        if(filtroPromo && uploadPromo) {
+            const valorFiltro = filtroPromo.value;
+            const valorUpload = uploadPromo.value;
+            
+            filtroPromo.innerHTML = '<option value="">Todas</option>';
+            uploadPromo.innerHTML = '';
+
+            promocionesGlobal.forEach(promo => {
+                // Si es secreta y NO es admin, omitimos todo (Filtro e Invisibilidad)
+                if (promo.alcance === 'casa_central' && !esAdmin) return;
+                
+                filtroPromo.innerHTML += `<option value="${promo.nombre}">${promo.nombre}</option>`;
+
+                let textoExtra = '';
+                if(!esAdmin && promo.nombre !== 'Solo X Hoy') textoExtra = ' (Requiere Aprobación)';
+                uploadPromo.innerHTML += `<option value="${promo.nombre}">${promo.nombre}${textoExtra}</option>`;
+            });
+
+            if(valorFiltro) filtroPromo.value = valorFiltro;
+            if(valorUpload) uploadPromo.value = valorUpload;
+        }
+
+        // Refrescar grilla para aplicar invisibilidad si hubo cambios
+        if(typeof applyFilters === 'function') applyFilters();
+
+    } catch(e) { console.error("Error promociones:", e); }
+};
+
+const btnNuevaPromo = document.getElementById('btn-agregar-promo');
+if(btnNuevaPromo) {
+    btnNuevaPromo.addEventListener('click', async () => {
+        const nombre = document.getElementById('admin-promo-nombre').value.trim();
+        const alcance = document.getElementById('admin-promo-alcance').value;
+        if(!nombre) return window.showAlert("Completá el nombre de la promoción", "error");
+
+        promocionesGlobal.push({ nombre, alcance });
+        showLoader(true, "Guardando...");
+        try {
+            await db.collection('metadata').doc('config').set({ tipos_promocion: promocionesGlobal }, { merge: true });
+            document.getElementById('admin-promo-nombre').value = '';
+            await window.cargarPromocionesAdmin();
+        } catch(e) { window.showAlert("Error", "error"); }
+        showLoader(false);
+    });
+}
+
+window.borrarPromoAdmin = async (index) => {
+    if(!await window.showConfirm("¿Borrar esta promoción permanentemente?")) return;
+    promocionesGlobal.splice(index, 1);
+    showLoader(true, "Borrando...");
+    try { 
+        await db.collection('metadata').doc('config').update({ tipos_promocion: promocionesGlobal }); 
+        await window.cargarPromocionesAdmin(); 
+    } catch(e) { window.showAlert("Error", "error"); }
+    showLoader(false);
+};
+
+
 });
