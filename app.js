@@ -2333,9 +2333,18 @@ window.renderizarCalendario = async () => {
         const esHoy = (dia === hoyReal.getDate() && mes === hoyReal.getMonth() && anio === hoyReal.getFullYear());
         const divDia = document.createElement('div');
         
-        // El recuadro del día (naranja si es hoy)
+        // Calculamos qué día de la semana es (0 = Domingo, 6 = Sábado)
+        const fechaCelda = new Date(anio, mes, dia);
+        const diaSemana = fechaCelda.getDay();
+        const esFinde = (diaSemana === 0 || diaSemana === 6);
+
+        // Determinamos el color de fondo: gris si es finde, blanco si es semana
+        const colorFondo = esFinde ? '#f3f4f6' : 'white';
+        const opacidadFinde = esFinde ? '0.6' : '1'; // Lo hacemos un poquito más transparente
+
+        // El recuadro del día (naranja si es hoy, gris si es finde)
         divDia.style.cssText = `
-            background: white; border: 1px solid ${esHoy ? '#ef5a1a' : '#e5e7eb'}; border-radius: 8px; 
+            background: ${colorFondo}; opacity: ${opacidadFinde}; border: 1px solid ${esHoy ? '#ef5a1a' : '#e5e7eb'}; border-radius: 8px; 
             min-height: 120px; padding: 10px; display: flex; flex-direction: column; cursor: pointer;
             transition: box-shadow 0.2s, transform 0.2s; box-shadow: ${esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none'};
         `;
@@ -2420,10 +2429,17 @@ window.verDetalleTareaMkt = (event, idTarea) => {
     document.getElementById('detalle-tarea-fecha').innerText = `📅 Entrega: ${fechaFormat}`;
     document.getElementById('detalle-tarea-asignado').innerText = tarea.asignado;
     
-    // 3. Llenar el Link (Ahora es un link real clickeable)
+    // 3. Llenar el Link (Ahora se oculta si está vacío)
     const driveLink = document.getElementById('detalle-tarea-drive');
-    driveLink.href = tarea.drive;
-    driveLink.innerText = tarea.drive;
+    const contenedorDrive = document.getElementById('contenedor-detalle-drive');
+
+    if (tarea.drive && tarea.drive.trim() !== "") {
+        contenedorDrive.style.display = 'block'; // Mostramos la caja si hay link
+        driveLink.href = tarea.drive;
+        driveLink.innerText = tarea.drive; 
+    } else {
+        contenedorDrive.style.display = 'none'; // Ocultamos toda la sección si está vacío
+    }
 
     document.getElementById('detalle-tarea-notas').innerText = tarea.notas;
     document.getElementById('detalle-tarea-creador').innerText = tarea.creador;
