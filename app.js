@@ -2820,7 +2820,7 @@ if(btnAgregarFranquicia) {
             window.showAlert("Franquicia guardada correctamente.", "success");
         } catch(e) {
             console.error(e);
-            window.showAlert("Error al conectar con la base de datos.", "error");
+            window.showAlert("Error técnico: " + error.message, "error");
         }
         showLoader(false);
     });
