@@ -1440,7 +1440,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success');
             }
         } catch(e) { 
-            window.showAlert('Error al conectar con la base de datos.', 'error'); 
+            window.showAlert("Falla exacta: " + error.message, "error");
             console.error("Fallo el guardado en Firebase:", e);
             showLoader(false);
             return; // Si no hay internet o falla, cortamos todo acá.
