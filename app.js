@@ -1428,6 +1428,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     timestamp: Date.now(),
                     fecha_creacion: fechaCreacionFormateada,
                 };
+
+        // 🧹 FILTRO DE LIMPIEZA: Borramos campos sin nombre o undefined para que Firebase no explote
+        Object.keys(payload).forEach(key => {
+            if (key === "" || payload[key] === undefined) {
+                delete payload[key];
+            }
+        });
         
        // PASO 1 y 2: Guardamos en la base de datos de FIREBASE
         showLoader(true, "Guardando paquete...");
