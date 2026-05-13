@@ -1429,12 +1429,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     fecha_creacion: fechaCreacionFormateada,
                 };
 
-        // 🧹 FILTRO DE LIMPIEZA: Borramos campos sin nombre o undefined para que Firebase no explote
-        Object.keys(payload).forEach(key => {
-            if (key === "" || payload[key] === undefined) {
-                delete payload[key];
+        // 🧹 FILTRO PROFUNDO: Busca y destruye campos sin nombre o undefined en TODOS los niveles
+        const limpiarProfundo = (obj) => {
+            if (obj !== null && typeof obj === 'object') {
+                Object.keys(obj).forEach(key => {
+                    if (key.trim() === "" || obj[key] === undefined) {
+                        delete obj[key];
+                    } else {
+                        limpiarProfundo(obj[key]); // Se mete adentro de las subcarpetas a limpiar
+                    }
+                });
             }
-        });
+        };
+        limpiarProfundo(payload);
         
        // PASO 1 y 2: Guardamos en la base de datos de FIREBASE
         showLoader(true, "Guardando paquete...");
