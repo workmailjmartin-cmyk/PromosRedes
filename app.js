@@ -1111,8 +1111,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
-        else if(tipo === 'crucero') {
-            // Lógica para cuando se edita un paquete
+       else if(tipo === 'crucero') {
+            // Limpiamos el ID para que no tenga puntos decimales que rompan el CSS
+            const idLimpio = String(id).replace('.', '_'); 
+            
             let paradasHtml = '';
             let paradasValue = '';
             if (data && data.crucero_paradas) {
@@ -1120,13 +1122,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const paradasArray = data.crucero_paradas.split(' - ');
                 paradasArray.forEach((p, index) => {
                     paradasHtml += `<div style="display:flex; gap:5px; margin-bottom:5px;">
-                        <input type="text" class="form-control parada-input-${id}" value="${p}" oninput="window.actualizarParadas('${id}')">
-                        ${index > 0 ? `<button type="button" class="btn btn-secundario" style="padding:2px 8px;" onclick="this.parentElement.remove(); window.actualizarParadas('${id}');">🗑️</button>` : ''}
+                        <input type="text" class="form-control parada-input-${idLimpio}" value="${p}" oninput="window.actualizarParadas('${idLimpio}')">
+                        ${index > 0 ? `<button type="button" class="btn btn-secundario" style="padding:2px 8px;" onclick="this.parentElement.remove(); window.actualizarParadas('${idLimpio}');">🗑️</button>` : ''}
                     </div>`;
                 });
             } else {
                 paradasHtml = `<div style="display:flex; gap:5px; margin-bottom:5px;">
-                    <input type="text" class="form-control parada-input-${id}" placeholder="Ej: Punta del Este..." oninput="window.actualizarParadas('${id}')">
+                    <input type="text" class="form-control parada-input-${idLimpio}" placeholder="Ej: Punta del Este..." oninput="window.actualizarParadas('${idLimpio}')">
                 </div>`;
             }
 
@@ -1440,7 +1442,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await window.showAlert(status === 'pending' ? 'Enviado a revisión.' : 'Guardado correctamente.', 'success');
             }
         } catch(e) { 
-            window.showAlert("Falla exacta: " + error.message, "error");
+            window.showAlert("Falla exacta: " + e.message, "error");
             console.error("Fallo el guardado en Firebase:", e);
             showLoader(false);
             return; // Si no hay internet o falla, cortamos todo acá.
