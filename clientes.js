@@ -21,6 +21,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cambiá este número por el de tu agencia (sin el +, ej: 5491100000000)
     const WPP_NUMBER = "5493512444868";
 
+    // --- RECARGAR AL TOCAR EL LOGO ---
+    const logoB2C = document.querySelector('.logo img');
+    if (logoB2C) {
+        logoB2C.style.cursor = 'pointer';
+        logoB2C.addEventListener('click', () => window.location.reload());
+    }
+
     // DOM Elements
     const dom = {
         grid: document.getElementById('grilla-paquetes'),
@@ -456,10 +463,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
             
-            <div style="background:#11173d; color:white; padding:20px; display:flex; justify-content:center; align-items:center; border-radius:0 0 12px 12px;">
-                <div style="text-align:center;">
-                    <small style="opacity:0.8; font-size: 0.9em; text-transform: uppercase;">Tarifa final por persona (Base Doble)</small>
-                    <div style="font-size:2.5em; font-weight:bold; color:#56DDE0; line-height: 1.2;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div>
+           <div style="background:#11173d; color:white; padding:20px 30px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px; flex-wrap:wrap; gap:15px;">
+                <div style="text-align:left;">
+                    <small style="opacity:0.8; font-size: 0.85em; text-transform: uppercase;">Tarifa final por persona (Base Doble)</small>
+                    <div style="font-size:2.5em; font-weight:bold; color:#56DDE0; line-height: 1.1;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div>
+                </div>
+                <div style="text-align:right; max-width: 250px;">
+                    <small style="color: #ef5a1a; font-size: 0.85em; line-height: 1.3; display: block; font-weight: 500;">
+                        * Tarifas y cupos sujetos a disponibilidad.<br>
+                        Revisar <a href="https://felizviaje.tur.ar/informacion-antes-de-contratar" target="_blank" style="color: #56DDE0; text-decoration: underline;">bases y condiciones</a>.
+                    </small>
                 </div>
             </div>`;
         dom.modal.style.display = 'flex';
