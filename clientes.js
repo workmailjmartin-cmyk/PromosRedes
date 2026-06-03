@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- NÚMERO OFICIAL DE WHATSAPP ---
     // Colocá acá el número de la franquicia o el bot principal (sin el +, ej: 5491100000000)
-    const WPP_NUMBER = "5491100000000";
+    const WPP_NUMBER = "5493512444868";
 
     const showLoader = (show) => { 
         if(dom.loader) dom.loader.style.display = show ? 'flex' : 'none'; 
