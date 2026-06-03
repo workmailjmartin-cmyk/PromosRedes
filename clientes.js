@@ -42,6 +42,27 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
+    
+    function getNoches(pkg) {
+        let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
+        if(!Array.isArray(servicios)) return 0;
+        let totalHotel = 0; let hayHotel = false;
+        servicios.forEach(s => { if (s.tipo === 'hotel' && s.noches) { totalHotel += parseInt(s.noches) || 0; hayHotel = true; } });
+        if(hayHotel && totalHotel > 0) return totalHotel;
+        const bus = servicios.find(s => s.tipo === 'bus'); if (bus && bus.noches) return parseInt(bus.noches);
+        const crucero = servicios.find(s => s.tipo === 'crucero'); if (crucero && crucero.crucero_noches) return parseInt(crucero.crucero_noches);
+        const circuito = servicios.find(s => s.tipo === 'circuito'); if (circuito && circuito.circuito_noches) return parseInt(circuito.circuito_noches);
+        if(!pkg['fecha_salida']) return 0;
+        let fechaStr = pkg['fecha_salida']; if(fechaStr.includes('/')) fechaStr = fechaStr.split('/').reverse().join('-');
+        const start = new Date(fechaStr + 'T00:00:00'); let maxDate = new Date(start), hasData = false;
+        servicios.forEach(s => {
+            if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+            if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+            if(s.tipo==='crucero'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+            if(s.tipo==='circuito'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+        });
+        return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
+    }
 
     // --- REGLA DE LA CENICIENTA (CORTE 12:00 HS ARGENTINA) ---
     const getCutoffEpoch = () => {
@@ -141,6 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             
             // Calculamos noches y aéreos simple
+            const noches = getNoches(pkg); // <--- AGREGAMOS ESTO
             let sGrid = []; try { sGrid = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e){}
             const tieneAereo = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'aereo');
             const esCircuito = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'circuito');
@@ -157,9 +179,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="card-clickable" style="height:100%;">
                     <div class="card-header">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
-                            <div style="max-width:85%;">
+                            <div style="max-width:75%; padding-right:10px;">
                                 <h3 style="margin:0;font-size:1.4em;line-height:1.2;color:#11173d;">${pkg.destino}</h3>
                             </div>
+                            <!-- MAGIA: PASTILLA DE NOCHES -->
+                            ${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:5px 10px;border-radius:12px;font-weight:bold;font-size:0.8em;white-space:nowrap;">🌙 ${noches}</div>` : ''}
                         </div>
                         <div class="fecha">📅 Salida: ${fechaMostrar}</div>
                     </div>
