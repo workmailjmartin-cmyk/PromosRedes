@@ -207,84 +207,67 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- MODAL DE CLIENTES (SIN HERRAMIENTAS INTERNAS) ---
-    function openModal(pkg, serviciosModal, fechaModal) {
+    // --- MODAL DE CLIENTES B2C ---
+    function openModal(pkg) {
+        if (typeof renderServiciosClienteHTML !== 'function') return alert("Falta la función renderServiciosClienteHTML.");
         
-        let htmlCliente = ''; 
-        if(Array.isArray(serviciosModal)) {
-            serviciosModal.forEach(x => {
-                let i='🔹',t='',l=[]; 
-                if(x.tipo==='aereo'){
-                    i='✈️';t='AÉREO';
-                    l.push(`<b>${x.aerolinea || ''}</b>`);
-                    l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);
-                    let eIda = (x.escalas_ida !== undefined) ? parseInt(x.escalas_ida) : (parseInt(x.escalas) || 0);
-                    let eVuelta = (x.escalas_vuelta !== undefined) ? parseInt(x.escalas_vuelta) : (parseInt(x.escalas) || 0);
-                    l.push(`🔄 IDA: ${eIda===0?'Directo':eIda+' Escala'} | REG: ${eVuelta===0?'Directo':eVuelta+' Escala'}`);
-                } 
-                else if(x.tipo==='hotel'){
-                    i='🏨';t='HOTEL';
-                    let stars = ''; if(x.hotel_estrellas) { for(let k=0; k<x.hotel_estrellas; k++) stars += '⭐'; }
-                    l.push(`<b>${x.hotel_nombre}</b> <span style="color:#ef5a1a;">${stars}</span>`);
-                    l.push(`(${x.regimen})`);
-                    if(x.noches) l.push(`🌙 ${x.noches} Noches`);
-                } 
-                else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} 
-                else if(x.tipo==='seguro'){i='🛡️';t='SEGURO'; if(x.cobertura) l.push(x.cobertura);} 
-                else if(x.tipo==='bus'){
-                    i='🚌'; t='PAQUETE BUS';
-                    if(x.noches) l.push(`🌙 <b>${x.noches} Noches</b>`);
-                    if(x.incluye_alojamiento) { l.push(`🏨 <b>Hotel:</b> ${x.hotel_nombre}`); l.push(`🍽 <b>Régimen:</b> ${x.regimen}`); }
-                    if(x.incluye_excursiones) l.push(`🌲 <b>Excursiones:</b> Incluidas`);
-                }
-                else if(x.tipo === 'crucero'){
-                    i='🚢'; t='CRUCERO';
-                    l.push(`<b>Naviera:</b> ${x.crucero_naviera}`);
-                    if(x.crucero_noches) l.push(`🌙 ${x.crucero_noches} Noches`);
-                    l.push(`Pensión Completa`);
-                }
-                else if(x.tipo === 'circuito'){
-                    i='🗺️'; t='CIRCUITO TERRESTRE';
-                    l.push(`<b>${x.circuito_nombre}</b>`);
-                    if(x.circuito_noches) l.push(`🌙 ${x.circuito_noches} Noches`);
-                }
-                htmlCliente += `<div style="margin-bottom:15px; border-left:3px solid #ddd; padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em; color:#555;">${l.join('<br>')}</div></div>`;
-            });
+        const rawServicios = pkg['servicios'] || pkg['item.servicios']; 
+        let serviciosModal = []; 
+        try { serviciosModal = typeof rawServicios === 'string' ? JSON.parse(rawServicios) : rawServicios; } catch(e) {}
+        
+        let lugarSalidaModal = pkg['salida'];
+        const esCircuitoModal = Array.isArray(serviciosModal) && serviciosModal.some(s => s.tipo === 'circuito');
+        const fechaModal = (!pkg['fecha_salida'] && esCircuitoModal) ? 'Múltiples Salidas' : formatDateAR(pkg['fecha_salida']);
+        const tieneAereoModal = Array.isArray(serviciosModal) && serviciosModal.some(s => s.tipo === 'aereo');
+        if (!tieneAereoModal) {
+            const crucero = Array.isArray(serviciosModal) && serviciosModal.find(s => s.tipo === 'crucero');
+            const circuito = Array.isArray(serviciosModal) && serviciosModal.find(s => s.tipo === 'circuito');
+            if (crucero && crucero.crucero_puerto_salida) {
+                lugarSalidaModal = crucero.crucero_puerto_salida;
+            } else if (circuito && circuito.circuito_salida) {
+                lugarSalidaModal = circuito.circuito_salida;
+            }
         }
-
+        
+        const htmlCliente = renderServiciosClienteHTML(rawServicios); 
+        const noches = getNoches(pkg); 
         const tarifa = parseFloat(pkg['tarifa']) || 0; 
         const tarifaDoble = Math.round(tarifa / 2); 
         
-        // Link directo a WhatsApp con texto prearmado
-        const mensajeWa = encodeURIComponent(`Hola Feliz Viaje! Vengo de la web y quiero consultar por el paquete a ${pkg['destino']} (Salida: ${fechaModal}). ¿Me pasan más info?`);
+        // Link de WhatsApp que se lleva el nombre del paquete
+        const mensajeWa = encodeURIComponent(`Hola Feliz Viaje! Vengo de la web y quiero consultar por el paquete a ${pkg['destino']} (Salida: ${fechaModal}).`);
         const btnConsultarWpp = `<a href="https://wa.me/${WPP_NUMBER}?text=${mensajeWa}" target="_blank" style="background: #25d366; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; text-align: center; display: block; margin-top: 20px; font-size: 1.1em; transition: 0.2s;" onmouseover="this.style.background='#1da851'" onmouseout="this.style.background='#25d366'">💬 Consultar al Asesor</a>`;
 
         dom.modalBody.innerHTML = `
             <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
-                <h2 style="margin:0;font-size:2.2em;line-height:1.1;">${pkg.destino}</h2>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <h2 style="margin:0;font-size:2.2em;line-height:1.1;">${pkg['destino']}</h2>
+                </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">
                 <div>
-                    <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Servicios Incluidos</h3>
-                    ${htmlCliente || '<p>Servicios a confirmar</p>'}
+                    <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>
+                    ${htmlCliente}
                 </div>
-                
-                <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content; border: 1px solid #eee;">
-                    <h4 style="margin:0 0 15px 0; color:#11173d; font-size:1.2em;">Resumen del Viaje</h4>
-                    <p style="margin:8px 0; font-size:0.95em;"><b>📅 Salida:</b> ${fechaModal}</p>
-                    <p style="margin:8px 0; font-size:0.95em;"><b>📍 Desde:</b> ${pkg.salida || '-'}</p>
+                <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content; border: 1px solid #e5e7eb;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                        <h4 style="margin:0; color:#11173d;">Resumen del Viaje</h4>
+                    </div>
+                    <p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${fechaModal}</p>
+                    <p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${lugarSalidaModal}</p>
+                    <p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p>
                     
-                    ${pkg.financiacion ? `<div style="margin-top:20px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em; color:#11173d;"><b>💳 Financiación / Notas:</b><br>${pkg.financiacion}</div>` : ''}
+                    ${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación / Notas:</b><br>${pkg['financiacion']}</div>` : ''}
                     
                     ${btnConsultarWpp}
                 </div>
             </div>
             
-            <div style="background:#11173d; color:white; padding:20px; display:flex; justify-content:center; align-items:center; border-radius:0 0 12px 12px;">
+            <div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:center; align-items:center; border-radius:0 0 12px 12px;">
                 <div style="text-align:center;">
-                    <small style="opacity:0.8; font-size: 0.9em; text-transform: uppercase;">Tarifa final por persona (Base Doble)</small>
-                    <div style="font-size:2em; font-weight:bold; color:#56DDE0;">${pkg.moneda} $${formatMoney(tarifaDoble)}</div>
+                    <small style="opacity:0.7; text-transform: uppercase;">Tarifa final por Persona (Base Doble)</small>
+                    <div style="font-size:2.5em; font-weight:bold; color:#56DDE0; line-height: 1;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div>
                 </div>
             </div>`;
         
