@@ -245,7 +245,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.className = 'paquete-card'; 
             const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; 
-            const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`; 
             
             const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢','circuito':'🗺️'};
             const summaryIcons = [...new Set((Array.isArray(sGrid)?sGrid:[]).map(x => m[x.tipo] || '🔹'))].join(' '); 
@@ -266,8 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-size:0.85em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div>
                     </div>
                     
-                    <div class="card-footer" style="display:flex; justify-content:space-between; align-items:flex-end;">
-                        <div><span style="${bubbleStyle}">${pkg.tipo_promo || 'PROMO'}</span></div>
+                    <div class="card-footer" style="display:flex; justify-content:flex-end; align-items:flex-end;">
                         <div style="text-align: right;">
                             <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${lugarSalidaGrid || 'Varias'}</div>
                             <p class="precio-valor" style="margin: 5px 0 0 0;">
@@ -303,7 +301,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const noches = getNoches(pkg); 
         const tarifa = parseFloat(pkg['tarifa']) || 0; 
         const tarifaDoble = Math.round(tarifa / 2); 
-        const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`; 
 
         const mensajeWa = encodeURIComponent(`Hola Feliz Viaje! Vengo de la web y quiero consultar por el paquete a ${pkg['destino']} (Salida: ${fechaModal}).`);
         const btnConsultarWpp = `<a href="https://wa.me/${WPP_NUMBER}?text=${mensajeWa}" target="_blank" style="background: #25d366; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; text-align: center; display: block; margin-top: 20px; font-size: 1.1em; transition: 0.2s; box-shadow: 0 4px 10px rgba(37,211,102,0.3);" onmouseover="this.style.background='#1da851'" onmouseout="this.style.background='#25d366'">💬 Consultar al Asesor</a>`;
@@ -313,7 +310,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <h2 style="margin:0;font-size:2.2em;line-height:1.1;">${pkg['destino']}</h2>
                 </div>
-                <div style="margin-top:5px;"><span style="${bubbleStyle}">${pkg['tipo_promo'] || 'PROMO'}</span></div>
             </div>
 
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">

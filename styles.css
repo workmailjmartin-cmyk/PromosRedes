@@ -462,14 +462,28 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     display: flex; align-items: center; gap: 15px;
 }
 .wa-tooltip {
-    background: #fff; color: #11173d; padding: 12px 18px; border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15); font-weight: 600; font-size: 0.85em;
-    position: relative; border: 1px solid #e5e7eb; line-height: 1.4;
-    animation: floatWa 3s ease-in-out infinite; text-align: center;
+    background: rgba(86, 221, 224, 0.95); /* Celeste transparente */
+    color: #11173d; /* Texto azul oscuro */
+    padding: 12px 18px; 
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
+    font-weight: 600; 
+    font-size: 0.85em;
+    position: relative; 
+    border: 1px solid rgba(86, 221, 224, 1); 
+    line-height: 1.4;
+    animation: floatWa 3s ease-in-out infinite; 
+    text-align: center;
 }
 .wa-tooltip::after {
-    content: ''; position: absolute; right: -8px; top: 50%; transform: translateY(-50%);
-    border-top: 8px solid transparent; border-bottom: 8px solid transparent; border-left: 8px solid #fff;
+    content: ''; 
+    position: absolute; 
+    right: -8px; 
+    top: 50%; 
+    transform: translateY(-50%);
+    border-top: 8px solid transparent; 
+    border-bottom: 8px solid transparent; 
+    border-left: 8px solid rgba(86, 221, 224, 0.95); /* Triangulito mismo color celeste */
 }
 .wa-float-btn {
     width: 65px; height: 65px; background-color: #25d366; border-radius: 50%;
