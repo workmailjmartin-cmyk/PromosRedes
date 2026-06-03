@@ -17,6 +17,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const auth = firebase.auth();
     const db = firebase.firestore(); 
 
+    // --- NÚMERO OFICIAL DE WHATSAPP ---
+    // Cambiá este número por el de tu agencia (sin el +, ej: 5491100000000)
+    const WPP_NUMBER = "5493512444868";
+
     // DOM Elements
     const dom = {
         grid: document.getElementById('grilla-paquetes'),
@@ -31,18 +35,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     let allPackages = [];
-    
-    // --- NÚMERO OFICIAL DE WHATSAPP ---
-    // Colocá acá el número de la franquicia o el bot principal (sin el +, ej: 5491100000000)
-    const WPP_NUMBER = "5493512444868";
 
-    const showLoader = (show) => { 
-        if(dom.loader) dom.loader.style.display = show ? 'flex' : 'none'; 
-    };
-    
+    // --- FUNCIONES AUXILIARES ---
+    const showLoader = (show) => { if(dom.loader) dom.loader.style.display = show ? 'flex' : 'none'; };
     const formatMoney = (a) => new Intl.NumberFormat('es-AR', { style: 'decimal', minimumFractionDigits: 0 }).format(a);
     const formatDateAR = (s) => { if(!s) return '-'; const p = s.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
-    
+    const formatEscalasTexto = (n) => { n = parseInt(n) || 0; if (n === 0) return "Directo"; if (n === 1) return "1 Escala"; return `${n} Escalas`; };
+
     function getNoches(pkg) {
         let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {}
         if(!Array.isArray(servicios)) return 0;
@@ -59,15 +58,92 @@ document.addEventListener('DOMContentLoaded', () => {
             if(s.tipo==='hotel'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
             if(s.tipo==='aereo'&&s.fecha_regreso){ const d=new Date(s.fecha_regreso+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
             if(s.tipo==='crucero'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
-            if(s.tipo==='circuito'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} }
+            if(s.tipo==='circuito'&&s.checkout){ const d=new Date(s.checkout+'T00:00:00'); if(d>maxDate){maxDate=d; hasData=true;} } 
         });
         return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
+    }
+
+    // El dibujador del itinerario exacto de tu sistema interno
+    function renderServiciosClienteHTML(rawJson) { 
+        let s=[]; try{s=typeof rawJson==='string'?JSON.parse(rawJson):rawJson;}catch(e){return'<p>-</p>';} 
+        if(!Array.isArray(s)||s.length===0)return'<p>-</p>'; 
+        let h=''; 
+        s.forEach(x=>{ 
+            let i='🔹',t='',l=[]; 
+            if(x.tipo==='aereo'){
+                i='✈️';t='AÉREO';
+                if(x.aeropuerto_salida) l.push(`🛫 <b>Salida desde:</b> ${x.aeropuerto_salida}`);
+                l.push(`<b>${x.aerolinea}</b>`);
+                l.push(`${formatDateAR(x.fecha_aereo)}${x.fecha_regreso?` - ${formatDateAR(x.fecha_regreso)}`:''}`);
+                let eIda = (x.escalas_ida !== undefined) ? parseInt(x.escalas_ida) : (parseInt(x.escalas) || 0);
+                let eVuelta = (x.escalas_vuelta !== undefined) ? parseInt(x.escalas_vuelta) : (parseInt(x.escalas) || 0);
+                let escalasTxt = "";
+                if (eIda === eVuelta) escalasTxt = formatEscalasTexto(eIda);
+                else escalasTxt = `<b>IDA:</b> ${formatEscalasTexto(eIda)} | <b>REG:</b> ${formatEscalasTexto(eVuelta)}`;
+                l.push(`🔄 ${escalasTxt} | 🧳 ${x.tipo_equipaje || '-'}`);
+            } 
+            else if(x.tipo==='hotel'){
+                i='🏨';t='HOTEL';
+                let stars = ''; if(x.hotel_estrellas) { for(let k=0; k<x.hotel_estrellas; k++) stars += '⭐'; }
+                l.push(`<b>${x.hotel_nombre}</b> <span style="color:#ef5a1a;">${stars}</span>`);
+                l.push(`(${x.regimen})`);
+                let det = [];
+                if(x.noches) det.push(`🌙 ${x.noches} Noches`);
+                if(x.checkin) det.push(`Ingreso: ${formatDateAR(x.checkin)}`);
+                if(det.length > 0) l.push(`<small>${det.join(' | ')}</small>`);
+                if(x.hotel_link) l.push(`<a href="${x.hotel_link}" target="_blank" style="color:#ef5a1a;text-decoration:none;font-weight:bold;">📍 Ver Ubicación</a>`);
+            } 
+            else if(x.tipo==='traslado'){i='🚕';t='TRASLADO';l.push(`${x.tipo_trf}`);} 
+            else if(x.tipo==='seguro'){ i='🛡️';t='SEGURO'; if(x.cobertura) l.push(x.cobertura); } 
+            else if(x.tipo==='adicional'){i='➕';t='ADICIONAL';l.push(`${x.descripcion}`);} 
+            else if(x.tipo === 'bus'){
+                i='🚌'; t='PAQUETE BUS';
+                if(x.bus_salida) l.push(`📍 <b>Salida desde:</b> ${x.bus_salida}`);
+                if(x.noches) l.push(`🌙 <b>${x.noches} Noches</b>`);
+                if(x.incluye_alojamiento){
+                    l.push(`🏨 <b>Hotel:</b> ${x.hotel_nombre || 'A confirmar'}`);
+                    if(x.hotel_ubicacion) l.push(`<a href="${x.hotel_ubicacion}" target="_blank" style="color:#ef5a1a;text-decoration:none;font-weight:bold; display:inline-block; margin-top:2px;">📍 Ver Ubicación</a>`);
+                    let infoComida = `🍽 <b>Régimen:</b> ${x.regimen || ''}`;
+                    if (x.regimen === 'Media Pensión' || x.regimen === 'Pensión Completa') {
+                        if(x.bebidas === 'Si') infoComida += ` <span style="color:#2ecc71; font-weight:bold;">(🥤 Con Bebidas)</span>`;
+                        else if(x.bebidas === 'No') infoComida += ` <span style="color:#e74c3c;">(🚫 Sin Bebidas)</span>`;
+                    }
+                    l.push(infoComida);
+                }
+                if(x.incluye_excursiones) l.push(`🌲 <b>Excursiones:</b> ${x.excursion_adicional || 'Incluidas'}`);
+                if(x.asistencia) l.push(`🚑 <b>Asistencia al Viajero:</b> Incluida`);
+                if(x.observaciones) l.push(`📝 <i>Nota: ${x.observaciones}</i>`);
+            }
+            else if(x.tipo === 'crucero'){
+                i='🚢'; t='CRUCERO';
+                l.push(`<b>Naviera:</b> ${x.crucero_naviera}`);
+                if(x.crucero_puerto_salida) l.push(`📍 <b>Puerto de Salida:</b> ${x.crucero_puerto_salida}`);
+                let det = [];
+                if(x.checkin) det.push(`Embarque: ${formatDateAR(x.checkin)}`);
+                if(x.crucero_noches) det.push(`🌙 ${x.crucero_noches} Noches`);
+                if(det.length > 0) l.push(`<small>${det.join(' | ')}</small>`);
+                if(x.crucero_paradas) l.push(`🗺️ <b>Recorrido:</b> ${x.crucero_paradas}`);
+                l.push(`<div style="margin-top:5px;"><b>Incluye:</b><br><span style="color:#2ecc71;">✓ Pensión Completa</span><br><span style="color:#2ecc71;">✓ Asistencia al Viajero</span>${x.crucero_bebidas ? '<br><span style="color:#2ecc71;">✓ Paquete de Bebidas</span>' : ''}${x.crucero_propinas ? '<br><span style="color:#2ecc71;">✓ Propinas Incluidas</span>' : ''}</div>`);
+            }
+            else if(x.tipo === 'circuito'){
+                i='🗺️'; t='CIRCUITO TERRESTRE';
+                l.push(`<b>${x.circuito_nombre}</b>`);
+                if(x.circuito_salida) l.push(`📍 <b>Salida desde:</b> ${x.circuito_salida}`);
+                let det = [];
+                if(x.checkin) det.push(`Inicio: ${formatDateAR(x.checkin)}`);
+                if(x.checkout) det.push(`Fin: ${formatDateAR(x.checkout)}`);
+                if(x.circuito_noches) det.push(`🌙 ${x.circuito_noches} Noches`);
+                if(det.length > 0) l.push(`<small>${det.join(' | ')}</small>`);
+                if(x.circuito_descripcion) l.push(`<div style="margin-top:5px; color:#555;">📝 <i>${x.circuito_descripcion.replace(/\n/g, '<br>')}</i></div>`);
+            }
+            h+=`<div style="margin-bottom:5px;border-left:3px solid #ddd;padding-left:10px;"><div style="font-weight:bold;color:#11173d;">${i} ${t}</div><div style="font-size:0.9em;color:#555;">${l.join('<br>')}</div></div>`;
+        }); 
+        return h; 
     }
 
     // --- REGLA DE LA CENICIENTA (CORTE 12:00 HS ARGENTINA) ---
     const getCutoffEpoch = () => {
         const now = new Date();
-        // Llevamos la hora a UTC pura y le restamos 3 horas para tener la hora exacta de Argentina siempre
         const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
         const arTime = new Date(utcTime - (3 * 3600000)); 
         
@@ -76,12 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const arMonth = arTime.getMonth();
         let arDay = arTime.getDate();
         
-        // Si son antes de las 12 del mediodía en Arg, permitimos ver lo de ayer
-        if (arHour < 12) {
-            arDay -= 1; 
-        }
+        if (arHour < 12) { arDay -= 1; }
         
-        // Creamos la fecha límite (00:00 hs del día permitido, en UTC equivale a las 03:00)
         const cutoffUtc = new Date(Date.UTC(arYear, arMonth, arDay, 3, 0, 0, 0));
         return cutoffUtc.getTime();
     };
@@ -97,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showLoader(false);
         });
 
-    // --- CARGA Y FILTRADO INICIAL ---
+    // --- CARGA Y FILTRADO ---
     async function fetchAndLoadPackages() { 
         showLoader(true);
         try { 
@@ -106,13 +178,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             allPackages = snapshot.docs.map(doc => ({ id_paquete: doc.id, ...doc.data() }))
                 .filter(pkg => {
-                    // 1. Ocultar promociones "Secretas" de la empresa
-                    if (pkg.alcance === 'casa_central') return false;
-                    // 2. Solo promociones Aprobadas
-                    if (pkg.status === 'pending') return false;
-                    // 3. LA REGLA DE TIEMPO: Solo del día o de ayer si es antes de las 12
-                    if (pkg.timestamp && pkg.timestamp < cutoffEpoch) return false;
-                    
+                    if (pkg.alcance === 'casa_central') return false; // Bloquea promo interna
+                    if (pkg.status === 'pending') return false; // Bloquea no aprobados
+                    if (pkg.timestamp && pkg.timestamp < cutoffEpoch) return false; // Bloquea pasados
                     return true;
                 });
                 
@@ -149,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCards(result);
     }
 
-    // --- RENDERIZADO B2C DE LA GRILLA ---
+    // --- RENDERIZADO DE GRILLA B2C ---
     function renderCards(list) {
         dom.grid.innerHTML = ''; 
         if (!list || list.length === 0) { 
@@ -161,17 +229,24 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!pkg.destino) return; 
             const card = document.createElement('div');
             
-            // Calculamos noches y aéreos simple
-            const noches = getNoches(pkg); // <--- AGREGAMOS ESTO
             let sGrid = []; try { sGrid = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e){}
             const tieneAereo = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'aereo');
             const esCircuito = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'circuito');
             const fechaMostrar = (!pkg.fecha_salida && esCircuito && !tieneAereo) ? 'Múltiples Salidas' : formatDateAR(pkg.fecha_salida);
             
+            const noches = getNoches(pkg);
+            let lugarSalidaGrid = pkg['salida'];
+            if (!tieneAereo) {
+                const crucero = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'crucero');
+                const circuito = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'circuito');
+                if (crucero && crucero.crucero_puerto_salida) lugarSalidaGrid = crucero.crucero_puerto_salida;
+                else if (circuito && circuito.circuito_salida) lugarSalidaGrid = circuito.circuito_salida;
+            }
+
             card.className = 'paquete-card'; 
             const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; 
+            const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`; 
             
-            // Mapeo Iconos
             const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢','circuito':'🗺️'};
             const summaryIcons = [...new Set((Array.isArray(sGrid)?sGrid:[]).map(x => m[x.tipo] || '🔹'))].join(' '); 
 
@@ -182,19 +257,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div style="max-width:75%; padding-right:10px;">
                                 <h3 style="margin:0;font-size:1.4em;line-height:1.2;color:#11173d;">${pkg.destino}</h3>
                             </div>
-                            <!-- MAGIA: PASTILLA DE NOCHES -->
                             ${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:5px 10px;border-radius:12px;font-weight:bold;font-size:0.8em;white-space:nowrap;">🌙 ${noches}</div>` : ''}
                         </div>
                         <div class="fecha">📅 Salida: ${fechaMostrar}</div>
                     </div>
                     
                     <div class="card-body">
-                        <div style="font-size:1em;color:#555;">${summaryIcons}</div>
+                        <div style="font-size:0.85em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div>
                     </div>
                     
-                    <div class="card-footer" style="display:flex; justify-content:flex-end; align-items:flex-end;">
+                    <div class="card-footer" style="display:flex; justify-content:space-between; align-items:flex-end;">
+                        <div><span style="${bubbleStyle}">${pkg.tipo_promo || 'PROMO'}</span></div>
                         <div style="text-align: right;">
-                            <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${pkg.salida || 'Varias'}</div>
+                            <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${lugarSalidaGrid || 'Varias'}</div>
                             <p class="precio-valor" style="margin: 5px 0 0 0;">
                                 ${pkg.moneda} $${formatMoney(Math.round(tarifaMostrar/2))} <span style="font-size:0.5em; color:#999; font-weight:normal;">x Persona</span>
                             </p>
@@ -203,14 +278,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
             
             dom.grid.appendChild(card); 
-            card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg, sGrid, fechaMostrar));
+            card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
         });
     }
 
-    // --- MODAL DE CLIENTES B2C ---
+    // --- MODAL DE CLIENTES (IDENTICO AL INTERNO PERO CENSURADO) ---
     function openModal(pkg) {
-        if (typeof renderServiciosClienteHTML !== 'function') return alert("Falta la función renderServiciosClienteHTML.");
-        
         const rawServicios = pkg['servicios'] || pkg['item.servicios']; 
         let serviciosModal = []; 
         try { serviciosModal = typeof rawServicios === 'string' ? JSON.parse(rawServicios) : rawServicios; } catch(e) {}
@@ -222,27 +295,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!tieneAereoModal) {
             const crucero = Array.isArray(serviciosModal) && serviciosModal.find(s => s.tipo === 'crucero');
             const circuito = Array.isArray(serviciosModal) && serviciosModal.find(s => s.tipo === 'circuito');
-            if (crucero && crucero.crucero_puerto_salida) {
-                lugarSalidaModal = crucero.crucero_puerto_salida;
-            } else if (circuito && circuito.circuito_salida) {
-                lugarSalidaModal = circuito.circuito_salida;
-            }
+            if (crucero && crucero.crucero_puerto_salida) lugarSalidaModal = crucero.crucero_puerto_salida;
+            else if (circuito && circuito.circuito_salida) lugarSalidaModal = circuito.circuito_salida;
         }
-        
+
         const htmlCliente = renderServiciosClienteHTML(rawServicios); 
         const noches = getNoches(pkg); 
         const tarifa = parseFloat(pkg['tarifa']) || 0; 
         const tarifaDoble = Math.round(tarifa / 2); 
-        
-        // Link de WhatsApp que se lleva el nombre del paquete
+        const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`; 
+
         const mensajeWa = encodeURIComponent(`Hola Feliz Viaje! Vengo de la web y quiero consultar por el paquete a ${pkg['destino']} (Salida: ${fechaModal}).`);
-        const btnConsultarWpp = `<a href="https://wa.me/${WPP_NUMBER}?text=${mensajeWa}" target="_blank" style="background: #25d366; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; text-align: center; display: block; margin-top: 20px; font-size: 1.1em; transition: 0.2s;" onmouseover="this.style.background='#1da851'" onmouseout="this.style.background='#25d366'">💬 Consultar al Asesor</a>`;
+        const btnConsultarWpp = `<a href="https://wa.me/${WPP_NUMBER}?text=${mensajeWa}" target="_blank" style="background: #25d366; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; text-align: center; display: block; margin-top: 20px; font-size: 1.1em; transition: 0.2s; box-shadow: 0 4px 10px rgba(37,211,102,0.3);" onmouseover="this.style.background='#1da851'" onmouseout="this.style.background='#25d366'">💬 Consultar al Asesor</a>`;
 
         dom.modalBody.innerHTML = `
             <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <h2 style="margin:0;font-size:2.2em;line-height:1.1;">${pkg['destino']}</h2>
                 </div>
+                <div style="margin-top:5px;"><span style="${bubbleStyle}">${pkg['tipo_promo'] || 'PROMO'}</span></div>
             </div>
 
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">
@@ -251,26 +322,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${htmlCliente}
                 </div>
                 <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content; border: 1px solid #e5e7eb;">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
-                        <h4 style="margin:0; color:#11173d;">Resumen del Viaje</h4>
-                    </div>
-                    <p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${fechaModal}</p>
-                    <p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${lugarSalidaModal}</p>
-                    <p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p>
+                    <h4 style="margin:0 0 15px 0; color:#11173d; font-size:1.2em;">Resumen del Viaje</h4>
+                    <p style="margin:5px 0; font-size:0.95em;"><b>📅 Salida:</b> ${fechaModal}</p>
+                    <p style="margin:5px 0; font-size:0.95em;"><b>📍 Desde:</b> ${lugarSalidaModal || '-'}</p>
+                    <p style="margin:5px 0; font-size:0.95em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p>
                     
-                    ${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación / Notas:</b><br>${pkg['financiacion']}</div>` : ''}
-                    
+                    ${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em; color:#11173d;"><b>💳 Financiación / Notas:</b><br>${pkg['financiacion']}</div>` : ''}
+
                     ${btnConsultarWpp}
                 </div>
             </div>
             
-            <div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:center; align-items:center; border-radius:0 0 12px 12px;">
+            <div style="background:#11173d; color:white; padding:20px; display:flex; justify-content:center; align-items:center; border-radius:0 0 12px 12px;">
                 <div style="text-align:center;">
-                    <small style="opacity:0.7; text-transform: uppercase;">Tarifa final por Persona (Base Doble)</small>
-                    <div style="font-size:2.5em; font-weight:bold; color:#56DDE0; line-height: 1;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div>
+                    <small style="opacity:0.8; font-size: 0.9em; text-transform: uppercase;">Tarifa final por persona (Base Doble)</small>
+                    <div style="font-size:2.5em; font-weight:bold; color:#56DDE0; line-height: 1.2;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div>
                 </div>
             </div>`;
-        
         dom.modal.style.display = 'flex';
     }
 
