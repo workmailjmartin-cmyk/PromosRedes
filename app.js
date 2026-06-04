@@ -825,6 +825,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     auth.onAuthStateChanged(async (u) => {
         showLoader(true, "Iniciando...");
+        
+        // 👻 ESCUDO: Si el usuario es Anónimo o no tiene email, cerramos su sesión y lo bloqueamos
+        if (u && (u.isAnonymous || !u.email)) {
+            await auth.signOut();
+            showLoader(false);
+            return; // Cortamos acá para que el sistema le muestre la pantalla de Login normal
+        }
+
         if (u) {
             try {
                 const emailLimpio = u.email.trim().toLowerCase();
@@ -843,7 +851,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("Mensaje:", e.message);
                 await window.showAlert("Error de conexión: " + e.message); // Verás el error en la pantalla
             }
-        } else { currentUser = null; userData = null; dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none'; if (document.getElementById('btn-toggle-calculadora')) document.getElementById('btn-toggle-calculadora').style.display = 'none';}
+        } else { 
+            currentUser = null; userData = null; dom.loginContainer.style.display='flex'; dom.appContainer.style.display='none'; 
+            if (document.getElementById('btn-toggle-calculadora')) document.getElementById('btn-toggle-calculadora').style.display = 'none';
+        }
         showLoader(false);
     });
 
