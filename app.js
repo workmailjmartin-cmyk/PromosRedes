@@ -1458,6 +1458,10 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoader(true, "Guardando paquete...");
         try { 
             if (isEditingId) {
+                // 🛡️ ESCUDO PROTECTOR: Borramos estos datos del envío para que Firestore NO los sobreescriba jamás
+                delete payload.creador;
+                delete payload.fecha_creacion;
+                
                 // EDITAR: Actualizamos el documento existente con el ID de edición
                 await db.collection('paquetes').doc(isEditingId).update(payload);
                 await window.showAlert(status === 'pending' ? 'Edición enviada a revisión.' : 'Actualizado correctamente.', 'success');
@@ -1473,7 +1477,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return; // Si no hay internet o falla, cortamos todo acá.
         }
     
-        // PASO 3: Cambio visual de pantallas y recarga de datos
+        
         // PASO 3: Cambio visual de pantallas y recarga de datos
         try {
             dom.uploadForm.reset();
