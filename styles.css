@@ -498,21 +498,13 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     .whatsapp-float-container { bottom: 20px; right: 20px; }
 }
 
-/* --- FIX ALINEACIÓN CALENDARIO MARKETING --- */
-.header-dias-semana {
-    display: grid !important;
-    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
-    gap: 15px; /* Mismo espacio que separan los días */
-    text-align: center;
-    font-weight: bold;
-    color: #6b7280;
-    margin-bottom: 10px;
-    padding: 0;
-}
-
+/* --- FIX ALINEACIÓN EXACTA CALENDARIO MARKETING --- */
+.header-dias-semana, 
 #grid-calendario-marketing {
     display: grid !important;
-    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
-    gap: 15px;
-    align-items: start;
+    /* 9% para los findes, y el resto dividido exactamente en 5 partes iguales */
+    grid-template-columns: 9% repeat(5, minmax(0, 1fr)) 9% !important;
+    gap: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
 }
