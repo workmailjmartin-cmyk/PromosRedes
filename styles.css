@@ -508,3 +508,12 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     width: 100% !important;
     box-sizing: border-box !important;
 }
+
+/* --- FIX: Evitar que links y textos largos rompan los modales --- */
+#modal-body * {
+    overflow-wrap: break-word !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
