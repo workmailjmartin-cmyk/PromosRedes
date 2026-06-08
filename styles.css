@@ -498,3 +498,21 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     .whatsapp-float-container { bottom: 20px; right: 20px; }
 }
 
+/* --- FIX ALINEACIÓN CALENDARIO MARKETING --- */
+.header-dias-semana {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 15px; /* Mismo espacio que separan los días */
+    text-align: center;
+    font-weight: bold;
+    color: #6b7280;
+    margin-bottom: 10px;
+    padding: 0;
+}
+
+#grid-calendario-marketing {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 15px;
+    align-items: start;
+}
