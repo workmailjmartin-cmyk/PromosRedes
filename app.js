@@ -2358,34 +2358,44 @@ window.renderizarCalendario = async () => {
     }
 
     const hoyReal = new Date();
+    // Conseguimos "hoy" pero a las 00:00:00 para comparar fácil
+    const hoyPuro = new Date(hoyReal.getFullYear(), hoyReal.getMonth(), hoyReal.getDate());
     
     // Dibujamos todos los días
     for (let dia = 1; dia <= diasEnMes; dia++) {
-        const esHoy = (dia === hoyReal.getDate() && mes === hoyReal.getMonth() && anio === hoyReal.getFullYear());
+        const fechaCelda = new Date(anio, mes, dia);
+        const esHoy = (fechaCelda.getTime() === hoyPuro.getTime());
+        const esPasado = (fechaCelda < hoyPuro); // ¡MAGIA ACÁ! Se da cuenta si el día ya pasó
+        
         const divDia = document.createElement('div');
         
-        // Calculamos qué día de la semana es (0 = Domingo, 6 = Sábado)
-        const fechaCelda = new Date(anio, mes, dia);
         const diaSemana = fechaCelda.getDay();
         const esFinde = (diaSemana === 0 || diaSemana === 6);
 
-        // Determinamos el color de fondo: gris si es finde, blanco si es semana
-        const colorFondo = esFinde ? '#f3f4f6' : 'white';
-        const opacidadFinde = esFinde ? '0.6' : '1'; // Lo hacemos un poquito más transparente
+        const colorFondo = esFinde ? '#f9fafb' : 'white';
+        
+        // Si es pasado lo hacemos transparente (0.4), si es finde un poquito (0.8), sino 1.
+        let opacidadFinal = '1';
+        if (esPasado) opacidadFinal = '0.4'; 
+        else if (esFinde) opacidadFinal = '0.8';
 
-        // El recuadro del día (naranja si es hoy, gris si es finde)
         divDia.style.cssText = `
-            background: ${colorFondo}; opacity: ${opacidadFinde}; border: 1px solid ${esHoy ? '#ef5a1a' : '#e5e7eb'}; border-radius: 8px; 
+            background: ${colorFondo}; opacity: ${opacidadFinal}; border: 1px solid ${esHoy ? '#ef5a1a' : '#e5e7eb'}; border-radius: 8px; 
             min-height: 120px; padding: 10px; display: flex; flex-direction: column; cursor: pointer;
-            transition: box-shadow 0.2s, transform 0.2s; box-shadow: ${esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none'};
+            transition: box-shadow 0.2s, transform 0.2s, opacity 0.2s; box-shadow: ${esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none'};
         `;
         
-        divDia.onmouseover = () => divDia.style.boxShadow = '0 4px 10px rgba(0,0,0,0.05)';
-        divDia.onmouseout = () => divDia.style.boxShadow = esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none';
+        // Efecto hover (Iluminar al pasar el mouse)
+        if (esPasado) {
+            divDia.onmouseover = () => { divDia.style.boxShadow = '0 4px 10px rgba(0,0,0,0.05)'; divDia.style.opacity = '0.8'; };
+            divDia.onmouseout = () => { divDia.style.boxShadow = 'none'; divDia.style.opacity = '0.4'; };
+        } else {
+            divDia.onmouseover = () => divDia.style.boxShadow = '0 4px 10px rgba(0,0,0,0.05)';
+            divDia.onmouseout = () => divDia.style.boxShadow = esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none';
+        }
 
         // Armamos la fecha exacta de este cuadradito
         const fechaString = `${anio}-${String(mes+1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-
         // Filtramos las tareas que caen EXACTAMENTE en este día
         const tareasDelDia = tareasMarketingGlobal.filter(t => t.fecha === fechaString);
 
