@@ -494,7 +494,6 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
 @keyframes floatWa { 0% { transform: translateY(0px); } 50% { transform: translateY(-6px); } 100% { transform: translateY(0px); } }
 
 @media (max-width: 768px) {
-    .wa-tooltip { display: none; } /* En celulares ocultamos el texto para que no tape la pantalla */
     .whatsapp-float-container { bottom: 20px; right: 20px; }
 }
 
