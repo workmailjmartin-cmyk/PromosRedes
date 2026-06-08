@@ -509,11 +509,10 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     box-sizing: border-box !important;
 }
 
-/* --- FIX: Evitar que links y textos largos rompan los modales --- */
-#modal-body * {
-    overflow-wrap: break-word !important;
-    word-wrap: break-word !important;
-    word-break: break-word !important;
+/* --- FIX DEFINITIVO: Evitar links largos en cualquier modal --- */
+[id*="modal"] *, [class*="modal"] * {
+    white-space: pre-wrap !important; /* Respeta los Enters pero permite bajar de renglón */
+    overflow-wrap: break-word !important; /* Rompe palabras largas */
+    word-break: break-word !important; /* Refuerzo para links de Drive/Google */
     max-width: 100% !important;
-    box-sizing: border-box !important;
 }
