@@ -517,3 +517,65 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     overflow-wrap: break-word !important;
     word-break: break-word !important;
 }
+
+/* --- ESTILOS CABECERA B2C --- */
+.header-b2c {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 5%;
+    background-color: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    margin-bottom: 30px;
+}
+.logo-container {
+    flex: 1; 
+    display: flex;
+    justify-content: flex-start;
+}
+.titulo-promos {
+    flex: 2; 
+    text-align: center;
+    color: #ef5a1a; 
+    font-size: 2.2em;
+    margin: 0;
+    font-weight: 800;
+}
+.header-spacer {
+    flex: 1; 
+}
+
+/* --- ADAPTACIÓN A CELULARES --- */
+@media (max-width: 768px) {
+    .header-b2c {
+        flex-direction: column;
+        padding: 15px 20px;
+        gap: 15px;
+    }
+    .logo-container {
+        justify-content: center;
+    }
+    .titulo-promos {
+        font-size: 1.6em;
+    }
+    .header-spacer {
+        display: none; 
+    }
+    
+    /* Globo de WhatsApp inteligente */
+    .wa-tooltip {
+        font-size: 0.75em !important;
+        padding: 8px 12px !important;
+        max-width: 220px !important; 
+        white-space: normal !important; 
+        right: 15px !important; 
+        animation: desvanecerGlobo 7s forwards !important; 
+    }
+}
+
+@keyframes desvanecerGlobo {
+    0% { opacity: 0; transform: translateY(10px); }
+    10% { opacity: 1; transform: translateY(0); } 
+    80% { opacity: 1; transform: translateY(0); } 
+    100% { opacity: 0; transform: translateY(-10px); visibility: hidden; pointer-events: none; } 
+}
