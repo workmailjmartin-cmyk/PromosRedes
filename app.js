@@ -2324,6 +2324,7 @@ if (searchUsersInput) {
 // --- 1. LÓGICA DEL CALENDARIO ---
 let currentDateMarketing = new Date();
 let tareasMarketingGlobal = []; // Guardamos las tareas acá para leerlas al hacer clic
+let isEditingMktId = null;
 
 window.renderizarCalendario = async () => {
     const grid = document.getElementById('grid-calendario-marketing');
@@ -2470,35 +2471,49 @@ window.verDetalleTareaMkt = (event, idTarea) => {
     document.getElementById('detalle-tarea-fecha').innerText = `📅 Entrega: ${fechaFormat}`;
     document.getElementById('detalle-tarea-asignado').innerText = tarea.asignado;
     
-    // 3. Llenar el Link (Ahora se oculta si está vacío)
+    // 3. Llenar el Link
     const driveLink = document.getElementById('detalle-tarea-drive');
     const contenedorDrive = document.getElementById('contenedor-detalle-drive');
 
     if (tarea.drive && tarea.drive.trim() !== "") {
-        contenedorDrive.style.display = 'block'; // Mostramos la caja si hay link
+        contenedorDrive.style.display = 'block';
         driveLink.href = tarea.drive;
         driveLink.innerText = tarea.drive; 
     } else {
-        contenedorDrive.style.display = 'none'; // Ocultamos toda la sección si está vacío
+        contenedorDrive.style.display = 'none';
     }
 
     document.getElementById('detalle-tarea-notas').innerText = tarea.notas;
     document.getElementById('detalle-tarea-creador').innerText = tarea.creador;
 
-    // 4. Chequear permisos para mostrar el botón de Borrar
-    const puedeBorrar = userData && (userData.rol === 'admin' || userData.rol === 'editor' || currentUser.email === tarea.creador);
+    // 4. Chequear permisos para mostrar los botones (Admin, Editor o el Creador)
+    const tienePermisos = userData && (userData.rol === 'admin' || userData.rol === 'editor' || currentUser.email === tarea.creador);
     const btnBorrar = document.getElementById('btn-borrar-tarea');
     
-    if (puedeBorrar) {
-        btnBorrar.style.display = 'flex'; // Muestra el botón rojo
+    // MAGIA: Creamos el botón "Editar" al vuelo si no existe
+    let btnEditar = document.getElementById('btn-editar-tarea-mkt');
+    if (!btnEditar && btnBorrar) {
+        btnEditar = document.createElement('button');
+        btnEditar.id = 'btn-editar-tarea-mkt';
+        btnEditar.className = "btn"; // Clases base
+        btnEditar.style.cssText = "padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; background: #e3f2fd; color: #1e3a8a; margin-right: 10px; transition: 0.2s;";
+        btnEditar.innerHTML = '✏️ Editar';
+        btnBorrar.parentNode.insertBefore(btnEditar, btnBorrar); // Lo pone justo antes del botón borrar
+    }
+
+    if (tienePermisos) {
+        btnBorrar.style.display = 'flex';
+        if(btnEditar) {
+            btnEditar.style.display = 'flex';
+            btnEditar.onclick = () => window.editarTareaMkt(tarea); // Llama a la función de editar
+        }
         btnBorrar.onclick = async () => {
-            // Confirmación de seguridad
             if(await window.showConfirm("⚠️ ¿Seguro que querés ELIMINAR esta tarea del calendario?")) {
                 showLoader(true, "Borrando tarea...");
                 try {
                     await db.collection('calendario_marketing').doc(idTarea).delete();
-                    modal.style.display = 'none'; // Cierra el modal lindo
-                    await window.renderizarCalendario(); // Redibuja el mes
+                    modal.style.display = 'none';
+                    await window.renderizarCalendario();
                     window.showAlert("Tarea eliminada", "success");
                 } catch(e) {
                     console.error(e);
@@ -2508,7 +2523,8 @@ window.verDetalleTareaMkt = (event, idTarea) => {
             }
         };
     } else {
-        btnBorrar.style.display = 'none'; // Oculta el botón si no tiene permisos
+        btnBorrar.style.display = 'none';
+        if(btnEditar) btnEditar.style.display = 'none';
     }
 
     // 5. Mostrar el modal en pantalla
@@ -2637,12 +2653,45 @@ const modalMkt = document.getElementById('modal-marketing');
 const formMkt = document.getElementById('form-marketing');
 const selectAsignado = document.getElementById('marketing-asignado');
 
+// Abre para CREAR
 window.abrirFormularioMarketing = async (fechaElegida) => {
     if (!modalMkt) return;
+    isEditingMktId = null; // Reiniciamos el ID de edición
+    if(formMkt) formMkt.reset(); // Limpiamos el formulario
+
     const partes = fechaElegida.split('-');
     document.getElementById('marketing-fecha-display').innerText = `${partes[2]}/${partes[1]}/${partes[0]}`;
     document.getElementById('marketing-fecha-input').value = fechaElegida;
     
+    await llenarComboFranquiciasMkt();
+    modalMkt.style.display = 'flex';
+};
+
+// Abre para EDITAR (Nueva función)
+window.editarTareaMkt = async (tarea) => {
+    if (!modalMkt) return;
+    isEditingMktId = tarea.id; // Guardamos el ID que estamos editando
+    
+    // Ocultamos el modal de detalle y abrimos el de carga
+    document.getElementById('modal-detalle-tarea').style.display = 'none';
+
+    const partes = tarea.fecha.split('-');
+    document.getElementById('marketing-fecha-display').innerText = `${partes[2]}/${partes[1]}/${partes[0]}`;
+    document.getElementById('marketing-fecha-input').value = tarea.fecha;
+
+    await llenarComboFranquiciasMkt();
+
+    // Llenamos los datos existentes
+    document.getElementById('marketing-tipo').value = tarea.tipo || '';
+    document.getElementById('marketing-asignado').value = tarea.asignado || '';
+    document.getElementById('marketing-drive').value = tarea.drive || '';
+    document.getElementById('marketing-notas').value = tarea.notas || '';
+
+    modalMkt.style.display = 'flex';
+};
+
+// Función auxiliar para cargar el combo (para no repetir código)
+async function llenarComboFranquiciasMkt() {
     selectAsignado.innerHTML = '<option value="">Seleccionar...</option><option value="TODOS">📢 A Todas las Franquicias</option>';
     try {
         const doc = await db.collection('metadata').doc('config').get();
@@ -2650,35 +2699,52 @@ window.abrirFormularioMarketing = async (fechaElegida) => {
             doc.data().franquicias.forEach(f => selectAsignado.innerHTML += `<option value="${f}">🏢 ${f}</option>`);
         }
     } catch(e) { console.error(e); }
-    
-    modalMkt.style.display = 'flex';
-};
+}
 
 const btnCerrarMkt = document.getElementById('modal-marketing-cerrar');
-if(btnCerrarMkt) btnCerrarMkt.onclick = () => { modalMkt.style.display = 'none'; formMkt.reset(); };
+if(btnCerrarMkt) btnCerrarMkt.onclick = () => { modalMkt.style.display = 'none'; if(formMkt) formMkt.reset(); };
 
 if (formMkt) {
     formMkt.addEventListener('submit', async (e) => {
         e.preventDefault();
-        showLoader(true, "Guardando tarea...");
+        showLoader(true, isEditingMktId ? "Actualizando tarea..." : "Guardando tarea...");
+        
+        // Buscamos si hay datos originales para conservarlos (creador y timestamp original)
+        let tareaOriginal = null;
+        if (isEditingMktId) {
+            tareaOriginal = tareasMarketingGlobal.find(t => t.id === isEditingMktId);
+        }
+
         const payload = {
             fecha: document.getElementById('marketing-fecha-input').value,
             tipo: document.getElementById('marketing-tipo').value,
             asignado: document.getElementById('marketing-asignado').value,
             drive: document.getElementById('marketing-drive').value,
             notas: document.getElementById('marketing-notas').value,
-            creador: (userData && userData.franquicia) ? userData.franquicia : (currentUser ? currentUser.email : 'Anónimo'),
-            timestamp: Date.now()
+            // Si editamos, mantenemos al creador original. Si es nueva, ponemos al actual.
+            creador: isEditingMktId && tareaOriginal ? tareaOriginal.creador : ((userData && userData.franquicia) ? userData.franquicia : (currentUser ? currentUser.email : 'Anónimo')),
+            // Misma lógica para la fecha de creación
+            timestamp: isEditingMktId && tareaOriginal ? tareaOriginal.timestamp : Date.now(),
+            // Agregamos una marca de quién editó
+            last_edited_by: isEditingMktId ? currentUser.email : null
         };
 
         try {
-            await db.collection('calendario_marketing').add(payload);
-            window.showAlert("¡Tarea asignada con éxito!", "success");
+            if (isEditingMktId) {
+                // Modo Edición
+                await db.collection('calendario_marketing').doc(isEditingMktId).update(payload);
+                window.showAlert("¡Tarea actualizada con éxito!", "success");
+            } else {
+                // Modo Creación
+                await db.collection('calendario_marketing').add(payload);
+                window.showAlert("¡Tarea asignada con éxito!", "success");
+            }
+            
             modalMkt.style.display = 'none';
             formMkt.reset();
+            isEditingMktId = null; // Limpiamos el control
 
             await window.renderizarCalendario();
-            // Acá en el próximo paso inyectaremos la función para dibujar la tarea en pantalla
         } catch(error) {
             console.error(error);
             window.showAlert("Error al guardar en BD.", "error");
