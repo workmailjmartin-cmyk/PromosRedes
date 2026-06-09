@@ -2325,11 +2325,47 @@ if (searchUsersInput) {
 let currentDateMarketing = new Date();
 let tareasMarketingGlobal = []; // Guardamos las tareas acá para leerlas al hacer clic
 let isEditingMktId = null;
+window.vistaCalendarioMkt = null;
 
 window.renderizarCalendario = async () => {
     const grid = document.getElementById('grid-calendario-marketing');
     const labelMes = document.getElementById('mes-actual-label');
     if (!grid || !labelMes) return;
+
+    // 👁️ 1. CONFIGURACIÓN DEL FILTRO POR DEFECTO (Inteligencia por Rol)
+    if (!window.vistaCalendarioMkt) {
+        const esAdmin = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+        window.vistaCalendarioMkt = esAdmin ? 'RED' : 'PROPIOS';
+    }
+
+    // 👁️ 2. DIBUJAR EL SWITCH (Sin tocar el HTML)
+    let toggleContainer = document.getElementById('toggle-mkt-container');
+    if (!toggleContainer) {
+        toggleContainer = document.createElement('div');
+        toggleContainer.id = 'toggle-mkt-container';
+        toggleContainer.style.cssText = 'display: flex; justify-content: flex-end; margin-bottom: 15px; width: 100%;';
+        
+        // Lo intentamos insertar justo arriba de los nombres de los días ("Dom", "Lun")
+        const headerDias = document.querySelector('.header-dias-semana');
+        if(headerDias) {
+            headerDias.parentNode.insertBefore(toggleContainer, headerDias);
+        } else {
+            grid.parentNode.insertBefore(toggleContainer, grid);
+        }
+    }
+
+    // Lógica visual del Switch (Naranja si está activo, Gris si no)
+    const isPropios = window.vistaCalendarioMkt === 'PROPIOS';
+    toggleContainer.innerHTML = `
+        <div style="background: #f3f4f6; padding: 4px; border-radius: 30px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid #e5e7eb;">
+            <button onclick="window.cambiarVistaMkt('PROPIOS')" style="border: none; background: ${isPropios ? 'white' : 'transparent'}; color: ${isPropios ? '#ef5a1a' : '#6b7280'}; box-shadow: ${isPropios ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'}; padding: 6px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 0.85em;">
+                👁️ Mis Tareas
+            </button>
+            <button onclick="window.cambiarVistaMkt('RED')" style="border: none; background: ${!isPropios ? 'white' : 'transparent'}; color: ${!isPropios ? '#1e3a8a' : '#6b7280'}; box-shadow: ${!isPropios ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'}; padding: 6px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 0.85em;">
+                🌐 Red FV
+            </button>
+        </div>
+    `;
 
     // Ponemos un mensajito de carga mientras buscamos en Firebase
     grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6b7280; font-weight: bold;">Cargando tareas... ⏳</div>';
@@ -2397,8 +2433,16 @@ window.renderizarCalendario = async () => {
 
         // Armamos la fecha exacta de este cuadradito
         const fechaString = `${anio}-${String(mes+1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+        
         // Filtramos las tareas que caen EXACTAMENTE en este día
-        const tareasDelDia = tareasMarketingGlobal.filter(t => t.fecha === fechaString);
+        let tareasDelDia = tareasMarketingGlobal.filter(t => t.fecha === fechaString);
+
+        // 👁️ 3. APLICAR EL FILTRO DE VISTA (El "Ojito")
+        if (window.vistaCalendarioMkt === 'PROPIOS') {
+            const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
+            // Solo deja pasar las que me asignaron a mí o las que son globales ("TODOS")
+            tareasDelDia = tareasDelDia.filter(t => t.asignado === miFranquicia || t.asignado === 'TODOS');
+        }
 
         // Creamos el HTML de las tarjetitas
         let htmlTareas = '';
@@ -2563,6 +2607,12 @@ if(modalDetalleMkt) {
         if(e.target === modalDetalleMkt) modalDetalleMkt.style.display = 'none';
     });
 }
+
+// Función para que el Switch cambie la vista y recargue el mes al instante
+window.cambiarVistaMkt = (vista) => {
+    window.vistaCalendarioMkt = vista;
+    window.renderizarCalendario();
+};
 
 // --- 2. CONTROLES DEL CALENDARIO ---
 const btnAnt = document.getElementById('btn-mes-anterior');
