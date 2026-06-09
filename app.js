@@ -2500,12 +2500,12 @@ window.verDetalleTareaMkt = (event, idTarea) => {
         ${adminTools}
         <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                <h2 style="margin:0;font-size:2.2em;line-height:1.1; color:white;">${tarea.tipo.toUpperCase()}</h2>
+                <h2 style="margin:0; font-size:2.2em; line-height:1.1; color:white; padding-right: 170px;">${tarea.tipo.toUpperCase()}</h2>
             </div>
             <div style="margin-top:5px;"><span style="${bubbleStyle}">${tarea.tipo}</span></div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">
+        <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; padding: 20px;">
             <div>
                 <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Instrucciones y Detalles</h3>
                 <p style="white-space: pre-wrap; color: #555; line-height: 1.6; font-size: 0.95em; margin-top:10px;">${tarea.notas || 'Sin instrucciones adicionales.'}</p>
