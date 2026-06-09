@@ -302,21 +302,30 @@ document.addEventListener('DOMContentLoaded', () => {
         let servicios = [];
         try { servicios = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {}
 
+        // Mejoramos la detección del seguro (incluyendo cruceros que ya lo traen por defecto)
         const tieneSeguro = Array.isArray(servicios) && servicios.some(s => 
-            s.tipo === 'seguro' || (s.tipo === 'bus' && s.asistencia === true)
+            s.tipo === 'seguro' || (s.tipo === 'bus' && s.asistencia === true) || s.tipo === 'crucero'
         );
+
+        const tieneAereo = Array.isArray(servicios) && servicios.some(s => s.tipo === 'aereo');
+
+        // LÓGICA INTELIGENTE: ¿Es un paquete o un servicio suelto?
+        let tituloServicio = "PAQUETE";
+        if (Array.isArray(servicios) && servicios.length === 1) {
+            const dicNombres = { 'aereo': 'VUELO', 'hotel': 'HOTEL', 'traslado': 'TRASLADO', 'seguro': 'ASISTENCIA AL VIAJERO', 'bus': 'PAQUETE BUS', 'crucero': 'CRUCERO', 'circuito': 'CIRCUITO', 'adicional': 'SERVICIO' };
+            tituloServicio = dicNombres[servicios[0].tipo] || "SERVICIO";
+        }
 
         // 1. ENCABEZADO
         let texto = `*${pkg.destino.toUpperCase()}*\n`;
-        texto += `PAQUETE\n\n`; // Nuevo agregado
+        texto += `${tituloServicio}\n\n`; 
         
         const esCircuitoTxt = Array.isArray(servicios) && servicios.some(s => s.tipo === 'circuito');
-        const fechaTxt = (!pkg.fecha_salida && esCircuitoTxt) ? 'Múltiples Salidas' : formatDateAR(pkg.fecha_salida);
+        const fechaTxt = (!pkg.fecha_salida && esCircuitoTxt && !tieneAereo) ? 'Múltiples Salidas' : formatDateAR(pkg.fecha_salida);
         texto += `📅 Salida: ${fechaTxt}\n`;
         
         // --- LÓGICA INTELIGENTE DE SALIDA ---
         let lugarSalida = pkg.salida;
-        const tieneAereo = Array.isArray(servicios) && servicios.some(s => s.tipo === 'aereo');
         if (!tieneAereo) {
             const crucero = Array.isArray(servicios) && servicios.find(s => s.tipo === 'crucero');
             const circuito = Array.isArray(servicios) && servicios.find(s => s.tipo === 'circuito');
@@ -330,12 +339,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (noches > 0) texto += `🌙 Duración: ${noches} Noches\n`;
         
         // 2. INTRODUCCIÓN SERVICIOS
-        texto += `\n✅ Servicios que incluye el paquete:\n\n`;
+        // El texto también se adapta: "Servicios que incluye el hotel / paquete"
+        texto += `\n✅ Servicios que incluye el ${tituloServicio.toLowerCase()}:\n\n`;
 
         if (Array.isArray(servicios)) {
             servicios.forEach(s => {
                 if(s.tipo === 'aereo') {
-                    // LÓGICA ESCALAS (Mantenemos la inteligencia de Ida/Vuelta)
                     let eIda = (s.escalas_ida !== undefined) ? parseInt(s.escalas_ida) : (parseInt(s.escalas) || 0);
                     let eVuelta = (s.escalas_vuelta !== undefined) ? parseInt(s.escalas_vuelta) : (parseInt(s.escalas) || 0);
                     
@@ -346,7 +355,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         escalasTxt = `IDA: ${formatEscalasTexto(eIda)} | REGRESO: ${formatEscalasTexto(eVuelta)}`;
                     }
 
-                    // FORMATO BLOQUE CITA
                     texto += `> ✈️ *AÉREO*\n`;
                     if (s.aeropuerto_salida) {
                         texto += `🛫 *Salida desde:* ${s.aeropuerto_salida}\n`;
@@ -362,7 +370,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     texto += `${s.hotel_nombre} ${stars}\n`;
                     if(s.regimen) texto += `(${s.regimen})\n`;
                     if(s.noches) texto += `${s.noches} Noches`;
-                    // Agregamos ingreso si existe para dar más detalle
                     if(s.checkin) texto += ` | Ingreso: ${formatDateAR(s.checkin)}`; 
                     texto += `\n`;
                     if(s.hotel_link) texto += `📍 Ubicación: ${s.hotel_link}\n`;
@@ -378,43 +385,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 } else if (s.tipo === 'bus') {
                     texto += `> 🚌 *PAQUETE BUS* (${s.noches || '?'} Noches)\n`;
-                    
-                    if (s.bus_salida) {
-                        texto += `> 📍 *Salida desde:* ${s.bus_salida}\n`;
-                    }
-                    // Si tiene alojamiento, mostramos los detalles
+                    if (s.bus_salida) texto += `> 📍 *Salida desde:* ${s.bus_salida}\n`;
                     if (s.incluye_alojamiento) {
                         texto += `> 🏨 *Hotel:* ${s.hotel_nombre || 'A confirmar'}\n`;
-                        
-                        // Ubicación (si existe)
                         if (s.hotel_ubicacion) texto += `> 📍 *Ubicación:* ${s.hotel_ubicacion}\n`;
-                        
-                        // LÓGICA INTELIGENTE DE RÉGIMEN Y BEBIDAS
                         texto += `> 🍽 *Régimen:* ${s.regimen || ''}`;
-                        
-                        // Solo agregamos el detalle de bebidas si es MP o PC
                         if (s.regimen === 'Media Pensión' || s.regimen === 'Pensión Completa') {
                             texto += ` ${s.bebidas === 'Si' ? '(🥤 Con Bebidas)' : '(🚫 Sin Bebidas)'}`;
                         }
-                        texto += `\n`; // Cerramos el renglón
+                        texto += `\n`; 
                     }
-        
-                    // Si tiene excursiones
-                    if (s.incluye_excursiones) {
-                        texto += `> 🌲 *Excursiones:* ${s.excursion_adicional || 'Incluidas'}\n`;
-                    }
-        
-                    // Si tiene asistencia
-                    if (s.asistencia) {
-                        texto += `> 🚑 *Asistencia al Viajero Incluida*\n`;
-                    }
-        
-                    // Observaciones extra
-                    if (s.observaciones) {
-                        texto += `> 📝 *Nota:* ${s.observaciones}\n`;
-                    }
-                    
-                    // Un salto de línea extra para separar del siguiente servicio
+                    if (s.incluye_excursiones) texto += `> 🌲 *Excursiones:* ${s.excursion_adicional || 'Incluidas'}\n`;
+                    if (s.asistencia) texto += `> 🚑 *Asistencia al Viajero Incluida*\n`;
+                    if (s.observaciones) texto += `> 📝 *Nota:* ${s.observaciones}\n`;
                     texto += `\n`;
 
                 } else if (s.tipo === 'crucero') { 
@@ -422,11 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (s.crucero_noches) texto += ` *Duración:* ${s.crucero_noches} Noches\n`;
                     if (s.crucero_puerto_salida) texto += ` Puerto de Salida: ${s.crucero_puerto_salida}\n`;
                     if (s.checkin) texto += ` Fechas: ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
-                    
-                    if (s.crucero_paradas) {
-                        texto += ` Recorrido: ${s.crucero_paradas}\n`;
-                    }
-            
+                    if (s.crucero_paradas) texto += ` Recorrido: ${s.crucero_paradas}\n`;
                     texto += ` Incluye:\n`;
                     texto += `- Pensión Completa\n`;
                     texto += `- Asistencia al Viajero\n`;
@@ -468,13 +447,18 @@ document.addEventListener('DOMContentLoaded', () => {
         
         texto += `¿Encontraste una mejor oferta? ¡Compartila con nosotros y la mejoramos para vos!\n\n`;
         
-        texto += `✈ Políticas generales de aerolíneas (tarifas económicas)\n`;
-        texto += `-Equipaje y la selección de asientos no están incluidos (pueden tener costo adicional)\n\n`;
+        // ✈️ REGLA: Políticas de vuelo (Solo si hay aéreo)
+        if (tieneAereo) {
+            texto += `✈ Políticas generales de aerolíneas (tarifas económicas)\n`;
+            texto += `-Equipaje y la selección de asientos no están incluidos (pueden tener costo adicional)\n\n`;
+        }
         
-        if (tieneSeguro) texto += `Asistencia al viajero es requisito obligatorio en la mayoría de los destinos internacionales`;
-        else texto += `Asistencia al viajero no incluida. Puede añadirse al reservar o más adelante. Es requisito obligatorio en la mayoría de los destinos internacionales`;
+        // 🛡️ REGLA: Asistencia al viajero (Solo si NO la tiene)
+        if (!tieneSeguro) {
+            texto += `Asistencia al viajero no incluida. Puede añadirse al reservar o más adelante. Es requisito obligatorio en la mayoría de los destinos internacionales\n`;
+        }
 
-        return texto;
+        return texto.trim(); // Limpia espacios vacíos al final
     }
 
     window.copiarPresupuesto = (pkg) => {
