@@ -2513,9 +2513,10 @@ window.verDetalleTareaMkt = (event, idTarea) => {
             </div>
             <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;">
                 <h4 style="margin:0 0 15px 0; color:#11173d; border-bottom:1px solid #eee; padding-bottom:10px;">Resumen</h4>
-                <p style="margin:8px 0; font-size:0.9em;"><b>📅 Entrega:</b> ${fechaFormat}</p>
-                <p style="margin:8px 0; font-size:0.9em;"><b>🏢 Asignado a:</b> <span style="color:#ef5a1a; font-weight:bold;">${tarea.asignado}</span></p>
-                <p style="margin:8px 0; font-size:0.9em;"><b>👤 Cargado el:</b> ${new Date(tarea.timestamp).toLocaleDateString('es-AR')}</p>
+                <p style="margin:8px 0 15px 0; font-size:0.95em;"><b>📅 Entrega:</b> ${fechaFormat}</p>
+                
+                <p style="margin:8px 0 4px 0; font-size:0.95em;"><b>🏢 Asignado a:</b></p>
+                <div style="color:#ef5a1a; font-weight:bold; font-size: 1.1em; line-height: 1.3;">${tarea.asignado}</div>
             </div>
         </div>
         
