@@ -2452,83 +2452,107 @@ window.renderizarCalendario = async () => {
     }
 };
 
-// Función para ver los detalles de una tarea en el MODAL PREMIUM
+// Función para ver los detalles de una tarea (AHORA USA EL MODAL PREMIUM DE PROMOS)
 window.verDetalleTareaMkt = (event, idTarea) => {
-    event.stopPropagation(); // Evita que se abra el modal de "Crear Tarea" al hacer clic
+    event.stopPropagation(); 
     
     const tarea = tareasMarketingGlobal.find(t => t.id === idTarea);
     if(!tarea) return;
 
-    const modal = document.getElementById('modal-detalle-tarea');
-    if(!modal) return;
+    // 🪄 EL TRUCO: Usamos el mismo contenedor exacto de los paquetes (Promos)
+    const modal = dom.modal;
+    const modalBody = dom.modalBody;
 
-    // 1. Formatear la fecha linda (De 2026-05-15 a 15/05/2026)
+    // 1. Fechas y Etiquetas
     const partes = tarea.fecha.split('-');
     const fechaFormat = `${partes[2]}/${partes[1]}/${partes[0]}`;
-
-    // 2. Llenar los textos
-    document.getElementById('detalle-tarea-tipo').innerText = tarea.tipo;
-    document.getElementById('detalle-tarea-fecha').innerText = `📅 Entrega: ${fechaFormat}`;
-    document.getElementById('detalle-tarea-asignado').innerText = tarea.asignado;
+    const infoEtiqueta = etiquetasMarketingGlobal.find(e => e.nombre === tarea.tipo) || { abrev: 'MKT', color: '#56DDE0' };
     
-    // 3. Llenar el Link
-    const driveLink = document.getElementById('detalle-tarea-drive');
-    const contenedorDrive = document.getElementById('contenedor-detalle-drive');
+    // Etiqueta adentro del modal (Igual que Promos)
+    const bubbleStyle = `background-color: ${infoEtiqueta.color}; color: white; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`;
 
-    if (tarea.drive && tarea.drive.trim() !== "") {
-        contenedorDrive.style.display = 'block';
-        driveLink.href = tarea.drive;
-        driveLink.innerText = tarea.drive; 
-    } else {
-        contenedorDrive.style.display = 'none';
-    }
-
-    document.getElementById('detalle-tarea-notas').innerText = tarea.notas;
-    document.getElementById('detalle-tarea-creador').innerText = tarea.creador;
-
-    // 4. Chequear permisos para mostrar los botones (Admin, Editor o el Creador)
+    // 2. Permisos y Botones finitos
+    let adminTools = '';
     const tienePermisos = userData && (userData.rol === 'admin' || userData.rol === 'editor' || currentUser.email === tarea.creador);
-    const btnBorrar = document.getElementById('btn-borrar-tarea');
     
-    // MAGIA: Creamos el botón "Editar" al vuelo si no existe
-    let btnEditar = document.getElementById('btn-editar-tarea-mkt');
-    if (!btnEditar && btnBorrar) {
-        btnEditar = document.createElement('button');
-        btnEditar.id = 'btn-editar-tarea-mkt';
-        btnEditar.className = "btn"; // Clases base
-        btnEditar.style.cssText = "padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; background: #e3f2fd; color: #1e3a8a; margin-right: 10px; transition: 0.2s;";
-        btnEditar.innerHTML = '✏️ Editar';
-        btnBorrar.parentNode.insertBefore(btnEditar, btnBorrar); // Lo pone justo antes del botón borrar
-    }
-
     if (tienePermisos) {
-        btnBorrar.style.display = 'flex';
-        if(btnEditar) {
-            btnEditar.style.display = 'flex';
-            btnEditar.onclick = () => window.editarTareaMkt(tarea); // Llama a la función de editar
-        }
-        btnBorrar.onclick = async () => {
-            if(await window.showConfirm("⚠️ ¿Seguro que querés ELIMINAR esta tarea del calendario?")) {
-                showLoader(true, "Borrando tarea...");
-                try {
-                    await db.collection('calendario_marketing').doc(idTarea).delete();
-                    modal.style.display = 'none';
-                    await window.renderizarCalendario();
-                    window.showAlert("Tarea eliminada", "success");
-                } catch(e) {
-                    console.error(e);
-                    window.showAlert("Error al borrar", "error");
-                }
-                showLoader(false);
-            }
-        };
-    } else {
-        btnBorrar.style.display = 'none';
-        if(btnEditar) btnEditar.style.display = 'none';
+        // Botones Editar/Borrar idénticos a los de Paquetes
+        adminTools = `
+        <div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">
+            <button class="btn btn-secundario" onclick="window.editarTareaMktProxy('${tarea.id}')" style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button>
+            <button class="btn btn-secundario" onclick="window.borrarTareaMktProxy('${tarea.id}')" style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button>
+        </div>`;
     }
 
-    // 5. Mostrar el modal en pantalla
+    // 3. Estilo para el link de Drive (Más ordenado y cliqueable)
+    let driveHtml = '';
+    if (tarea.drive && tarea.drive.trim() !== "") {
+        driveHtml = `
+            <div style="margin-top: 20px; background: #eef2f5; padding: 15px; border-radius: 8px;">
+                <h4 style="margin: 0 0 8px 0; color: #11173d;">📁 Archivo / Link de Drive</h4>
+                <a href="${tarea.drive}" target="_blank" style="color: #ef5a1a; text-decoration: none; word-break: break-all; font-weight: 500;">${tarea.drive}</a>
+            </div>
+        `;
+    }
+
+    // 4. INYECTAMOS EL HTML CON LA ESTRUCTURA DE PAQUETES
+    modalBody.innerHTML = `
+        ${adminTools}
+        <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <h2 style="margin:0;font-size:2.2em;line-height:1.1; color:white;">${tarea.tipo.toUpperCase()}</h2>
+            </div>
+            <div style="margin-top:5px;"><span style="${bubbleStyle}">${tarea.tipo}</span></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">
+            <div>
+                <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Instrucciones y Detalles</h3>
+                <p style="white-space: pre-wrap; color: #555; line-height: 1.6; font-size: 0.95em; margin-top:10px;">${tarea.notas || 'Sin instrucciones adicionales.'}</p>
+                ${driveHtml}
+            </div>
+            <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;">
+                <h4 style="margin:0 0 15px 0; color:#11173d; border-bottom:1px solid #eee; padding-bottom:10px;">Resumen</h4>
+                <p style="margin:8px 0; font-size:0.9em;"><b>📅 Entrega:</b> ${fechaFormat}</p>
+                <p style="margin:8px 0; font-size:0.9em;"><b>🏢 Asignado a:</b> <span style="color:#ef5a1a; font-weight:bold;">${tarea.asignado}</span></p>
+                <p style="margin:8px 0; font-size:0.9em;"><b>👤 Cargado el:</b> ${new Date(tarea.timestamp).toLocaleDateString('es-AR')}</p>
+            </div>
+        </div>
+        
+        <div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:flex-end; align-items:center; border-radius:0 0 12px 12px;">
+            <div style="text-align:right;">
+                <small style="opacity:0.7;">Cargado por:</small>
+                <div style="font-size:0.9em;">${tarea.creador}</div>
+            </div>
+        </div>
+    `;
+
     modal.style.display = 'flex';
+};
+
+// 5. Funciones "Proxy" para manejar los clics de Editar/Borrar desde adentro del nuevo modal
+window.editarTareaMktProxy = (id) => {
+    const tarea = tareasMarketingGlobal.find(t => t.id === id);
+    if(tarea) {
+        dom.modal.style.display = 'none'; // Cerramos el modal de detalle
+        window.editarTareaMkt(tarea);     // Abrimos el formulario de edición
+    }
+};
+
+window.borrarTareaMktProxy = async (id) => {
+    if(await window.showConfirm("⚠️ ¿Seguro que querés ELIMINAR esta tarea del calendario?")) {
+        showLoader(true, "Borrando tarea...");
+        try {
+            await db.collection('calendario_marketing').doc(id).delete();
+            dom.modal.style.display = 'none'; // Cerramos el modal
+            await window.renderizarCalendario();
+            window.showAlert("Tarea eliminada", "success");
+        } catch(e) {
+            console.error(e);
+            window.showAlert("Error al borrar", "error");
+        }
+        showLoader(false);
+    }
 };
 
 // Cerrar el modal tocando el fondo oscuro
