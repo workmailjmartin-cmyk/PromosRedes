@@ -2400,48 +2400,36 @@ window.renderizarCalendario = async () => {
         // Filtramos las tareas que caen EXACTAMENTE en este día
         const tareasDelDia = tareasMarketingGlobal.filter(t => t.fecha === fechaString);
 
-        // --- PASO 2: NUEVO DISEÑO PREMIUM DE TARJETAS (Mismo tamaño que promos) ---
+        // Creamos el HTML de las tarjetitas
         let htmlTareas = '';
         tareasDelDia.forEach(tarea => {
             
-            // 🛡️ SEGURIDAD: Verificamos si esta tarea es para el usuario que está mirando la pantalla
+            // LA MAGIA: Verificamos si esta tarea es para el usuario que está mirando la pantalla
             const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
             const esParaMi = (tarea.asignado === miFranquicia || tarea.asignado === 'TODOS');
 
-            // Buscamos info de la etiqueta (abreviatura y color)
+            // Buscamos el color y abreviatura de la etiqueta
             const infoEtiqueta = etiquetasMarketingGlobal.find(e => e.nombre === tarea.tipo) || { abrev: 'MKT', color: '#6b7280' };
 
-            // Lógica de colores del nuevo diseño
-            const bgCard = esParaMi ? '#eff6ff' : 'white'; // Fondo azul vibrante si es mía, blanco si no.
-            const accentColor = infoEtiqueta.color || '#e5e7eb'; // Color de la etiqueta para el borde acentuado.
-            const colorTextoAsignado = esParaMi ? '#1e3a8a' : '#11173d'; // Texto azul oscuro si es mía.
+            // Diseño: Si es para mí (azul vibrante). Si es de otro (gris neutro).
+            const fondoTarea = esParaMi ? '#eff6ff' : '#f9fafb';
+            const bordeIzquierdo = esParaMi ? '4px solid #3b82f6' : '2px solid #e5e7eb';
+            const colorTextoAsignado = esParaMi ? '#1e3a8a' : '#6b7280';
 
-            // Construimos la nueva tarjeta con estilos inline optimizados
             htmlTareas += `
                 <div onclick="window.verDetalleTareaMkt(event, '${tarea.id}')"
-                     style="background: ${bgCard}; border: 1px solid #e5e7eb; border-left: 5px solid ${accentColor};
-                            border-radius: 8px; padding: 12px; margin-bottom: 8px; cursor: pointer;
-                            box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: transform 0.1s, box-shadow 0.1s;
-                            position: relative; display: flex; flex-direction: column;"
-                     onmouseover="this.style.boxShadow='0 4px 10px rgba(0,0,0,0.1)'; this.style.transform='translateY(-2px)';"
-                     onmouseout="this.style.boxShadow='0 2px 4px rgba(0,0,0,0.05)'; this.style.transform='none';">
+                     style="background: ${fondoTarea}; border: 1px solid #e5e7eb; border-left: ${bordeIzquierdo}; 
+                            border-radius: 4px; padding: 6px; margin-bottom: 5px; transition: transform 0.1s;">
                     
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #f3f4f6; padding-bottom: 8px;">
-                        <span style="background: ${accentColor}; color: white; padding: 3px 8px; border-radius: 6px; font-weight: bold; font-size: 0.75em; letter-spacing: 0.5px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="background: ${infoEtiqueta.color}; color: white; padding: 2px 5px; border-radius: 4px; font-weight: bold; font-size: 0.7em; letter-spacing: 0.5px;">
                             ${infoEtiqueta.abrev}
                         </span>
-                        ${esParaMi ? '<span title="¡Esta tarea es para tu franquicia!" style="font-size: 1.2em; animation: pulse 2s infinite;">🔔</span>' : ''}
+                        ${esParaMi ? '<span title="¡Esta tarea es para tu franquicia!" style="font-size: 1.1em; animation: pulse 2s infinite;">🔔</span>' : ''}
                     </div>
                     
-                    <div style="font-weight: 800; font-size: 0.95em; color: #11173d; margin-bottom: 5px; line-height: 1.2;">
-                        ${tarea.tipo}
-                    </div>
-                    
-                    ${tarea.notas ? `<div style="font-size: 0.8em; color: #555; margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; opacity: 0.8;">"${tarea.notas}"</div>` : ''}
-                    
-                    <div style="border-top: 1px solid #f3f4f6; padding-top: 8px; margin-top: auto; font-size: 0.85em; color: ${colorTextoAsignado}; font-weight: 500;">
-                        <span style="color: #6b7280;">Para:</span>
-                        <span style="font-weight: 800;">${tarea.asignado}</span>
+                    <div style="font-weight: 700; font-size: 0.75em; color: ${colorTextoAsignado}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        Para: ${tarea.asignado}
                     </div>
                 </div>
             `;
