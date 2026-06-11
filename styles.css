@@ -580,34 +580,34 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     100% { opacity: 0; transform: translateY(-10px); visibility: hidden; pointer-events: none; } 
 }
 
-/* --- LAYOUT INTELIGENTE DEL MODAL B2C --- */
-.modal-layout-grid {
-    display: grid;
-    /* En computadora: 66% izquierda, 33% derecha */
-    grid-template-columns: 2fr 1fr;
-    gap: 20px;
-}
-.modal-itinerario {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-}
-.modal-resumen {
-    grid-column: 2;
-    grid-row: 1;
-    height: fit-content;
-}
-.modal-financiacion {
-    grid-column: 2;
-    grid-row: 2;
-}
+/* ====================================================================
+   🚀 NUEVOS ESTILOS WEB PÚBLICA (MEJORADOS)
+   ==================================================================== */
 
-/* --- LINKS DEL HEADER --- */
-.header-links {
+/* --- 1. CABECERA B2C --- */
+.titulo-promos {
+    flex: 2; 
+    text-align: center;
+    color: #ef5a1a; 
+    font-size: 2rem;
+    margin: 0;
+    font-weight: 800;
+    line-height: 1.1;
+}
+.titulo-promos small {
+    display: block;
+    font-size: 0.6em;
+    color: #11173d;
+    font-weight: 600;
+}
+.mobile-break { display: none; }
+
+/* Links Container */
+.header-links-container {
     display: flex;
-    flex-direction: column; /* Apilados sutilmente a la derecha */
-    gap: 8px;
-    align-items: flex-end;
-    justify-content: center;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
 }
 .header-link-item {
     color: #11173d;
@@ -615,44 +615,108 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     font-weight: 600;
     font-size: 0.9em;
     transition: color 0.2s;
+    white-space: nowrap;
 }
 .header-link-item:hover { color: #ef5a1a; }
+.header-link-separator { color: #ddd; font-weight: 300; }
 
-/* --- NUEVO FOOTER B2C --- */
+/* --- 2. LAYOUT INTELIGENTE DEL MODAL B2C --- */
+.modal-layout-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+}
+.modal-itinerario { grid-column: 1; grid-row: 1 / span 2; }
+.modal-resumen { grid-column: 2; grid-row: 1; height: fit-content; }
+.modal-financiacion { grid-column: 2; grid-row: 2; }
+
+/* --- 3. NUEVO FOOTER B2C (VERSIÓN LIMPIA) --- */
 .footer-b2c {
     background-color: #f9fbfd;
     border-top: 1px solid #e5e7eb;
-    padding: 40px 5% 20px;
+    padding: 50px 5% 30px;
     margin-top: 50px;
 }
 .footer-b2c-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 30px;
-    margin-bottom: 30px;
+    /* Logo a la izquierda, lista a la derecha */
+    grid-template-columns: 1fr 2fr; 
+    gap: 50px;
+    align-items: flex-start;
+    margin-bottom: 40px;
 }
-.footer-col h4 { color: #11173d; font-size: 1.2em; margin-top: 0; margin-bottom: 15px; }
-.footer-col ul { list-style: none; padding: 0; margin: 0; }
-.footer-col ul li { color: #555; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 0.95em; }
+.footer-logo-col { text-align: left; max-width: 300px; }
+
+/* Lista unificada en 2 columnas en PC */
+.lista-servicios-unificada {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px 30px;
+}
+.lista-servicios-unificada li {
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1em;
+}
+
 .footer-bottom { text-align: center; color: #999; font-size: 0.85em; border-top: 1px solid #e5e7eb; padding-top: 20px; }
 
-/* --- ADAPTACIÓN A CELULARES --- */
+/* ====================================================================
+   📱 ADAPTACIÓN A CELULARES (FORMATO PROFESIONAL)
+   ==================================================================== */
 @media (max-width: 768px) {
-    /* Magia para apilar en el orden que pediste */
-    .modal-layout-grid {
-        display: flex !important;
-        flex-direction: column !important;
-    }
-    .modal-resumen { order: 1; }      /* 1ro Arriba: Detalles del viaje */
-    .modal-itinerario { order: 2; }   /* 2do Medio: Itinerario */
-    .modal-financiacion { order: 3; } /* 3ro Abajo: Notas y Botón de Wpp */
     
-    .header-links {
-        align-items: center;
-        margin-top: 10px;
-        flex-direction: row;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 15px;
+    /* 1. Título apilado y links centraditos en una línea */
+    .header-b2c {
+        flex-direction: column !important;
+        padding: 15px 20px !important;
+        gap: 10px !important;
+    }
+    .titulo-promos { font-size: 2.5rem !important; } /* Promociones GRANDE */
+    .mobile-break { display: inline !important; }
+    
+    .header-links-container {
+        justify-content: center !important;
+        width: 100% !important;
+        margin-top: 5px !important;
+        gap: 8px !important;
+    }
+    .header-link-item { font-size: 0.8rem !important; } /* Links más finitos */
+
+    /* 2. Apilar Modal en orden UX */
+    .modal-layout-grid { display: flex !important; flex-direction: column !important; gap: 15px !important; }
+    .modal-resumen { order: 1; }      
+    .modal-itinerario { order: 2; }   
+    .modal-financiacion { order: 3; }
+
+    /* 3. ¡SOLUCIÓN IMAGEN 1! Centrar footer azul del modal en mobile */
+    .modal-footer-pricing {
+        flex-direction: column !important;
+        text-align: center !important;
+        gap: 20px !important;
+        padding: 25px !important;
+    }
+    .modal-footer-pricing > div {
+        text-align: center !important;
+        max-width: 100% !important;
+    }
+
+    /* 4. ¡SOLUCIÓN IMAGEN 2! Footer principal en una sola lista */
+    .footer-b2c-grid {
+        grid-template-columns: 1fr !important;
+        text-align: center !important;
+        gap: 30px !important;
+    }
+    .footer-logo-col { margin: 0 auto !important; }
+    .lista-servicios-unificada {
+        grid-template-columns: 1fr !important; /* Lista única hacia abajo */
+        text-align: left !important;
+        max-width: 320px !important;
+        margin: 0 auto !important;
     }
 }

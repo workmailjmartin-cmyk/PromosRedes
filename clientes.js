@@ -314,6 +314,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (pkg.timestamp && pkg.timestamp < cutoffEpoch) return false; // Bloquea pasados
                     return true;
                 });
+
+            const salidasDisponibles = [...new Set(allPackages.map(pkg => pkg.salida))]
+                .filter(salida => salida && salida.trim() !== '') // Sacamos vacíos
+                .sort(); // Ordenamos alfabéticamente (A->Z)
+
+            // Limpiamos las opciones actuales del select (manteniendo "Todas")
+            if (dom.filtroSalida) {
+                dom.filtroSalida.innerHTML = '<option value="">Todas las Provincias</option>';
+                
+                // Creamos y agregamos las nuevas opciones dinámicas
+                salidasDisponibles.forEach(salida => {
+                    const option = document.createElement('option');
+                    option.value = salida;
+                    option.textContent = salida; 
+                    dom.filtroSalida.appendChild(option);
+                });
+            }
                 
             applyFilters();
             
@@ -467,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             </div>
             
-            <div style="background:#11173d; color:white; padding:20px 30px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px; flex-wrap:wrap; gap:15px;">
+            <div class="modal-footer-pricing" style="background:#11173d; color:white; padding:20px 30px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px; flex-wrap:wrap; gap:15px;">
                 <div style="text-align:left;">
                     <small style="opacity:0.8; font-size: 0.85em; text-transform: uppercase;">Tarifa final por persona (Base Doble)</small>
                     <div style="font-size:2.5em; font-weight:bold; color:#56DDE0; line-height: 1.1;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div>
