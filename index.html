@@ -246,6 +246,21 @@
                             <div class="form-group"><label>💳 Financiación / Notas de Pago</label><textarea id="upload-financiacion" rows="3" placeholder="Ej: Seña del 30%, saldo 20 días antes..."></textarea></div>
                         </div>
 
+                        <div id="panel-visibilidad-admin" style="display: none; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                            <h4 style="margin: 0 0 10px 0; color: #11173d;">👁️ Visibilidad en Web de Clientes</h4>
+                            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                                <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; background: #e6f4ea; padding: 8px 15px; border-radius: 6px; border: 1px solid #ceead6;">
+                                    <input type="checkbox" id="chk-reflejo" style="transform: scale(1.2);"> 
+                                    <span style="color: #1e8e3e; font-weight: bold;">✅ Anclar a la Web (Ignora corte 12hs)</span>
+                                </label>
+                                <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; background: #fce8e6; padding: 8px 15px; border-radius: 6px; border: 1px solid #fad2cf;">
+                                    <input type="checkbox" id="chk-ocultar" style="transform: scale(1.2);"> 
+                                    <span style="color: #d93025; font-weight: bold;">❌ Ocultar de la Web</span>
+                                </label>
+                            </div>
+                            <small style="color: #666; display: block; margin-top: 8px;">* Solo Casa Central y Editores pueden forzar o quitar una promoción de la web pública.</small>
+                        </div>
+
                         <div style="text-align:right; margin-top:20px;">
                             <button type="submit" class="btn btn-primario" style="padding:15px 40px; font-size:1.1em;">Guardar Paquete</button>
                         </div>

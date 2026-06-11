@@ -311,7 +311,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 .filter(pkg => {
                     if (pkg.alcance === 'casa_central') return false; // Bloquea promo interna
                     if (pkg.status === 'pending') return false; // Bloquea no aprobados
-                    if (pkg.timestamp && pkg.timestamp < cutoffEpoch) return false; // Bloquea pasados
+                    
+                    // ❌ REGLA 1: Si el Admin marcó "Ocultar", no se muestra (ignora todo lo demás)
+                    if (pkg.ocultar_cliente) return false; 
+                    
+                    // ⏳ REGLA 2: Corte de "La Cenicienta" (12hs)
+                    // Si NO está marcada la casilla verde "Reflejo a Cliente", rige el vencimiento normal.
+                    // Si está tildada, esta línea se ignora y la promo se sigue mostrando.
+                    if (!pkg.reflejo_cliente && pkg.timestamp && pkg.timestamp < cutoffEpoch) return false; 
+                    
                     return true;
                 });
 

@@ -847,6 +847,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function configureUIByRole() {
         const rol = userData.rol;
+
+        // --- NUEVO: Mostrar panel de visibilidad solo a Admins/Editores ---
+        const panelVisibilidad = document.getElementById('panel-visibilidad-admin');
+        if (panelVisibilidad) {
+            panelVisibilidad.style.display = (rol === 'admin' || rol === 'editor') ? 'block' : 'none';
+        }
     
         // --- 1. PROTECCIÓN DE BOTONES (El arreglo del error) ---
         // Si existe el botón Gestión, lo configuramos. Si no, seguimos de largo.
@@ -1422,6 +1428,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     action_type: isEditingId ? 'edit' : 'create',
                     timestamp: Date.now(),
                     fecha_creacion: fechaCreacionFormateada,
+                    reflejo_cliente: document.getElementById('chk-reflejo') ? document.getElementById('chk-reflejo').checked : false,
+                    cultar_cliente: document.getElementById('chk-ocultar') ? document.getElementById('chk-ocultar').checked : false,
                 };
 
         // 🧹 FILTRO PROFUNDO: Busca y destruye campos sin nombre o undefined en TODOS los niveles
@@ -1657,7 +1665,50 @@ window.approvePackage = async (pkg) => {
         } 
         showLoader(false);
     };    
-    window.startEditing = async (pkg) => { if (!await window.showConfirm("Se abrirá el formulario de edición.")) return; isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; originalCreator = pkg.creador || ''; document.getElementById('upload-destino').value = pkg.destino; document.getElementById('upload-salida').value = pkg.salida; let fecha = pkg.fecha_salida; if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-'); dom.inputFechaViaje.value = fecha; document.getElementById('upload-moneda').value = pkg.moneda; document.getElementById('upload-promo').value = pkg.tipo_promo; document.getElementById('upload-financiacion').value = pkg.financiacion || ''; document.getElementById('upload-tarifa-total').value = pkg.tarifa; dom.containerServicios.innerHTML = ''; let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {} if (Array.isArray(servicios)) { servicios.forEach(s => agregarModuloServicio(s.tipo, s)); } window.calcularTotal(); dom.modal.style.display = 'none'; showView('upload'); window.scrollTo(0,0); window.showAlert("Modo Edición Activado.", "info"); };
+
+    window.startEditing = async (pkg) => { 
+        if (!await window.showConfirm("Se abrirá el formulario de edición.")) return; 
+        
+        isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; 
+        originalCreator = pkg.creador || ''; 
+        
+        document.getElementById('upload-destino').value = pkg.destino; 
+        document.getElementById('upload-salida').value = pkg.salida; 
+        
+        let fecha = pkg.fecha_salida; 
+        if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-'); 
+        dom.inputFechaViaje.value = fecha; 
+        
+        document.getElementById('upload-moneda').value = pkg.moneda; 
+        document.getElementById('upload-promo').value = pkg.tipo_promo; 
+        document.getElementById('upload-financiacion').value = pkg.financiacion || ''; 
+        document.getElementById('upload-tarifa-total').value = pkg.tarifa; 
+
+        // --- NUEVO: Cargar estado de los checkboxes al editar ---
+        if(document.getElementById('chk-reflejo')) {
+            document.getElementById('chk-reflejo').checked = pkg.reflejo_cliente || false;
+        }
+        if(document.getElementById('chk-ocultar')) {
+            document.getElementById('chk-ocultar').checked = pkg.ocultar_cliente || false;
+        }
+        
+        dom.containerServicios.innerHTML = ''; 
+        let servicios = []; 
+        try { 
+            const raw = pkg['servicios'] || pkg['item.servicios']; 
+            servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; 
+        } catch(e) {} 
+        
+        if (Array.isArray(servicios)) { 
+            servicios.forEach(s => agregarModuloServicio(s.tipo, s)); 
+        } 
+        
+        window.calcularTotal(); 
+        dom.modal.style.display = 'none'; 
+        showView('upload'); 
+        window.scrollTo(0,0); 
+        window.showAlert("Modo Edición Activado.", "info"); 
+    };
 
     function openModal(pkg) {
         window.currentModalPackage = pkg;
@@ -1884,6 +1935,7 @@ window.approvePackage = async (pkg) => {
         applyFilters();
     });
     async function autoCleanupPackages(packages) {
+        if (pkg.reflejo_cliente) return false;
         if (!userData || (userData.rol !== 'admin')) return;
 
         const hoyString = new Date().toISOString().split('T')[0];
@@ -1910,6 +1962,8 @@ window.approvePackage = async (pkg) => {
             }
             return false;
         });
+
+
 
         for (const pkg of candidatosPaquetes) {
             await db.collection('paquetes').doc(pkg.id_paquete || pkg.id).delete();
