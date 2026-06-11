@@ -579,3 +579,80 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     80% { opacity: 1; transform: translateY(0); } 
     100% { opacity: 0; transform: translateY(-10px); visibility: hidden; pointer-events: none; } 
 }
+
+/* --- LAYOUT INTELIGENTE DEL MODAL B2C --- */
+.modal-layout-grid {
+    display: grid;
+    /* En computadora: 66% izquierda, 33% derecha */
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+}
+.modal-itinerario {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+}
+.modal-resumen {
+    grid-column: 2;
+    grid-row: 1;
+    height: fit-content;
+}
+.modal-financiacion {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+/* --- LINKS DEL HEADER --- */
+.header-links {
+    display: flex;
+    flex-direction: column; /* Apilados sutilmente a la derecha */
+    gap: 8px;
+    align-items: flex-end;
+    justify-content: center;
+}
+.header-link-item {
+    color: #11173d;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9em;
+    transition: color 0.2s;
+}
+.header-link-item:hover { color: #ef5a1a; }
+
+/* --- NUEVO FOOTER B2C --- */
+.footer-b2c {
+    background-color: #f9fbfd;
+    border-top: 1px solid #e5e7eb;
+    padding: 40px 5% 20px;
+    margin-top: 50px;
+}
+.footer-b2c-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 30px;
+    margin-bottom: 30px;
+}
+.footer-col h4 { color: #11173d; font-size: 1.2em; margin-top: 0; margin-bottom: 15px; }
+.footer-col ul { list-style: none; padding: 0; margin: 0; }
+.footer-col ul li { color: #555; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-size: 0.95em; }
+.footer-bottom { text-align: center; color: #999; font-size: 0.85em; border-top: 1px solid #e5e7eb; padding-top: 20px; }
+
+/* --- ADAPTACIÓN A CELULARES --- */
+@media (max-width: 768px) {
+    /* Magia para apilar en el orden que pediste */
+    .modal-layout-grid {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    .modal-resumen { order: 1; }      /* 1ro Arriba: Detalles del viaje */
+    .modal-itinerario { order: 2; }   /* 2do Medio: Itinerario */
+    .modal-financiacion { order: 3; } /* 3ro Abajo: Notas y Botón de Wpp */
+    
+    .header-links {
+        align-items: center;
+        margin-top: 10px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 15px;
+    }
+}

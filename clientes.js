@@ -446,24 +446,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">
-                <div>
+            <div class="modal-layout-grid" style="padding: 20px;">
+                
+                <div class="modal-itinerario">
                     <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>
                     ${htmlCliente}
                 </div>
-                <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content; border: 1px solid #e5e7eb;">
+                
+                <div class="modal-resumen" style="background:#f9fbfd; padding:15px; border-radius:8px; border: 1px solid #e5e7eb;">
                     <h4 style="margin:0 0 15px 0; color:#11173d; font-size:1.2em;">Resumen del Viaje</h4>
                     <p style="margin:5px 0; font-size:0.95em;"><b>📅 Salida:</b> ${fechaModal}</p>
                     <p style="margin:5px 0; font-size:0.95em;"><b>📍 Desde:</b> ${lugarSalidaModal || '-'}</p>
                     <p style="margin:5px 0; font-size:0.95em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p>
-                    
-                    ${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em; color:#11173d;"><b>💳 Financiación / Notas:</b><br>${pkg['financiacion']}</div>` : ''}
+                </div>
 
+                <div class="modal-financiacion">
+                    ${pkg['financiacion'] ? `<div style="margin-bottom:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em; color:#11173d;"><b>💳 Financiación / Notas:</b><br>${pkg['financiacion']}</div>` : ''}
                     ${btnConsultarWpp}
                 </div>
+
             </div>
             
-           <div style="background:#11173d; color:white; padding:20px 30px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px; flex-wrap:wrap; gap:15px;">
+            <div style="background:#11173d; color:white; padding:20px 30px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px; flex-wrap:wrap; gap:15px;">
                 <div style="text-align:left;">
                     <small style="opacity:0.8; font-size: 0.85em; text-transform: uppercase;">Tarifa final por persona (Base Doble)</small>
                     <div style="font-size:2.5em; font-weight:bold; color:#56DDE0; line-height: 1.1;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div>
