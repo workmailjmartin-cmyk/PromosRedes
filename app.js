@@ -1747,9 +1747,9 @@ window.approvePackage = async (pkg) => {
                 const pkgId = pkg.id_paquete || pkg.id || pkg['item.id'];
                 
                 // Botones de control rápido (Anclar y Ocultar)
-                const btnAnclar = `<button title="Anclar a la Web (Ignora corte 12hs)" onclick="window.toggleVisibilidad('${pkgId}', 'reflejo_cliente', ${isAnclado})" style="padding:4px 12px; font-size:0.9em; font-weight:bold; border-radius:6px; cursor:pointer; border: 1px solid ${isAnclado ? '#1e8e3e' : '#555'}; background: ${isAnclado ? '#e6f4ea' : 'transparent'}; color: ${isAnclado ? '#1e8e3e' : '#ccc'}; transition: 0.2s;">✅ Anclar</button>`;
+                const btnAnclar = `<button title="Anclar a B2C (Ignora corte 12hs)" onclick="window.toggleVisibilidad('${pkgId}', 'reflejo_cliente', ${isAnclado})" style="padding:4px 12px; font-size:0.9em; font-weight:bold; border-radius:6px; cursor:pointer; border: 1px solid ${isAnclado ? '#1e8e3e' : '#555'}; background: ${isAnclado ? '#e6f4ea' : 'transparent'}; color: ${isAnclado ? '#1e8e3e' : '#ccc'}; transition: 0.2s;">✅ Anclar</button>`;
                 
-                const btnOcultar = `<button title="Ocultar de la Web" onclick="window.toggleVisibilidad('${pkgId}', 'ocultar_cliente', ${isOculto})" style="padding:4px 12px; font-size:0.9em; font-weight:bold; border-radius:6px; cursor:pointer; border: 1px solid ${isOculto ? '#d93025' : '#555'}; background: ${isOculto ? '#fce8e6' : 'transparent'}; color: ${isOculto ? '#d93025' : '#ccc'}; transition: 0.2s;">❌ Ocultar</button>`;
+                const btnOcultar = `<button title="Ocultar en B2C " onclick="window.toggleVisibilidad('${pkgId}', 'ocultar_cliente', ${isOculto})" style="padding:4px 12px; font-size:0.9em; font-weight:bold; border-radius:6px; cursor:pointer; border: 1px solid ${isOculto ? '#d93025' : '#555'}; background: ${isOculto ? '#fce8e6' : 'transparent'}; color: ${isOculto ? '#d93025' : '#ccc'}; transition: 0.2s;">❌ Ocultar</button>`;
                 
                 visibilidadTools = `<div style="display:flex; gap:8px; margin-top: 8px;">${btnAnclar}${btnOcultar}</div>`;
             }
@@ -1765,7 +1765,7 @@ window.approvePackage = async (pkg) => {
                 ${visibilidadTools}
             </div>`; 
         }
-        
+
         const btnCopiar = `<button class="btn" onclick='copiarPresupuesto(currentModalPackage)' style="background:#34495e; color:white; padding: 5px 15px; font-size:0.8em; display:flex; align-items:center; gap:5px;">📋 Copiar</button>`;
 
         dom.modalBody.innerHTML = `
@@ -3165,8 +3165,7 @@ window.cargarPromocionesAdmin = async () => {
                 </div>`;
             });
         }
-
-        // 2. RENDERIZAR BUSCADOR Y CARGA
+// 2. RENDERIZAR BUSCADOR Y CARGA
         if(filtroPromo && uploadPromo) {
             const valorFiltro = filtroPromo.value;
             const valorUpload = uploadPromo.value;
@@ -3179,10 +3178,9 @@ window.cargarPromocionesAdmin = async () => {
                 if (promo.alcance === 'casa_central' && !esAdmin) return;
                 
                 filtroPromo.innerHTML += `<option value="${promo.nombre}">${promo.nombre}</option>`;
-
-                let textoExtra = '';
-                if(!esAdmin && promo.nombre !== 'Solo X Hoy') textoExtra = ' (Requiere Aprobación)';
-                uploadPromo.innerHTML += `<option value="${promo.nombre}">${promo.nombre}${textoExtra}</option>`;
+                
+                // Opción limpia para la carga (Sin cartel de requerimiento)
+                uploadPromo.innerHTML += `<option value="${promo.nombre}">${promo.nombre}</option>`;
             });
 
             if(valorFiltro) filtroPromo.value = valorFiltro;
