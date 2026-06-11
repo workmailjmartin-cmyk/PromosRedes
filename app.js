@@ -1732,8 +1732,39 @@ window.approvePackage = async (pkg) => {
         }
         const htmlCliente = renderServiciosClienteHTML(rawServicios); const htmlCostos = renderCostosProveedoresHTML(rawServicios); const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2); 
         const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`; 
-        let adminTools = ''; const isOwner = pkg.editor_email === currentUser.email; const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
-        if (canEdit) {              const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick="approvePackage(currentModalPackage)" style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : '';              adminTools = `<div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">${btnApprove}<button class="btn btn-secundario" onclick="startEditing(currentModalPackage)" style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button><button class="btn btn-secundario" onclick="deletePackage(currentModalPackage)" style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button></div>`;          }
+        let adminTools = ''; 
+        const isOwner = pkg.editor_email === currentUser.email; 
+        const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
+        
+        if (canEdit) { 
+            const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick="approvePackage(currentModalPackage)" style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : ''; 
+            
+            // --- NUEVO: Herramientas de Visibilidad B2C (Solo Jefes) ---
+            let visibilidadTools = '';
+            if (userData.rol === 'admin' || userData.rol === 'editor') {
+                const isAnclado = pkg.reflejo_cliente === true;
+                const isOculto = pkg.ocultar_cliente === true;
+                const pkgId = pkg.id_paquete || pkg.id || pkg['item.id'];
+                
+                // Botones de control rápido (Anclar y Ocultar)
+                const btnAnclar = `<button title="Anclar a la Web (Ignora corte 12hs)" onclick="window.toggleVisibilidad('${pkgId}', 'reflejo_cliente', ${isAnclado})" style="padding:4px 12px; font-size:0.9em; font-weight:bold; border-radius:6px; cursor:pointer; border: 1px solid ${isAnclado ? '#1e8e3e' : '#555'}; background: ${isAnclado ? '#e6f4ea' : 'transparent'}; color: ${isAnclado ? '#1e8e3e' : '#ccc'}; transition: 0.2s;">✅ Anclar</button>`;
+                
+                const btnOcultar = `<button title="Ocultar de la Web" onclick="window.toggleVisibilidad('${pkgId}', 'ocultar_cliente', ${isOculto})" style="padding:4px 12px; font-size:0.9em; font-weight:bold; border-radius:6px; cursor:pointer; border: 1px solid ${isOculto ? '#d93025' : '#555'}; background: ${isOculto ? '#fce8e6' : 'transparent'}; color: ${isOculto ? '#d93025' : '#ccc'}; transition: 0.2s;">❌ Ocultar</button>`;
+                
+                visibilidadTools = `<div style="display:flex; gap:8px; margin-top: 8px;">${btnAnclar}${btnOcultar}</div>`;
+            }
+
+            // --- ESTRUCTURA FINAL DE LA BOTONERA APILADA ---
+            adminTools = `
+            <div class="modal-tools" style="position: absolute; top: 15px; right: 50px; display:flex; flex-direction:column; align-items:flex-end;">
+                <div style="display:flex; gap:10px;">
+                    ${btnApprove}
+                    <button class="btn btn-secundario" onclick="startEditing(currentModalPackage)" style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button>
+                    <button class="btn btn-secundario" onclick="deletePackage(currentModalPackage)" style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button>
+                </div>
+                ${visibilidadTools}
+            </div>`; 
+        }
         
         const btnCopiar = `<button class="btn" onclick='copiarPresupuesto(currentModalPackage)' style="background:#34495e; color:white; padding: 5px 15px; font-size:0.8em; display:flex; align-items:center; gap:5px;">📋 Copiar</button>`;
 
@@ -3192,6 +3223,39 @@ window.borrarPromoAdmin = async (index) => {
     } catch(e) { window.showAlert("Error", "error"); }
     showLoader(false);
 };
+
+// ==========================================
+// FUNCIÓN: TOGGLE DE VISIBILIDAD RÁPIDA B2C
+// ==========================================
+window.toggleVisibilidad = async (id, campo, estadoActual) => {
+    showLoader(true, "Actualizando visibilidad...");
+    try {
+        const nuevoEstado = !estadoActual;
+            
+        // Regla lógica cruzada: Si anclo, desoculto. Si oculto, desanclo.
+        let updateData = { [campo]: nuevoEstado };
+        if (nuevoEstado === true) {
+            if (campo === 'reflejo_cliente') updateData.ocultar_cliente = false;
+            if (campo === 'ocultar_cliente') updateData.reflejo_cliente = false;
+        }
+
+        // Actualizamos en Firebase
+        await db.collection('paquetes').doc(id).update(updateData);
+            
+        // Cerramos el modal
+        if(dom.modal) dom.modal.style.display = 'none';
+            
+        // Recargamos la grilla para que se actualice la base de datos local
+        if(typeof fetchAndLoadPackages === 'function') await fetchAndLoadPackages();
+            
+        window.showAlert("Visibilidad actualizada en la web de clientes.", "success");
+    } catch (e) {
+        console.error("Error al actualizar visibilidad:", e);
+        window.showAlert("Error de conexión al actualizar.", "error");
+    }
+    showLoader(false);
+};
+
 
 
 });
