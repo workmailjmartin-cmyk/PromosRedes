@@ -669,11 +669,12 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     gap: 10px;
     font-size: 1.05em;
 }
-.footer-logo-col p { 
-    line-height: 1.4; 
-    max-width: 400px; 
-    margin: 0 auto; 
-    text-align: center; 
+.footer-logo-col {
+    text-align: center;
+    margin-top: 40px; 
+    padding-top: 30px;
+    border-top: 1px solid #e5e7eb;
+    width: 100%;
 }
 .footer-logo-col p { line-height: 1.4; max-width: 400px; margin: 0 auto; }
 .footer-bottom { text-align: center; color: #999; font-size: 0.85em; border-top: 1px solid #e5e7eb; padding-top: 20px; }
