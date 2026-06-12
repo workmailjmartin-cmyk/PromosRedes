@@ -642,7 +642,7 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     display: flex;
     flex-direction: column;
     align-items: center;
-    max-width: 950px; 
+    max-width: 1000px; 
     margin: 0 auto 30px auto;
 }
 .footer-title {
@@ -656,10 +656,11 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
 .lista-servicios-unificada {
     list-style: none;
     padding: 0;
-    margin: 0;
+    margin: 0 auto;
     display: grid;
     grid-template-columns: 1fr 1fr; 
-    gap: 15px 180px; 
+    gap: 15px 120px;
+    max-width: 850px; 
     width: 100%;
 }
 .lista-servicios-unificada li {
@@ -670,13 +671,22 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     font-size: 1.05em;
 }
 .footer-logo-col {
+    display: flex; 
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
     margin-top: 40px; 
     padding-top: 30px;
     border-top: 1px solid #e5e7eb;
     width: 100%;
 }
-.footer-logo-col p { line-height: 1.4; max-width: 400px; margin: 0 auto; }
+.footer-logo-col p { 
+    line-height: 1.4; 
+    max-width: 400px; 
+    margin: 10px auto 0 auto; 
+    text-align: center; /* Obligamos a las letras a ir al medio */
+}
 .footer-bottom { text-align: center; color: #999; font-size: 0.85em; border-top: 1px solid #e5e7eb; padding-top: 20px; }
 
 /* ====================================================================
