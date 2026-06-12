@@ -3254,6 +3254,287 @@ window.toggleVisibilidad = async (id, campo, estadoActual) => {
     showLoader(false);
 };
 
+// ====================================================================
+// 🌟 MÓDULO: CALENDARIO AGENTES FELICES (EL CLON PERFECTO)
+// ====================================================================
 
+// 1. Conexión del menú superior
+dom.views.agentes = document.getElementById('view-agentes');
+dom.nav.agentes = document.getElementById('nav-agentes');
+if (dom.nav.agentes) {
+    dom.nav.agentes.onclick = () => { 
+        showView('agentes'); 
+        if (typeof window.renderizarCalendarioAgentes === 'function') window.renderizarCalendarioAgentes(); 
+    };
+}
+
+let currentDateAgentes = new Date();
+let tareasAgentesGlobal = [];
+let isEditingAgentesId = null;
+window.vistaCalendarioAgentes = null;
+
+// 2. El Motor de Renderizado
+window.renderizarCalendarioAgentes = async () => {
+    const grid = document.getElementById('grid-calendario-agentes');
+    const labelMes = document.getElementById('mes-actual-label-agentes');
+    if (!grid || !labelMes) return;
+
+    if (!window.vistaCalendarioAgentes) {
+        const esAdmin = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+        window.vistaCalendarioAgentes = esAdmin ? 'RED' : 'PROPIOS';
+    }
+
+    let toggleContainer = document.getElementById('toggle-agentes-container');
+    if (!toggleContainer) {
+        toggleContainer = document.createElement('div');
+        toggleContainer.id = 'toggle-agentes-container';
+        toggleContainer.style.cssText = 'display: flex; justify-content: flex-end; margin-bottom: 15px; width: 100%;';
+        const headerDias = document.querySelector('#view-agentes .header-dias-semana');
+        headerDias ? headerDias.parentNode.insertBefore(toggleContainer, headerDias) : grid.parentNode.insertBefore(toggleContainer, grid);
+    }
+
+    const isPropios = window.vistaCalendarioAgentes === 'PROPIOS';
+    toggleContainer.innerHTML = `
+        <div style="background: #f3f4f6; padding: 4px; border-radius: 30px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid #e5e7eb;">
+            <button onclick="window.cambiarVistaAgentes('PROPIOS')" style="border: none; background: ${isPropios ? 'white' : 'transparent'}; color: ${isPropios ? '#f1c40f' : '#6b7280'}; box-shadow: ${isPropios ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'}; padding: 6px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 0.85em;">👁️ Mis Tareas</button>
+            <button onclick="window.cambiarVistaAgentes('RED')" style="border: none; background: ${!isPropios ? 'white' : 'transparent'}; color: ${!isPropios ? '#1e3a8a' : '#6b7280'}; box-shadow: ${!isPropios ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'}; padding: 6px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 0.85em;">🌐 Red FV</button>
+        </div>
+    `;
+
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #6b7280; font-weight: bold;">Cargando tareas... ⏳</div>';
+
+    try {
+        const snapshot = await db.collection('calendario_agentes').get();
+        tareasAgentesGlobal = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch(e) { console.error("Error al traer agentes:", e); }
+
+    grid.innerHTML = '';
+    const mes = currentDateAgentes.getMonth();
+    const anio = currentDateAgentes.getFullYear();
+    const nombresMeses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    labelMes.innerText = `${nombresMeses[mes]} ${anio}`;
+
+    const primerDia = new Date(anio, mes, 1).getDay();
+    const diasEnMes = new Date(anio, mes + 1, 0).getDate();
+
+    for (let i = 0; i < primerDia; i++) {
+        const divVacio = document.createElement('div');
+        divVacio.style.cssText = "background: transparent; min-height: 100px;";
+        grid.appendChild(divVacio);
+    }
+
+    const hoyReal = new Date();
+    const hoyPuro = new Date(hoyReal.getFullYear(), hoyReal.getMonth(), hoyReal.getDate());
+    
+    for (let dia = 1; dia <= diasEnMes; dia++) {
+        const fechaCelda = new Date(anio, mes, dia);
+        const esHoy = (fechaCelda.getTime() === hoyPuro.getTime());
+        const esPasado = (fechaCelda < hoyPuro); 
+        
+        const divDia = document.createElement('div');
+        const diaSemana = fechaCelda.getDay();
+        const esFinde = (diaSemana === 0 || diaSemana === 6);
+        const colorFondo = esFinde ? '#f9fafb' : 'white';
+        let opacidadFinal = esPasado ? '0.4' : (esFinde ? '0.8' : '1');
+
+        divDia.style.cssText = `background: ${colorFondo}; opacity: ${opacidadFinal}; border: 1px solid ${esHoy ? '#f1c40f' : '#e5e7eb'}; border-radius: 8px; min-height: 120px; padding: 10px; display: flex; flex-direction: column; cursor: pointer; transition: box-shadow 0.2s, transform 0.2s, opacity 0.2s; box-shadow: ${esHoy ? '0 0 0 2px rgba(241, 196, 15, 0.2)' : 'none'};`;
+        
+        if (esPasado) {
+            divDia.onmouseover = () => { divDia.style.boxShadow = '0 4px 10px rgba(0,0,0,0.05)'; divDia.style.opacity = '0.8'; };
+            divDia.onmouseout = () => { divDia.style.boxShadow = 'none'; divDia.style.opacity = '0.4'; };
+        } else {
+            divDia.onmouseover = () => divDia.style.boxShadow = '0 4px 10px rgba(0,0,0,0.05)';
+            divDia.onmouseout = () => divDia.style.boxShadow = esHoy ? '0 0 0 2px rgba(241, 196, 15, 0.2)' : 'none';
+        }
+
+        const fechaString = `${anio}-${String(mes+1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+        let tareasDelDia = tareasAgentesGlobal.filter(t => t.fecha === fechaString);
+
+        if (window.vistaCalendarioAgentes === 'PROPIOS') {
+            const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
+            tareasDelDia = tareasDelDia.filter(t => t.asignado === miFranquicia || t.asignado === 'TODOS');
+        }
+
+        let htmlTareas = '';
+        tareasDelDia.forEach(tarea => {
+            const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
+            const esParaMi = (tarea.asignado === miFranquicia || tarea.asignado === 'TODOS');
+            const infoEtiqueta = etiquetasMarketingGlobal.find(e => e.nombre === tarea.tipo) || { abrev: 'AGT', color: '#6b7280' };
+
+            const fondoTarea = esParaMi ? '#fffdf0' : '#f9fafb';
+            const bordeIzquierdo = esParaMi ? '4px solid #f1c40f' : '2px solid #e5e7eb';
+            const colorTextoAsignado = esParaMi ? '#7a6200' : '#6b7280';
+
+            htmlTareas += `
+                <div onclick="window.verDetalleTareaAgentes(event, '${tarea.id}')" style="background: ${fondoTarea}; border: 1px solid #e5e7eb; border-left: ${bordeIzquierdo}; border-radius: 4px; padding: 6px; margin-bottom: 5px; transition: transform 0.1s;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="background: ${infoEtiqueta.color}; color: white; padding: 2px 5px; border-radius: 4px; font-weight: bold; font-size: 0.7em;">${infoEtiqueta.abrev}</span>
+                        ${esParaMi ? '<span style="font-size: 1.1em;">🔔</span>' : ''}
+                    </div>
+                    <div style="font-weight: 700; font-size: 0.75em; color: ${colorTextoAsignado}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Para: ${tarea.asignado}</div>
+                </div>
+            `;
+        });
+
+        divDia.innerHTML = `<div style="font-weight: bold; font-size: 1.1em; color: ${esHoy ? '#f1c40f' : '#11173d'}; margin-bottom: 8px;">${dia}</div><div style="flex: 1; display: flex; flex-direction: column;">${htmlTareas}</div>`;
+        divDia.onclick = () => window.abrirFormularioAgentes(fechaString);
+        grid.appendChild(divDia);
+    }
+};
+
+window.cambiarVistaAgentes = (vista) => { window.vistaCalendarioAgentes = vista; window.renderizarCalendarioAgentes(); };
+
+const btnAntAgt = document.getElementById('btn-mes-anterior-agentes');
+if(btnAntAgt) btnAntAgt.addEventListener('click', () => { currentDateAgentes.setMonth(currentDateAgentes.getMonth() - 1); window.renderizarCalendarioAgentes(); });
+const btnSigAgt = document.getElementById('btn-mes-siguiente-agentes');
+if(btnSigAgt) btnSigAgt.addEventListener('click', () => { currentDateAgentes.setMonth(currentDateAgentes.getMonth() + 1); window.renderizarCalendarioAgentes(); });
+
+// 3. Gestor de Formularios y Modales
+const modalAgt = document.getElementById('modal-agentes');
+const formAgt = document.getElementById('form-agentes');
+const modalDetalleAgt = document.getElementById('modal-detalle-agentes');
+
+window.abrirFormularioAgentes = async (fecha) => {
+    isEditingAgentesId = null;
+    if(formAgt) formAgt.reset();
+    const p = fecha.split('-');
+    document.getElementById('agentes-fecha-display').innerText = `${p[2]}/${p[1]}/${p[0]}`;
+    document.getElementById('agentes-fecha-input').value = fecha;
+    await llenarComboFranquiciasAgentes();
+    modalAgt.style.display = 'flex';
+};
+
+window.editarTareaAgentesProxy = async (id) => {
+    const tarea = tareasAgentesGlobal.find(t => t.id === id);
+    if(tarea) {
+        modalDetalleAgt.style.display = 'none';
+        isEditingAgentesId = tarea.id;
+        const p = tarea.fecha.split('-');
+        document.getElementById('agentes-fecha-display').innerText = `${p[2]}/${p[1]}/${p[0]}`;
+        document.getElementById('agentes-fecha-input').value = tarea.fecha;
+        await llenarComboFranquiciasAgentes();
+        document.getElementById('agentes-tipo').value = tarea.tipo || '';
+        document.getElementById('agentes-asignado').value = tarea.asignado || '';
+        document.getElementById('agentes-drive').value = tarea.drive || '';
+        document.getElementById('agentes-notas').value = tarea.notas || '';
+        modalAgt.style.display = 'flex';
+    }
+};
+
+async function llenarComboFranquiciasAgentes() {
+    const s = document.getElementById('agentes-asignado');
+    s.innerHTML = '<option value="">Seleccionar...</option><option value="TODOS">📢 A Todas las Franquicias</option>';
+    try {
+        const doc = await db.collection('metadata').doc('config').get();
+        if (doc.exists && doc.data().franquicias) doc.data().franquicias.forEach(f => s.innerHTML += `<option value="${f}">🏢 ${f}</option>`);
+    } catch(e) {}
+}
+
+const btnCerrarAgt = document.getElementById('modal-agentes-cerrar');
+if(btnCerrarAgt) btnCerrarAgt.onclick = () => modalAgt.style.display = 'none';
+
+if(formAgt) {
+    formAgt.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        showLoader(true, "Guardando tarea...");
+        let tareaOrig = isEditingAgentesId ? tareasAgentesGlobal.find(t => t.id === isEditingAgentesId) : null;
+        
+        const payload = {
+            fecha: document.getElementById('agentes-fecha-input').value,
+            tipo: document.getElementById('agentes-tipo').value,
+            asignado: document.getElementById('agentes-asignado').value,
+            drive: document.getElementById('agentes-drive').value,
+            notas: document.getElementById('agentes-notas').value,
+            creador: isEditingAgentesId && tareaOrig ? tareaOrig.creador : ((userData && userData.franquicia) ? userData.franquicia : currentUser.email),
+            timestamp: isEditingAgentesId && tareaOrig ? tareaOrig.timestamp : Date.now(),
+            last_edited_by: isEditingAgentesId ? currentUser.email : null
+        };
+
+        try {
+            if (isEditingAgentesId) await db.collection('calendario_agentes').doc(isEditingAgentesId).update(payload);
+            else await db.collection('calendario_agentes').add(payload);
+            
+            window.showAlert("¡Tarea Agente guardada!", "success");
+            modalAgt.style.display = 'none';
+            await window.renderizarCalendarioAgentes();
+        } catch(err) { window.showAlert("Error al guardar", "error"); }
+        showLoader(false);
+    });
+}
+
+window.verDetalleTareaAgentes = (event, id) => {
+    event.stopPropagation(); 
+    const tarea = tareasAgentesGlobal.find(t => t.id === id);
+    if(!tarea) return;
+
+    const p = tarea.fecha.split('-');
+    const eti = etiquetasMarketingGlobal.find(e => e.nombre === tarea.tipo) || { color: '#f1c40f' };
+    
+    document.getElementById('detalle-agentes-tipo').innerText = tarea.tipo.toUpperCase();
+    document.getElementById('detalle-agentes-fecha').innerText = `${p[2]}/${p[1]}/${p[0]}`;
+    document.getElementById('detalle-agentes-fecha').style.backgroundColor = eti.color;
+    document.getElementById('detalle-agentes-fecha').style.color = "white";
+    document.getElementById('detalle-agentes-asignado').innerText = tarea.asignado;
+    document.getElementById('detalle-agentes-creador').innerText = tarea.creador;
+    
+    const boxDrive = document.getElementById('contenedor-detalle-drive-agentes');
+    if (tarea.drive && tarea.drive.trim() !== "") {
+        boxDrive.style.display = 'block';
+        document.getElementById('detalle-agentes-drive').href = tarea.drive;
+        document.getElementById('detalle-agentes-drive').innerText = tarea.drive;
+    } else boxDrive.style.display = 'none';
+    
+    document.getElementById('detalle-agentes-notas').innerText = tarea.notas || 'Sin instrucciones adicionales.';
+
+    const btnBorrar = document.getElementById('btn-borrar-agentes');
+    if (userData && (userData.rol === 'admin' || userData.rol === 'editor' || currentUser.email === tarea.creador)) {
+        btnBorrar.style.display = 'inline-block';
+        btnBorrar.onclick = async () => {
+            if(await window.showConfirm("¿Eliminar esta tarea del agente?")) {
+                showLoader(true);
+                try { await db.collection('calendario_agentes').doc(id).delete(); modalDetalleAgt.style.display = 'none'; await window.renderizarCalendarioAgentes(); } 
+                catch(e) { window.showAlert("Error", "error"); }
+                showLoader(false);
+            }
+        };
+        // Inyectar botón editar
+        let divHeader = btnBorrar.parentElement;
+        if(!document.getElementById('btn-editar-agentes')) {
+            const btnEdit = document.createElement('button');
+            btnEdit.id = 'btn-editar-agentes';
+            btnEdit.style.cssText = 'background: #f1c40f; color: #11173d; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.85em; cursor: pointer; font-weight: bold;';
+            btnEdit.innerText = '✏️ Editar';
+            divHeader.insertBefore(btnEdit, btnBorrar);
+        }
+        document.getElementById('btn-editar-agentes').onclick = () => window.editarTareaAgentesProxy(id);
+    } else {
+        btnBorrar.style.display = 'none';
+        const oldEdit = document.getElementById('btn-editar-agentes');
+        if(oldEdit) oldEdit.remove();
+    }
+    
+    modalDetalleAgt.style.display = 'flex';
+};
+
+if(modalDetalleAgt) modalDetalleAgt.onclick = (e) => { if(e.target === modalDetalleAgt) modalDetalleAgt.style.display = 'none'; };
+
+// 4. TRUCO DE MAGIA: Interceptamos la carga de etiquetas para que las comparta
+const originalCargarEtiquetas = window.cargarEtiquetasMarketing;
+window.cargarEtiquetasMarketing = async () => {
+    if(typeof originalCargarEtiquetas === 'function') await originalCargarEtiquetas();
+    
+    const selectAg = document.getElementById('agentes-tipo');
+    const leyendaAg = document.getElementById('leyenda-etiquetas-agentes');
+    if(selectAg) {
+        selectAg.innerHTML = '<option value="">Seleccionar...</option>';
+        etiquetasMarketingGlobal.forEach(e => selectAg.innerHTML += `<option value="${e.nombre}">${e.nombre}</option>`);
+    }
+    if(leyendaAg) {
+        leyendaAg.innerHTML = etiquetasMarketingGlobal.length === 0 ? '<span style="color:#999; font-size:0.8em;">No hay etiquetas.</span>' : '';
+        etiquetasMarketingGlobal.forEach(e => {
+            leyendaAg.innerHTML += `<div style="display:flex; align-items:center; gap:6px; font-size:0.85em; color:#555; background:#f9fafb; padding:4px 10px; border-radius:6px; border:1px solid #e5e7eb;"><span style="background:${e.color}; color:white; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.8em;">${e.abrev}</span><span style="font-weight:500;">= ${e.nombre}</span></div>`;
+        });
+    }
+};
 
 });
