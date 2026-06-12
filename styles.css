@@ -579,3 +579,183 @@ input[type="date"] { appearance: none; -webkit-appearance: none; height: 47px; }
     80% { opacity: 1; transform: translateY(0); } 
     100% { opacity: 0; transform: translateY(-10px); visibility: hidden; pointer-events: none; } 
 }
+
+/* ====================================================================
+   🚀 NUEVOS ESTILOS WEB PÚBLICA (DEFINITIVOS Y PULIDOS AL 100%)
+   ==================================================================== */
+
+/* --- 1. CABECERA B2C --- */
+.titulo-promos {
+    flex: 2; 
+    text-align: center;
+    color: #ef5a1a; 
+    font-size: 2rem;
+    margin: 0;
+    font-weight: 800;
+    line-height: 1.1;
+}
+.titulo-promos small {
+    display: block;
+    font-size: 0.6em;
+    color: #11173d;
+    font-weight: 600;
+}
+.mobile-break { display: none; }
+
+/* Links Container en PC */
+.header-links-container {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+}
+.header-link-item {
+    color: #11173d;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9em;
+    transition: color 0.2s;
+    white-space: nowrap;
+}
+.header-link-item:hover { color: #ef5a1a; }
+.header-link-separator { color: #ddd; font-weight: 300; }
+
+/* --- 2. LAYOUT DEL MODAL B2C (ARREGLADO PROPORCIONES DESKTOP) --- */
+.modal-layout-grid {
+    display: grid;
+    /* ¡SOLUCIÓN IMAGEN 3! Cambiado de 2fr a 1.3fr para ensanchar la derecha */
+    grid-template-columns: 1.3fr 1fr; 
+    gap: 20px;
+}
+.modal-itinerario { grid-column: 1; grid-row: 1 / span 2; }
+.modal-resumen { grid-column: 2; grid-row: 1; height: fit-content; }
+.modal-financiacion { grid-column: 2; grid-row: 2; }
+
+/* --- 3. NUEVO FOOTER B2C --- */
+.footer-b2c {
+    background-color: #f9fbfd;
+    border-top: 1px solid #e5e7eb;
+    padding: 50px 5% 30px;
+    margin-top: 50px;
+}
+.footer-b2c-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 1000px; 
+    margin: 0 auto 30px auto;
+}
+.footer-title {
+    color: #11173d;
+    font-size: 1.6em;
+    margin-top: 0;
+    margin-bottom: 25px;
+    text-align: center;
+    font-weight: 800;
+}
+.lista-servicios-unificada {
+    list-style: none;
+    padding: 0;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr; 
+    gap: 15px 120px;
+    max-width: 850px; 
+    width: 100%;
+}
+.lista-servicios-unificada li {
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.05em;
+}
+.footer-logo-col {
+    display: flex; 
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    margin-top: 40px; 
+    padding-top: 30px;
+    border-top: 1px solid #e5e7eb;
+    width: 100%;
+}
+.footer-logo-col p { 
+    line-height: 1.4; 
+    max-width: 400px; 
+    margin: 10px auto 0 auto; 
+    text-align: center; /* Obligamos a las letras a ir al medio */
+}
+.footer-bottom { text-align: center; color: #999; font-size: 0.85em; border-top: 1px solid #e5e7eb; padding-top: 20px; }
+
+/* ====================================================================
+   📱 ADAPTACIÓN A CELULARES (REORDENAMIENTO UX Y ESPACIOS)
+   ==================================================================== */
+@media (max-width: 768px) {
+    
+    /* 1. ¡SOLUCIÓN IMAGEN 4! Cabecera con espacios perfectos */
+    .header-b2c {
+        flex-direction: column !important;
+        /* Reducimos el padding inferior para pegar los links a lo gris */
+        padding: 20px 20px 35px 20px !important; 
+        gap: 10px !important;
+        position: relative !important;
+    }
+    .titulo-promos { 
+        font-size: 2.5rem !important; 
+        /* ¡MAGIA! Más espacio abajo para los links */
+        margin-bottom: 25px !important; 
+    }
+    .mobile-break { display: inline !important; }
+    
+    /* Links Container pegaditos a la frontera gris/blanca */
+    .header-links-container {
+        position: absolute !important;
+        /* ¡SOLUCIÓN! A solo 5px del borde inferior gris */
+        bottom: 5px !important; 
+        left: 0 !important;
+        width: 100% !important;
+        justify-content: center !important;
+        gap: 12px !important;
+    }
+    .header-link-item { font-size: 0.85rem !important; }
+
+    /* 2. ¡SOLUCIÓN IMAGEN 1! Apilar Modal en orden UX CORRECTO */
+    .modal-layout-grid { 
+        display: flex !important; 
+        /* Obligamos a que sea columna para que respete el order */
+        flex-direction: column !important; 
+        gap: 15px !important; 
+    }
+    /* Estricto reordenamiento */
+    .modal-resumen { order: 1 !important; }      /* 1ro Arriba (Datos) */
+    .modal-itinerario { order: 2 !important; }   /* 2do Medio (Itinerario) */
+    .modal-financiacion { order: 3 !important; } /* 3ro Abajo (Notas/Botón) */
+
+    /* 3. ¡SOLUCIÓN IMAGEN 2! Centrar footer azul oscuro (Precio y Legales) */
+    .modal-footer-pricing {
+        flex-direction: column !important; /* Apilar vertical */
+        text-align: center !important;    /* Centrar textos */
+        justify-content: center !important;
+        gap: 20px !important;
+        padding: 25px 20px !important; /* Darle aire */
+    }
+    .modal-footer-pricing > div {
+        text-align: center !important; /* Alinear contenido al medio */
+        max-width: 100% !important;    /* Ocupar ancho */
+    }
+    /* El precio en sí */
+    .modal-footer-pricing div[style*="font-size:2.5em"] { 
+        text-align: center !important;
+    }
+
+    /* 4. Footer principal en una sola lista */
+    .lista-servicios-unificada {
+        grid-template-columns: 1fr !important; /* Todo en 1 columna */
+        text-align: left !important;
+        max-width: 340px !important;
+        margin: 0 auto !important;
+    }
+    .lista-servicios-unificada li { font-size: 0.95em !important; margin-bottom: 8px !important; }
+}

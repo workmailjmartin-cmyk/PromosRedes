@@ -847,6 +847,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function configureUIByRole() {
         const rol = userData.rol;
+
+        // --- NUEVO: Mostrar panel de visibilidad solo a Admins/Editores ---
+        const panelVisibilidad = document.getElementById('panel-visibilidad-admin');
+        if (panelVisibilidad) {
+            panelVisibilidad.style.display = (rol === 'admin' || rol === 'editor') ? 'block' : 'none';
+        }
     
         // --- 1. PROTECCIÓN DE BOTONES (El arreglo del error) ---
         // Si existe el botón Gestión, lo configuramos. Si no, seguimos de largo.
@@ -1422,6 +1428,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     action_type: isEditingId ? 'edit' : 'create',
                     timestamp: Date.now(),
                     fecha_creacion: fechaCreacionFormateada,
+                    reflejo_cliente: document.getElementById('chk-reflejo') ? document.getElementById('chk-reflejo').checked : false,
+                    cultar_cliente: document.getElementById('chk-ocultar') ? document.getElementById('chk-ocultar').checked : false,
                 };
 
         // 🧹 FILTRO PROFUNDO: Busca y destruye campos sin nombre o undefined en TODOS los niveles
@@ -1657,7 +1665,50 @@ window.approvePackage = async (pkg) => {
         } 
         showLoader(false);
     };    
-    window.startEditing = async (pkg) => { if (!await window.showConfirm("Se abrirá el formulario de edición.")) return; isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; originalCreator = pkg.creador || ''; document.getElementById('upload-destino').value = pkg.destino; document.getElementById('upload-salida').value = pkg.salida; let fecha = pkg.fecha_salida; if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-'); dom.inputFechaViaje.value = fecha; document.getElementById('upload-moneda').value = pkg.moneda; document.getElementById('upload-promo').value = pkg.tipo_promo; document.getElementById('upload-financiacion').value = pkg.financiacion || ''; document.getElementById('upload-tarifa-total').value = pkg.tarifa; dom.containerServicios.innerHTML = ''; let servicios = []; try { const raw = pkg['servicios'] || pkg['item.servicios']; servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) {} if (Array.isArray(servicios)) { servicios.forEach(s => agregarModuloServicio(s.tipo, s)); } window.calcularTotal(); dom.modal.style.display = 'none'; showView('upload'); window.scrollTo(0,0); window.showAlert("Modo Edición Activado.", "info"); };
+
+    window.startEditing = async (pkg) => { 
+        if (!await window.showConfirm("Se abrirá el formulario de edición.")) return; 
+        
+        isEditingId = pkg.id_paquete || pkg.id || pkg['item.id']; 
+        originalCreator = pkg.creador || ''; 
+        
+        document.getElementById('upload-destino').value = pkg.destino; 
+        document.getElementById('upload-salida').value = pkg.salida; 
+        
+        let fecha = pkg.fecha_salida; 
+        if(fecha && fecha.includes('/')) fecha = fecha.split('/').reverse().join('-'); 
+        dom.inputFechaViaje.value = fecha; 
+        
+        document.getElementById('upload-moneda').value = pkg.moneda; 
+        document.getElementById('upload-promo').value = pkg.tipo_promo; 
+        document.getElementById('upload-financiacion').value = pkg.financiacion || ''; 
+        document.getElementById('upload-tarifa-total').value = pkg.tarifa; 
+
+        // --- NUEVO: Cargar estado de los checkboxes al editar ---
+        if(document.getElementById('chk-reflejo')) {
+            document.getElementById('chk-reflejo').checked = pkg.reflejo_cliente || false;
+        }
+        if(document.getElementById('chk-ocultar')) {
+            document.getElementById('chk-ocultar').checked = pkg.ocultar_cliente || false;
+        }
+        
+        dom.containerServicios.innerHTML = ''; 
+        let servicios = []; 
+        try { 
+            const raw = pkg['servicios'] || pkg['item.servicios']; 
+            servicios = typeof raw === 'string' ? JSON.parse(raw) : raw; 
+        } catch(e) {} 
+        
+        if (Array.isArray(servicios)) { 
+            servicios.forEach(s => agregarModuloServicio(s.tipo, s)); 
+        } 
+        
+        window.calcularTotal(); 
+        dom.modal.style.display = 'none'; 
+        showView('upload'); 
+        window.scrollTo(0,0); 
+        window.showAlert("Modo Edición Activado.", "info"); 
+    };
 
     function openModal(pkg) {
         window.currentModalPackage = pkg;
@@ -1681,9 +1732,40 @@ window.approvePackage = async (pkg) => {
         }
         const htmlCliente = renderServiciosClienteHTML(rawServicios); const htmlCostos = renderCostosProveedoresHTML(rawServicios); const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2); 
         const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`; 
-        let adminTools = ''; const isOwner = pkg.editor_email === currentUser.email; const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
-        if (canEdit) {              const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick="approvePackage(currentModalPackage)" style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : '';              adminTools = `<div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">${btnApprove}<button class="btn btn-secundario" onclick="startEditing(currentModalPackage)" style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button><button class="btn btn-secundario" onclick="deletePackage(currentModalPackage)" style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button></div>`;          }
+        let adminTools = ''; 
+        const isOwner = pkg.editor_email === currentUser.email; 
+        const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
         
+        if (canEdit) { 
+            const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick="approvePackage(currentModalPackage)" style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : ''; 
+            
+            // --- NUEVO: Herramientas de Visibilidad B2C (Solo Jefes) ---
+            let visibilidadTools = '';
+            if (userData.rol === 'admin' || userData.rol === 'editor') {
+                const isAnclado = pkg.reflejo_cliente === true;
+                const isOculto = pkg.ocultar_cliente === true;
+                const pkgId = pkg.id_paquete || pkg.id || pkg['item.id'];
+                
+                // Botones de control rápido (Anclar y Ocultar)
+                const btnAnclar = `<button title="Anclar a B2C (Ignora corte 12hs)" onclick="window.toggleVisibilidad('${pkgId}', 'reflejo_cliente', ${isAnclado})" style="padding:4px 12px; font-size:0.9em; font-weight:bold; border-radius:6px; cursor:pointer; border: 1px solid ${isAnclado ? '#1e8e3e' : '#555'}; background: ${isAnclado ? '#e6f4ea' : 'transparent'}; color: ${isAnclado ? '#1e8e3e' : '#ccc'}; transition: 0.2s;">✅ Anclar</button>`;
+                
+                const btnOcultar = `<button title="Ocultar en B2C " onclick="window.toggleVisibilidad('${pkgId}', 'ocultar_cliente', ${isOculto})" style="padding:4px 12px; font-size:0.9em; font-weight:bold; border-radius:6px; cursor:pointer; border: 1px solid ${isOculto ? '#d93025' : '#555'}; background: ${isOculto ? '#fce8e6' : 'transparent'}; color: ${isOculto ? '#d93025' : '#ccc'}; transition: 0.2s;">❌ Ocultar</button>`;
+                
+                visibilidadTools = `<div style="display:flex; gap:8px; margin-top: 8px;">${btnAnclar}${btnOcultar}</div>`;
+            }
+
+            // --- ESTRUCTURA FINAL DE LA BOTONERA APILADA ---
+            adminTools = `
+            <div class="modal-tools" style="position: absolute; top: 15px; right: 50px; display:flex; flex-direction:column; align-items:flex-end;">
+                <div style="display:flex; gap:10px;">
+                    ${btnApprove}
+                    <button class="btn btn-secundario" onclick="startEditing(currentModalPackage)" style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button>
+                    <button class="btn btn-secundario" onclick="deletePackage(currentModalPackage)" style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button>
+                </div>
+                ${visibilidadTools}
+            </div>`; 
+        }
+
         const btnCopiar = `<button class="btn" onclick='copiarPresupuesto(currentModalPackage)' style="background:#34495e; color:white; padding: 5px 15px; font-size:0.8em; display:flex; align-items:center; gap:5px;">📋 Copiar</button>`;
 
         dom.modalBody.innerHTML = `
@@ -1884,6 +1966,7 @@ window.approvePackage = async (pkg) => {
         applyFilters();
     });
     async function autoCleanupPackages(packages) {
+        if (pkg.reflejo_cliente) return false;
         if (!userData || (userData.rol !== 'admin')) return;
 
         const hoyString = new Date().toISOString().split('T')[0];
@@ -1910,6 +1993,8 @@ window.approvePackage = async (pkg) => {
             }
             return false;
         });
+
+
 
         for (const pkg of candidatosPaquetes) {
             await db.collection('paquetes').doc(pkg.id_paquete || pkg.id).delete();
@@ -3080,8 +3165,7 @@ window.cargarPromocionesAdmin = async () => {
                 </div>`;
             });
         }
-
-        // 2. RENDERIZAR BUSCADOR Y CARGA
+// 2. RENDERIZAR BUSCADOR Y CARGA
         if(filtroPromo && uploadPromo) {
             const valorFiltro = filtroPromo.value;
             const valorUpload = uploadPromo.value;
@@ -3094,10 +3178,9 @@ window.cargarPromocionesAdmin = async () => {
                 if (promo.alcance === 'casa_central' && !esAdmin) return;
                 
                 filtroPromo.innerHTML += `<option value="${promo.nombre}">${promo.nombre}</option>`;
-
-                let textoExtra = '';
-                if(!esAdmin && promo.nombre !== 'Solo X Hoy') textoExtra = ' (Requiere Aprobación)';
-                uploadPromo.innerHTML += `<option value="${promo.nombre}">${promo.nombre}${textoExtra}</option>`;
+                
+                // Opción limpia para la carga (Sin cartel de requerimiento)
+                uploadPromo.innerHTML += `<option value="${promo.nombre}">${promo.nombre}</option>`;
             });
 
             if(valorFiltro) filtroPromo.value = valorFiltro;
@@ -3138,6 +3221,39 @@ window.borrarPromoAdmin = async (index) => {
     } catch(e) { window.showAlert("Error", "error"); }
     showLoader(false);
 };
+
+// ==========================================
+// FUNCIÓN: TOGGLE DE VISIBILIDAD RÁPIDA B2C
+// ==========================================
+window.toggleVisibilidad = async (id, campo, estadoActual) => {
+    showLoader(true, "Actualizando visibilidad...");
+    try {
+        const nuevoEstado = !estadoActual;
+            
+        // Regla lógica cruzada: Si anclo, desoculto. Si oculto, desanclo.
+        let updateData = { [campo]: nuevoEstado };
+        if (nuevoEstado === true) {
+            if (campo === 'reflejo_cliente') updateData.ocultar_cliente = false;
+            if (campo === 'ocultar_cliente') updateData.reflejo_cliente = false;
+        }
+
+        // Actualizamos en Firebase
+        await db.collection('paquetes').doc(id).update(updateData);
+            
+        // Cerramos el modal
+        if(dom.modal) dom.modal.style.display = 'none';
+            
+        // Recargamos la grilla para que se actualice la base de datos local
+        if(typeof fetchAndLoadPackages === 'function') await fetchAndLoadPackages();
+            
+        window.showAlert("Visibilidad actualizada en la web de clientes.", "success");
+    } catch (e) {
+        console.error("Error al actualizar visibilidad:", e);
+        window.showAlert("Error de conexión al actualizar.", "error");
+    }
+    showLoader(false);
+};
+
 
 
 });
