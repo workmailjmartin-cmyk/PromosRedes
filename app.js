@@ -1966,7 +1966,7 @@ window.approvePackage = async (pkg) => {
         applyFilters();
     });
     async function autoCleanupPackages(packages) {
-        if (pkg.reflejo_cliente) return false;
+        // Solo el administrador ejecuta la limpieza para no saturar la base de datos
         if (!userData || (userData.rol !== 'admin')) return;
 
         const hoyString = new Date().toISOString().split('T')[0];
@@ -1979,28 +1979,36 @@ window.approvePackage = async (pkg) => {
 
         // --- 1. LIMPIEZA DE PAQUETES (Reglas anteriores) ---
         const candidatosPaquetes = packages.filter(pkg => {
+            
+            // 👇 ACÁ ESTÁ EL LUGAR CORRECTO PARA LA PROTECCIÓN 👇
+            // Si está anclado a la web de clientes (B2C), jamás lo borramos
+            if (pkg.reflejo_cliente) return false; 
+            
             if (pkg.fecha_salida) {
                 const fechaSalida = new Date(pkg.fecha_salida + 'T00:00:00');
-                if (fechaSalida <= now) return true;
+                if (fechaSalida <= now) return true; // Ya pasó la fecha de viaje
             }
+            
             if (!pkg.fecha_creacion || !pkg.tipo_promo) return false;
+            
             const parts = pkg.fecha_creacion.split('/');
             if (parts.length === 3) {
                 const fechaPkg = new Date(parts[2], parts[1] - 1, parts[0]);
                 const diffDays = Math.ceil((now - fechaPkg) / (1000 * 60 * 60 * 24)); 
+                
+                // Vencimientos por tiempo
                 if (pkg.tipo_promo === 'Solo X Hoy' && diffDays > 7) return true;
                 if (pkg.tipo_promo !== 'Solo X Hoy' && diffDays > 30) return true;
             }
             return false;
         });
 
-
-
+        // Borrado físico de los paquetes caducados
         for (const pkg of candidatosPaquetes) {
             await db.collection('paquetes').doc(pkg.id_paquete || pkg.id).delete();
         }
 
-        // --- 2. NUEVO: LIMPIEZA DE CALENDARIO DE MARKETING (60 días) ---
+        // --- 2. LIMPIEZA DE CALENDARIO DE MARKETING (60 días) ---
         console.log("📅 Limpiando tareas de marketing viejas...");
         try {
             const limiteMkt = new Date();
@@ -2022,8 +2030,10 @@ window.approvePackage = async (pkg) => {
             if(borradosMkt > 0) console.log(`✅ Se eliminaron ${borradosMkt} tareas antiguas de marketing.`);
         } catch(e) { console.error("Error limpieza Mkt:", e); }
 
+        // Marcamos que ya se hizo el mantenimiento de hoy
         localStorage.setItem('ultimo_mantenimiento', hoyString);
         console.log("🏆 Mantenimiento total completado.");
+        
         if (candidatosPaquetes.length > 0 && typeof fetchAndLoadPackages === 'function') {
             await fetchAndLoadPackages();
         }
