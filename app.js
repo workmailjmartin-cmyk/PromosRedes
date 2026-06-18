@@ -2156,6 +2156,36 @@ if (btnToggle && panelCalc) {
     });
 
     // Llenar el primer select de Ventas
+    // --- ESTADO DEL MODO PAQUETE ---
+    let modoCalculadora = 'individual';
+    let carritoPaquete = [];
+
+    const btnModoIndiv = document.getElementById('btn-modo-indiv');
+    const btnModoPaq = document.getElementById('btn-modo-paq');
+    const boxPaquete = document.getElementById('calc-paquete-container');
+    const listaPaquete = document.getElementById('calc-lista-paquete');
+
+    // Cambiar a Individual
+    if(btnModoIndiv) btnModoIndiv.addEventListener('click', () => {
+        modoCalculadora = 'individual';
+        btnModoIndiv.style.background = 'white'; btnModoIndiv.style.color = '#11173d'; btnModoIndiv.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+        btnModoPaq.style.background = 'transparent'; btnModoPaq.style.color = '#6b7280'; btnModoPaq.style.boxShadow = 'none';
+        btnCalcular.innerText = 'Calcular Venta';
+        boxPaquete.style.display = 'none';
+        if(inputMonto.value !== '') boxResultados.style.display = 'block';
+    });
+
+    // Cambiar a Paquete
+    if(btnModoPaq) btnModoPaq.addEventListener('click', () => {
+        modoCalculadora = 'paquete';
+        btnModoPaq.style.background = 'white'; btnModoPaq.style.color = '#11173d'; btnModoPaq.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+        btnModoIndiv.style.background = 'transparent'; btnModoIndiv.style.color = '#6b7280'; btnModoIndiv.style.boxShadow = 'none';
+        btnCalcular.innerText = '➕ Agregar al Paquete';
+        boxResultados.style.display = 'none';
+        boxPaquete.style.display = 'flex';
+        renderizarCarritoPaquete();
+    });
+
     window.actualizarSelectServiciosVentas = () => {
         if(!selectServicio) return;
         selectServicio.innerHTML = '<option value="">Seleccionar Servicio...</option>';
@@ -2165,7 +2195,7 @@ if (btnToggle && panelCalc) {
     selectServicio.addEventListener('change', (e) => {
         const servId = e.target.value;
         selectProveedor.innerHTML = '<option value="">Seleccionar Proveedor...</option>';
-        boxResultados.style.display = 'none';
+        if (modoCalculadora === 'individual') boxResultados.style.display = 'none';
         const srv = dbCalculadora.find(s => s.id === servId);
         if (srv && srv.proveedores) {
             srv.proveedores.forEach(p => { selectProveedor.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`; });
@@ -2175,42 +2205,152 @@ if (btnToggle && panelCalc) {
     btnCalcular.addEventListener('click', () => {
         const servId = selectServicio.value;
         const provName = selectProveedor.value;
-        const monto = inputMonto.value;
-        const moneda = selectMoneda.value; // Obtener USD o $
+        const monto = parseFloat(inputMonto.value);
+        const moneda = selectMoneda.value;
 
-        if (!servId || !provName || !monto) return window.showAlert("Completá servicio, proveedor y monto.", "error");
+        if (!servId || !provName || isNaN(monto)) return window.showAlert("Completá servicio, proveedor y monto.", "error");
 
         const srv = dbCalculadora.find(s => s.id === servId);
-        const provData = srv.proveedores.find(p => p.nombre === provName);
+        // Hacemos una COPIA de los datos del proveedor para no arruinar la base original
+        let provData = JSON.parse(JSON.stringify(srv.proveedores.find(p => p.nombre === provName)));
         
+        // 🚨 LÓGICA ESTRICTA DE PAQUETE: Forzamos el 18.5% si es markup
+        if (modoCalculadora === 'paquete' && provData.tipo === 'markup') {
+            provData.tasa = 18.5; 
+        }
+
         const resultado = calcularVentaAgencia(monto, provData);
         const formatter = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         
-        // Se aplica la moneda elegida
-        document.getElementById('res-rentabilidad').innerText = `${moneda}${formatter.format(resultado.profit)} (${(resultado.profitRate * 100).toFixed(1)}%)`;
-        document.getElementById('res-total').innerText = `${moneda}${formatter.format(resultado.final)}`;
-        boxResultados.style.display = 'block';
-        setTimeout(() => {
-            bodyCalc.scrollTo({
-                top: bodyCalc.scrollHeight,
-                behavior: 'smooth'
+        if (modoCalculadora === 'individual') {
+            document.getElementById('res-rentabilidad').innerText = `${moneda}${formatter.format(resultado.profit)} (${(resultado.profitRate * 100).toFixed(1)}%)`;
+            document.getElementById('res-total').innerText = `${moneda}${formatter.format(resultado.final)}`;
+            boxResultados.style.display = 'block';
+            setTimeout(() => { bodyCalc.scrollTo({ top: bodyCalc.scrollHeight, behavior: 'smooth' }); }, 50);
+        } else {
+            // MODO PAQUETE: Inyectamos al carrito
+            carritoPaquete.push({
+                id: Date.now(), // ID único para el botón borrar/pausar
+                servicioNombre: srv.nombre,
+                provNombre: provName,
+                moneda: moneda,
+                base: resultado.base,
+                profit: resultado.profit,
+                final: resultado.final,
+                activo: true // Para la pausa
             });
-        }, 50);
+            inputMonto.value = ''; // Limpiamos para que cargue el siguiente rápido
+            renderizarCarritoPaquete();
+            setTimeout(() => { bodyCalc.scrollTo({ top: bodyCalc.scrollHeight, behavior: 'smooth' }); }, 50);
+        }
+    });
+
+    window.renderizarCarritoPaquete = () => {
+        if (!listaPaquete) return;
+        listaPaquete.innerHTML = '';
+        let totalBase = 0; let totalProfit = 0; let totalFinal = 0; let ultimaMoneda = 'USD ';
+
+        if (carritoPaquete.length === 0) {
+            listaPaquete.innerHTML = '<div style="color: #999; font-size: 0.85em; text-align: center; padding: 10px;">El paquete está vacío.</div>';
+        } else {
+            carritoPaquete.forEach(item => {
+                if (item.activo) {
+                    totalBase += item.base; totalProfit += item.profit; totalFinal += item.final;
+                }
+                ultimaMoneda = item.moneda; // Mantiene el USD o el ARS
+                const formatter = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                const opacity = item.activo ? '1' : '0.5';
+                const bg = item.activo ? '#eefaf6' : '#f3f4f6';
+                const colorTexto = item.activo ? '#11173d' : '#9ca3af';
+                const btnPauseColor = item.activo ? '#f39c12' : '#9ca3af';
+
+                listaPaquete.innerHTML += `
+                    <div style="background: ${bg}; border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; opacity: ${opacity}; transition: 0.2s;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: bold; color: ${colorTexto}; font-size: 0.9em; margin-bottom: 2px;">${item.servicioNombre}</div>
+                            <div style="color: #6b7280; font-size: 0.75em; margin-bottom: 5px;">${item.provNombre}</div>
+                            <div style="font-size: 0.75em; color: #999;">Base: ${item.moneda}${formatter.format(item.base)}</div>
+                        </div>
+                        <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                            <div style="color: #ef5a1a; font-weight: bold; font-size: 1.1em;">${item.moneda}${formatter.format(item.final)}</div>
+                            <div style="display: flex; gap: 5px;">
+                                <button type="button" onclick="window.toggleItemPaquete(${item.id})" style="background: ${btnPauseColor}; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8em;" title="Pausar / Activar">⏸️</button>
+                                <button type="button" onclick="window.borrarItemPaquete(${item.id})" style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8em;" title="Eliminar">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        const formatter = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('paq-res-base').innerText = `${ultimaMoneda}${formatter.format(totalBase)}`;
+        document.getElementById('paq-res-rentabilidad').innerText = `${ultimaMoneda}${formatter.format(totalProfit)}`;
+        document.getElementById('paq-res-total').innerText = `${ultimaMoneda}${formatter.format(totalFinal)}`;
+    };
+
+    window.toggleItemPaquete = (id) => {
+        const item = carritoPaquete.find(i => i.id === id);
+        if (item) { item.activo = !item.activo; renderizarCarritoPaquete(); }
+    };
+    
+    window.borrarItemPaquete = (id) => {
+        carritoPaquete = carritoPaquete.filter(i => i.id !== id);
+        renderizarCarritoPaquete();
+    };
+
+    if(btnCalcCopiar) btnCalcCopiar.addEventListener('click', () => {
+        let totalTexto = document.getElementById('res-total').innerText.replace('USD', '').replace('$', '').trim();
+        totalTexto = totalTexto.replace(/\./g, '').replace(',', '.');
+        navigator.clipboard.writeText(totalTexto).then(() => {
+            const old = btnCalcCopiar.innerHTML; btnCalcCopiar.innerHTML = '✅ Copiado';
+            setTimeout(() => { btnCalcCopiar.innerHTML = old; }, 2000);
+        });
     });
 
     if(btnCalcNueva) btnCalcNueva.addEventListener('click', () => {
         selectServicio.value = ''; selectProveedor.innerHTML = '<option value="">Seleccionar Servicio Primero...</option>';
         inputMonto.value = ''; boxResultados.style.display = 'none'; selectServicio.focus(); 
+        carritoPaquete = []; renderizarCarritoPaquete(); // También limpiamos el carrito
     });
 
-    if(btnCalcCopiar) btnCalcCopiar.addEventListener('click', () => {
-        // Al copiar, limpiamos los signos raros para dejar solo el número puro
-        let totalTexto = document.getElementById('res-total').innerText.replace('USD', '').replace('$', '').trim();
-        totalTexto = totalTexto.replace(/\./g, '').replace(',', '.'); // Formato de base de datos
-        
+    // Copiar solo el número total del paquete
+    const btnPaqCopiar = document.getElementById('btn-paq-copiar');
+    if(btnPaqCopiar) btnPaqCopiar.addEventListener('click', () => {
+        let totalTexto = document.getElementById('paq-res-total').innerText.replace('USD', '').replace('$', '').trim();
+        totalTexto = totalTexto.replace(/\./g, '').replace(',', '.');
         navigator.clipboard.writeText(totalTexto).then(() => {
-            const old = btnCalcCopiar.innerHTML; btnCalcCopiar.innerHTML = '✅ Copiado'; btnCalcCopiar.style.background = '#e6f4ea'; btnCalcCopiar.style.color = '#1e8e3e';
-            setTimeout(() => { btnCalcCopiar.innerHTML = old; btnCalcCopiar.style.background = 'white'; btnCalcCopiar.style.color = '#11173d'; }, 2000);
+            const old = btnPaqCopiar.innerHTML; btnPaqCopiar.innerHTML = '✅ Copiado';
+            setTimeout(() => { btnPaqCopiar.innerHTML = old; }, 2000);
+        });
+    });
+
+    // NUEVO: Generar resumen de texto para WhatsApp
+    const btnPaqGuardar = document.getElementById('btn-paq-guardar');
+    if(btnPaqGuardar) btnPaqGuardar.addEventListener('click', () => {
+        if (carritoPaquete.length === 0) return window.showAlert("El paquete está vacío", "error");
+        
+        let texto = "🌟 *RESUMEN DE COTIZACIÓN* 🌟\n\n";
+        let totalGeneral = 0;
+        let monedaActual = 'USD ';
+        
+        carritoPaquete.forEach(item => {
+            if (item.activo) {
+                const formatter = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                texto += `🔹 *${item.servicioNombre}*\n`;
+                texto += `   Valor: ${item.moneda}${formatter.format(item.final)}\n\n`;
+                totalGeneral += item.final;
+                monedaActual = item.moneda;
+            }
+        });
+        
+        const formTot = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        texto += `------------------------\n`;
+        texto += `💰 *TOTAL FINAL: ${monedaActual}${formTot.format(totalGeneral)}*\n`;
+        
+        navigator.clipboard.writeText(texto).then(() => {
+            window.showAlert("¡Presupuesto copiado al portapapeles listo para enviar!", "success");
         });
     });
 }

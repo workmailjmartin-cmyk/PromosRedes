@@ -732,6 +732,12 @@
 
         <div id="body-calculadora" style="overflow-y: auto; flex: 1;">
             <div style="padding: 20px;">
+                
+                <div style="display: flex; background: #e5e7eb; border-radius: 8px; padding: 4px; margin-bottom: 20px; border: 1px solid #e5e7eb;">
+                    <button type="button" id="btn-modo-indiv" style="flex: 1; border: none; background: white; color: #11173d; font-weight: bold; padding: 8px; border-radius: 6px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 0.9em; transition: 0.2s;">Individual</button>
+                    <button type="button" id="btn-modo-paq" style="flex: 1; border: none; background: transparent; color: #6b7280; font-weight: bold; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 0.9em; transition: 0.2s;">Paquete</button>
+                </div>
+
                 <div style="margin-bottom: 15px;">
                     <label style="font-size: 0.85em; font-weight: bold; color: #11173d;">Servicio</label>
                     <select id="calc-servicio" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; margin-top: 5px;">
@@ -779,8 +785,42 @@
                     <button id="btn-calc-nueva" style="flex: 1; background: #11173d; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">🔄 Nueva</button>
                 </div>
             </div>
+
+            <div id="calc-paquete-container" style="display: none; background: #f9fafb; padding: 20px; border-top: 1px solid #e5e7eb; flex-direction: column; gap: 15px;">
+                <h4 style="margin: 0; color: #11173d; font-size: 0.95em; font-weight: bold; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Servicios del Presupuesto</h4>
+                
+                <div id="calc-lista-paquete" style="display: flex; flex-direction: column; gap: 10px;">
+                    </div>
+                
+                <div style="background: linear-gradient(135deg, #ef5a1a 0%, #ff7a3d 100%); border-radius: 12px; padding: 18px; color: white; margin-top: 10px; box-shadow: 0 4px 12px rgba(239, 90, 26, 0.25);">
+                    <h4 style="margin: 0 0 12px 0; font-size: 1.1em; font-weight: bold; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 8px;">Resumen Final</h4>
+                    
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <div style="background: rgba(255,255,255,0.15); padding: 8px 12px; border-radius: 8px; flex: 1; text-align: center;">
+                            <div style="font-size: 0.75em; font-weight: bold; opacity: 0.85; margin-bottom: 2px;">Monto Neto</div>
+                            <div id="paq-res-base" style="font-size: 1.05em; font-weight: bold;">$0,00</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.15); padding: 8px 12px; border-radius: 8px; flex: 1; text-align: center;">
+                            <div style="font-size: 0.75em; font-weight: bold; opacity: 0.85; margin-bottom: 2px;">Rentabilidad</div>
+                            <div id="paq-res-rentabilidad" style="font-size: 1.05em; font-weight: bold; color: #56DDE0;">$0,00</div>
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 15px;">
+                        <div style="font-size: 0.8em; font-weight: bold; opacity: 0.85; margin-bottom: 2px;">Total Final</div>
+                        <div id="paq-res-total" style="font-size: 1.7em; font-weight: bold;">$0,00</div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" id="btn-paq-copiar" style="flex: 1; background: white; color: #11173d; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 5px; font-size: 0.9em; transition: 0.2s;">📋 Copiar Total</button>
+                        <button type="button" id="btn-paq-guardar" style="flex: 1; background: #11173d; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.9em; transition: 0.2s;">💾 Guardar</button>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
+</div>
 
     <footer class="main-footer">Designed by Juan Pablo Martin</footer>
 
