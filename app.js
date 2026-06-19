@@ -1942,6 +1942,7 @@ window.approvePackage = async (pkg) => {
                     if(document.getElementById(`plan-trf-${dia}`)) document.getElementById(`plan-trf-${dia}`).value = dayData.traslados || '';
                     if(document.getElementById(`plan-dias-${dia}`)) document.getElementById(`plan-dias-${dia}`).value = dayData.dias || '';
                     if(document.getElementById(`plan-precio-${dia}`)) document.getElementById(`plan-precio-${dia}`).value = dayData.precio || '';
+                    if(document.getElementById(`plan-recom-${dia}`)) document.getElementById(`plan-recom-${dia}`).value = dayData.recom || ''; // NUEVO CAMPO
                     if(document.getElementById(`plan-obs-${dia}`)) document.getElementById(`plan-obs-${dia}`).value = dayData.obs || '';
 
                     // 2. Armar el HTML limpio (Para los Vendedores)
@@ -1953,6 +1954,7 @@ window.approvePackage = async (pkg) => {
                         if(dayData.traslados) html += `<div><b>🚕 Traslados:</b> ${dayData.traslados}</div>`;
                         if(dayData.dias) html += `<div><b>🌙 Días:</b> ${dayData.dias}</div>`;
                         if(dayData.precio) html += `<div><b>💰 Precio Ideal:</b> ${dayData.precio}</div>`;
+                        if(dayData.recom) html += `<div><b style="color:#3498db;">💡 Cotizar en:</b> ${dayData.recom}</div>`; // NUEVO CAMPO
                         if(dayData.obs) html += `<div style="margin-top:6px; padding-top:6px; border-top:1px dashed #e5e7eb; color:#555;"><i>📝 ${dayData.obs}</i></div>`;
                         
                         if(!html) html = '<div style="color:#999; text-align:center; margin-top:20px;">Sin pedidos para hoy</div>';
@@ -1975,13 +1977,14 @@ window.approvePackage = async (pkg) => {
                 };
 
                 diasSemana.forEach(dia => {
-                    // Armamos el objeto de cada día recopilando sus 6 campos
+                    // Armamos el objeto de cada día recopilando sus 7 campos
                     payload[dia] = {
                         destino: document.getElementById(`plan-dest-${dia}`) ? document.getElementById(`plan-dest-${dia}`).value.trim() : '',
                         regimen: document.getElementById(`plan-reg-${dia}`) ? document.getElementById(`plan-reg-${dia}`).value.trim() : '',
                         traslados: document.getElementById(`plan-trf-${dia}`) ? document.getElementById(`plan-trf-${dia}`).value.trim() : '',
                         dias: document.getElementById(`plan-dias-${dia}`) ? document.getElementById(`plan-dias-${dia}`).value.trim() : '',
                         precio: document.getElementById(`plan-precio-${dia}`) ? document.getElementById(`plan-precio-${dia}`).value.trim() : '',
+                        recom: document.getElementById(`plan-recom-${dia}`) ? document.getElementById(`plan-recom-${dia}`).value.trim() : '', // NUEVO CAMPO
                         obs: document.getElementById(`plan-obs-${dia}`) ? document.getElementById(`plan-obs-${dia}`).value.trim() : ''
                     };
                 });
