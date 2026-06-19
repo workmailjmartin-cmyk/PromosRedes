@@ -78,25 +78,77 @@
                     
                     <div class="planner-body" id="planner-body-content">
                         <div class="planner-grid">
+                            <style>
+                                .plan-input { width: 100%; box-sizing: border-box; border: none; border-bottom: 1px dashed #d1d5db; padding: 6px 2px; font-size: 0.85em; background: transparent; color: #11173d; outline: none; margin-bottom: 2px; transition: 0.2s; font-family: inherit; }
+                                .plan-input:focus { border-bottom: 1px solid #ef5a1a; background: #fffdf0; }
+                                .plan-obs { resize: none; border-bottom: none; background: #f9fafb; border-radius: 6px; padding: 8px; margin-top: 5px; }
+                                .day-read { flex: 1; display: flex; flex-direction: column; gap: 6px; font-size: 0.85em; overflow-y: auto; padding-right: 5px; }
+                                .day-edit { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding-right: 5px; }
+                            </style>
+                            
                             <div class="day-card" id="day-card-1">
                                 <div class="day-title">Lunes <span id="date-1" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <textarea class="day-textarea" id="note-lunes" placeholder="A cotizar..."></textarea>
+                                <div class="day-read" id="read-lunes" style="display:none;"></div>
+                                <div class="day-edit" id="edit-lunes" style="display:none;">
+                                    <input type="text" id="plan-dest-lunes" placeholder="Destino/s..." class="plan-input">
+                                    <input type="text" id="plan-reg-lunes" placeholder="Régimen..." class="plan-input">
+                                    <input type="text" id="plan-trf-lunes" placeholder="Traslados..." class="plan-input">
+                                    <input type="text" id="plan-dias-lunes" placeholder="Cant. días..." class="plan-input">
+                                    <input type="text" id="plan-precio-lunes" placeholder="Precio ideal..." class="plan-input">
+                                    <textarea id="plan-obs-lunes" placeholder="Observaciones libres..." class="plan-input plan-obs" rows="2"></textarea>
+                                </div>
                             </div>
+                            
                             <div class="day-card" id="day-card-2">
                                 <div class="day-title">Martes <span id="date-2" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <textarea class="day-textarea" id="note-martes" placeholder="A cotizar..."></textarea>
+                                <div class="day-read" id="read-martes" style="display:none;"></div>
+                                <div class="day-edit" id="edit-martes" style="display:none;">
+                                    <input type="text" id="plan-dest-martes" placeholder="Destino/s..." class="plan-input">
+                                    <input type="text" id="plan-reg-martes" placeholder="Régimen..." class="plan-input">
+                                    <input type="text" id="plan-trf-martes" placeholder="Traslados..." class="plan-input">
+                                    <input type="text" id="plan-dias-martes" placeholder="Cant. días..." class="plan-input">
+                                    <input type="text" id="plan-precio-martes" placeholder="Precio ideal..." class="plan-input">
+                                    <textarea id="plan-obs-martes" placeholder="Observaciones libres..." class="plan-input plan-obs" rows="2"></textarea>
+                                </div>
                             </div>
+                            
                             <div class="day-card" id="day-card-3">
                                 <div class="day-title">Miércoles <span id="date-3" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <textarea class="day-textarea" id="note-miercoles" placeholder="A cotizar..."></textarea>
+                                <div class="day-read" id="read-miercoles" style="display:none;"></div>
+                                <div class="day-edit" id="edit-miercoles" style="display:none;">
+                                    <input type="text" id="plan-dest-miercoles" placeholder="Destino/s..." class="plan-input">
+                                    <input type="text" id="plan-reg-miercoles" placeholder="Régimen..." class="plan-input">
+                                    <input type="text" id="plan-trf-miercoles" placeholder="Traslados..." class="plan-input">
+                                    <input type="text" id="plan-dias-miercoles" placeholder="Cant. días..." class="plan-input">
+                                    <input type="text" id="plan-precio-miercoles" placeholder="Precio ideal..." class="plan-input">
+                                    <textarea id="plan-obs-miercoles" placeholder="Observaciones libres..." class="plan-input plan-obs" rows="2"></textarea>
+                                </div>
                             </div>
+                            
                             <div class="day-card" id="day-card-4">
                                 <div class="day-title">Jueves <span id="date-4" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <textarea class="day-textarea" id="note-jueves" placeholder="A cotizar..."></textarea>
+                                <div class="day-read" id="read-jueves" style="display:none;"></div>
+                                <div class="day-edit" id="edit-jueves" style="display:none;">
+                                    <input type="text" id="plan-dest-jueves" placeholder="Destino/s..." class="plan-input">
+                                    <input type="text" id="plan-reg-jueves" placeholder="Régimen..." class="plan-input">
+                                    <input type="text" id="plan-trf-jueves" placeholder="Traslados..." class="plan-input">
+                                    <input type="text" id="plan-dias-jueves" placeholder="Cant. días..." class="plan-input">
+                                    <input type="text" id="plan-precio-jueves" placeholder="Precio ideal..." class="plan-input">
+                                    <textarea id="plan-obs-jueves" placeholder="Observaciones libres..." class="plan-input plan-obs" rows="2"></textarea>
+                                </div>
                             </div>
+                            
                             <div class="day-card" id="day-card-5">
                                 <div class="day-title">Viernes <span id="date-5" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <textarea class="day-textarea" id="note-viernes" placeholder="A cotizar..."></textarea>
+                                <div class="day-read" id="read-viernes" style="display:none;"></div>
+                                <div class="day-edit" id="edit-viernes" style="display:none;">
+                                    <input type="text" id="plan-dest-viernes" placeholder="Destino/s..." class="plan-input">
+                                    <input type="text" id="plan-reg-viernes" placeholder="Régimen..." class="plan-input">
+                                    <input type="text" id="plan-trf-viernes" placeholder="Traslados..." class="plan-input">
+                                    <input type="text" id="plan-dias-viernes" placeholder="Cant. días..." class="plan-input">
+                                    <input type="text" id="plan-precio-viernes" placeholder="Precio ideal..." class="plan-input">
+                                    <textarea id="plan-obs-viernes" placeholder="Observaciones libres..." class="plan-input plan-obs" rows="2"></textarea>
+                                </div>
                             </div>
                         </div>
                         

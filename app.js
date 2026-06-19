@@ -1872,6 +1872,8 @@ window.approvePackage = async (pkg) => {
         });
     }
 
+    const diasSemana = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
+
     // Inicializar Calendario
     async function initWeeklyPlanner() {
         if(domPlanner.container) {
@@ -1883,15 +1885,24 @@ window.approvePackage = async (pkg) => {
         }
 
         const isStaff = userData && (userData.rol === 'admin' || userData.rol === 'editor');
-        const textareas = [domPlanner.inputs.lunes, domPlanner.inputs.martes, domPlanner.inputs.miercoles, domPlanner.inputs.jueves, domPlanner.inputs.viernes];
 
-        if (isStaff) {
-            textareas.forEach(el => el.disabled = false);
-            if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'inline-block';
-        } else {
-            textareas.forEach(el => el.disabled = true);
-            if(domPlanner.btnSave) domPlanner.btnSave.style.display = 'none';
-        }
+        diasSemana.forEach(dia => {
+            const readDiv = document.getElementById(`read-${dia}`);
+            const editDiv = document.getElementById(`edit-${dia}`);
+            if(readDiv && editDiv) {
+                if (isStaff) {
+                    // Los administradores ven el formulario de carga
+                    readDiv.style.display = 'none';
+                    editDiv.style.display = 'flex';
+                } else {
+                    // Los vendedores ven la lista bonita y limpia
+                    editDiv.style.display = 'none';
+                    readDiv.style.display = 'flex';
+                }
+            }
+        });
+
+        if(domPlanner.btnSave) domPlanner.btnSave.style.display = isStaff ? 'inline-block' : 'none';
     }
 
     function highlightCurrentDay() {
@@ -1916,11 +1927,38 @@ window.approvePackage = async (pkg) => {
             const doc = await db.collection('config').doc('planning_weekly').get();
             if (doc.exists) {
                 const data = doc.data();
-                domPlanner.inputs.lunes.value = data.lunes || '';
-                domPlanner.inputs.martes.value = data.martes || '';
-                domPlanner.inputs.miercoles.value = data.miercoles || '';
-                domPlanner.inputs.jueves.value = data.jueves || '';
-                domPlanner.inputs.viernes.value = data.viernes || '';
+                
+                diasSemana.forEach(dia => {
+                    let dayData = data[dia] || {};
+                    
+                    // 🛡️ REGLA DE COMPATIBILIDAD: Si es texto viejo, lo convertimos a observaciones
+                    if (typeof dayData === 'string') {
+                        dayData = { obs: dayData }; 
+                    }
+
+                    // 1. Llenar los inputs (Para los Administradores)
+                    if(document.getElementById(`plan-dest-${dia}`)) document.getElementById(`plan-dest-${dia}`).value = dayData.destino || '';
+                    if(document.getElementById(`plan-reg-${dia}`)) document.getElementById(`plan-reg-${dia}`).value = dayData.regimen || '';
+                    if(document.getElementById(`plan-trf-${dia}`)) document.getElementById(`plan-trf-${dia}`).value = dayData.traslados || '';
+                    if(document.getElementById(`plan-dias-${dia}`)) document.getElementById(`plan-dias-${dia}`).value = dayData.dias || '';
+                    if(document.getElementById(`plan-precio-${dia}`)) document.getElementById(`plan-precio-${dia}`).value = dayData.precio || '';
+                    if(document.getElementById(`plan-obs-${dia}`)) document.getElementById(`plan-obs-${dia}`).value = dayData.obs || '';
+
+                    // 2. Armar el HTML limpio (Para los Vendedores)
+                    const readDiv = document.getElementById(`read-${dia}`);
+                    if(readDiv) {
+                        let html = '';
+                        if(dayData.destino) html += `<div><span style="color:#ef5a1a; font-weight:bold; font-size: 1.1em;">📍 ${dayData.destino}</span></div>`;
+                        if(dayData.regimen) html += `<div><b>🍽️ Régimen:</b> ${dayData.regimen}</div>`;
+                        if(dayData.traslados) html += `<div><b>🚕 Traslados:</b> ${dayData.traslados}</div>`;
+                        if(dayData.dias) html += `<div><b>🌙 Días:</b> ${dayData.dias}</div>`;
+                        if(dayData.precio) html += `<div><b>💰 Precio Ideal:</b> ${dayData.precio}</div>`;
+                        if(dayData.obs) html += `<div style="margin-top:6px; padding-top:6px; border-top:1px dashed #e5e7eb; color:#555;"><i>📝 ${dayData.obs}</i></div>`;
+                        
+                        if(!html) html = '<div style="color:#999; text-align:center; margin-top:20px;">Sin pedidos para hoy</div>';
+                        readDiv.innerHTML = html;
+                    }
+                });
             }
         } catch (e) {
             console.error("Error cargando planner:", e);
@@ -1932,16 +1970,27 @@ window.approvePackage = async (pkg) => {
             showLoader(true, "Guardando agenda...");
             try {
                 const payload = {
-                    lunes: domPlanner.inputs.lunes.value,
-                    martes: domPlanner.inputs.martes.value,
-                    miercoles: domPlanner.inputs.miercoles.value,
-                    jueves: domPlanner.inputs.jueves.value,
-                    viernes: domPlanner.inputs.viernes.value,
                     last_update: new Date(),
                     updated_by: currentUser.email
                 };
+
+                diasSemana.forEach(dia => {
+                    // Armamos el objeto de cada día recopilando sus 6 campos
+                    payload[dia] = {
+                        destino: document.getElementById(`plan-dest-${dia}`) ? document.getElementById(`plan-dest-${dia}`).value.trim() : '',
+                        regimen: document.getElementById(`plan-reg-${dia}`) ? document.getElementById(`plan-reg-${dia}`).value.trim() : '',
+                        traslados: document.getElementById(`plan-trf-${dia}`) ? document.getElementById(`plan-trf-${dia}`).value.trim() : '',
+                        dias: document.getElementById(`plan-dias-${dia}`) ? document.getElementById(`plan-dias-${dia}`).value.trim() : '',
+                        precio: document.getElementById(`plan-precio-${dia}`) ? document.getElementById(`plan-precio-${dia}`).value.trim() : '',
+                        obs: document.getElementById(`plan-obs-${dia}`) ? document.getElementById(`plan-obs-${dia}`).value.trim() : ''
+                    };
+                });
+
                 await db.collection('config').doc('planning_weekly').set(payload, { merge: true });
-                await window.showAlert("✅ Planificación actualizada.", "success");
+                await window.showAlert("✅ Planificación detallada actualizada.", "success");
+                
+                // Refrescamos visualmente al guardar
+                await loadPlanningData();
             } catch (e) {
                 console.error(e);
                 window.showAlert("Error al guardar planificación.", "error");
