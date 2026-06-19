@@ -79,23 +79,37 @@
                     <div class="planner-body" id="planner-body-content">
                         <div class="planner-grid">
                             <style>
-                                .plan-input { width: 100%; box-sizing: border-box; border: none; border-bottom: 1px dashed #d1d5db; padding: 6px 2px; font-size: 0.85em; background: transparent; color: #11173d; outline: none; margin-bottom: 2px; transition: 0.2s; font-family: inherit; }
+                                .plan-input { width: 100%; box-sizing: border-box; border: none; border-bottom: 1px dashed #d1d5db; padding: 4px 2px; font-size: 0.85em; background: transparent; color: #11173d; outline: none; margin-bottom: 6px; transition: 0.2s; font-family: inherit; }
                                 .plan-input:focus { border-bottom: 1px solid #ef5a1a; background: #fffdf0; }
-                                .plan-obs { resize: none; border-bottom: none; background: #f9fafb; border-radius: 6px; padding: 8px; margin-top: 5px; }
+                                .plan-obs { resize: vertical; border: 1px solid #e5e7eb; background: #f9fafb; border-radius: 6px; padding: 8px; margin-top: 2px; min-height: 80px; }
+                                .plan-obs:focus { border: 1px solid #ef5a1a; background: #fffdf0; }
                                 .day-read { flex: 1; display: flex; flex-direction: column; gap: 6px; font-size: 0.85em; overflow-y: auto; padding-right: 5px; }
                                 .day-edit { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding-right: 5px; }
+                                /* Nuevo estilo para los títulos */
+                                .plan-label { font-size: 0.7em; font-weight: bold; color: #6b7280; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
                             </style>
                             
                             <div class="day-card" id="day-card-1">
                                 <div class="day-title">Lunes <span id="date-1" style="font-weight:400; font-size:0.8em;"></span></div>
                                 <div class="day-read" id="read-lunes" style="display:none;"></div>
                                 <div class="day-edit" id="edit-lunes" style="display:none;">
-                                    <input type="text" id="plan-dest-lunes" placeholder="Destino/s..." class="plan-input">
-                                    <input type="text" id="plan-reg-lunes" placeholder="Régimen..." class="plan-input">
-                                    <input type="text" id="plan-trf-lunes" placeholder="Traslados..." class="plan-input">
-                                    <input type="text" id="plan-dias-lunes" placeholder="Cant. días..." class="plan-input">
-                                    <input type="text" id="plan-precio-lunes" placeholder="Precio ideal..." class="plan-input">
-                                    <textarea id="plan-obs-lunes" placeholder="Observaciones libres..." class="plan-input plan-obs" rows="2"></textarea>
+                                    <label class="plan-label">📍 Destino/s</label>
+                                    <input type="text" id="plan-dest-lunes" class="plan-input">
+                                    
+                                    <label class="plan-label">🍽️ Régimen</label>
+                                    <input type="text" id="plan-reg-lunes" class="plan-input">
+                                    
+                                    <label class="plan-label">🚕 Traslados</label>
+                                    <input type="text" id="plan-trf-lunes" class="plan-input">
+                                    
+                                    <label class="plan-label">🌙 Cant. Días</label>
+                                    <input type="text" id="plan-dias-lunes" class="plan-input">
+                                    
+                                    <label class="plan-label">💰 Precio ideal</label>
+                                    <input type="text" id="plan-precio-lunes" placeholder="Ej: Entre 1500 y 1600..." class="plan-input">
+                                    
+                                    <label class="plan-label">📝 Observaciones</label>
+                                    <textarea id="plan-obs-lunes" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
                                 </div>
                             </div>
                             
@@ -103,12 +117,23 @@
                                 <div class="day-title">Martes <span id="date-2" style="font-weight:400; font-size:0.8em;"></span></div>
                                 <div class="day-read" id="read-martes" style="display:none;"></div>
                                 <div class="day-edit" id="edit-martes" style="display:none;">
-                                    <input type="text" id="plan-dest-martes" placeholder="Destino/s..." class="plan-input">
-                                    <input type="text" id="plan-reg-martes" placeholder="Régimen..." class="plan-input">
-                                    <input type="text" id="plan-trf-martes" placeholder="Traslados..." class="plan-input">
-                                    <input type="text" id="plan-dias-martes" placeholder="Cant. días..." class="plan-input">
-                                    <input type="text" id="plan-precio-martes" placeholder="Precio ideal..." class="plan-input">
-                                    <textarea id="plan-obs-martes" placeholder="Observaciones libres..." class="plan-input plan-obs" rows="2"></textarea>
+                                    <label class="plan-label">📍 Destino/s</label>
+                                    <input type="text" id="plan-dest-martes" class="plan-input">
+                                    
+                                    <label class="plan-label">🍽️ Régimen</label>
+                                    <input type="text" id="plan-reg-martes" class="plan-input">
+                                    
+                                    <label class="plan-label">🚕 Traslados</label>
+                                    <input type="text" id="plan-trf-martes" class="plan-input">
+                                    
+                                    <label class="plan-label">🌙 Cant. Días</label>
+                                    <input type="text" id="plan-dias-martes" class="plan-input">
+                                    
+                                    <label class="plan-label">💰 Precio ideal</label>
+                                    <input type="text" id="plan-precio-martes" placeholder="Ej: Entre 1500 y 1600..." class="plan-input">
+                                    
+                                    <label class="plan-label">📝 Observaciones</label>
+                                    <textarea id="plan-obs-martes" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
                                 </div>
                             </div>
                             
@@ -116,12 +141,23 @@
                                 <div class="day-title">Miércoles <span id="date-3" style="font-weight:400; font-size:0.8em;"></span></div>
                                 <div class="day-read" id="read-miercoles" style="display:none;"></div>
                                 <div class="day-edit" id="edit-miercoles" style="display:none;">
-                                    <input type="text" id="plan-dest-miercoles" placeholder="Destino/s..." class="plan-input">
-                                    <input type="text" id="plan-reg-miercoles" placeholder="Régimen..." class="plan-input">
-                                    <input type="text" id="plan-trf-miercoles" placeholder="Traslados..." class="plan-input">
-                                    <input type="text" id="plan-dias-miercoles" placeholder="Cant. días..." class="plan-input">
-                                    <input type="text" id="plan-precio-miercoles" placeholder="Precio ideal..." class="plan-input">
-                                    <textarea id="plan-obs-miercoles" placeholder="Observaciones libres..." class="plan-input plan-obs" rows="2"></textarea>
+                                    <label class="plan-label">📍 Destino/s</label>
+                                    <input type="text" id="plan-dest-miercoles" class="plan-input">
+                                    
+                                    <label class="plan-label">🍽️ Régimen</label>
+                                    <input type="text" id="plan-reg-miercoles" class="plan-input">
+                                    
+                                    <label class="plan-label">🚕 Traslados</label>
+                                    <input type="text" id="plan-trf-miercoles" class="plan-input">
+                                    
+                                    <label class="plan-label">🌙 Cant. Días</label>
+                                    <input type="text" id="plan-dias-miercoles" class="plan-input">
+                                    
+                                    <label class="plan-label">💰 Precio ideal</label>
+                                    <input type="text" id="plan-precio-miercoles" placeholder="Ej: Entre 1500 y 1600..." class="plan-input">
+                                    
+                                    <label class="plan-label">📝 Observaciones</label>
+                                    <textarea id="plan-obs-miercoles" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
                                 </div>
                             </div>
                             
@@ -129,12 +165,23 @@
                                 <div class="day-title">Jueves <span id="date-4" style="font-weight:400; font-size:0.8em;"></span></div>
                                 <div class="day-read" id="read-jueves" style="display:none;"></div>
                                 <div class="day-edit" id="edit-jueves" style="display:none;">
-                                    <input type="text" id="plan-dest-jueves" placeholder="Destino/s..." class="plan-input">
-                                    <input type="text" id="plan-reg-jueves" placeholder="Régimen..." class="plan-input">
-                                    <input type="text" id="plan-trf-jueves" placeholder="Traslados..." class="plan-input">
-                                    <input type="text" id="plan-dias-jueves" placeholder="Cant. días..." class="plan-input">
-                                    <input type="text" id="plan-precio-jueves" placeholder="Precio ideal..." class="plan-input">
-                                    <textarea id="plan-obs-jueves" placeholder="Observaciones libres..." class="plan-input plan-obs" rows="2"></textarea>
+                                    <label class="plan-label">📍 Destino/s</label>
+                                    <input type="text" id="plan-dest-jueves" class="plan-input">
+                                    
+                                    <label class="plan-label">🍽️ Régimen</label>
+                                    <input type="text" id="plan-reg-jueves" class="plan-input">
+                                    
+                                    <label class="plan-label">🚕 Traslados</label>
+                                    <input type="text" id="plan-trf-jueves" class="plan-input">
+                                    
+                                    <label class="plan-label">🌙 Cant. Días</label>
+                                    <input type="text" id="plan-dias-jueves" class="plan-input">
+                                    
+                                    <label class="plan-label">💰 Precio ideal</label>
+                                    <input type="text" id="plan-precio-jueves" placeholder="Ej: Entre 1500 y 1600..." class="plan-input">
+                                    
+                                    <label class="plan-label">📝 Observaciones</label>
+                                    <textarea id="plan-obs-jueves" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
                                 </div>
                             </div>
                             
@@ -142,12 +189,23 @@
                                 <div class="day-title">Viernes <span id="date-5" style="font-weight:400; font-size:0.8em;"></span></div>
                                 <div class="day-read" id="read-viernes" style="display:none;"></div>
                                 <div class="day-edit" id="edit-viernes" style="display:none;">
-                                    <input type="text" id="plan-dest-viernes" placeholder="Destino/s..." class="plan-input">
-                                    <input type="text" id="plan-reg-viernes" placeholder="Régimen..." class="plan-input">
-                                    <input type="text" id="plan-trf-viernes" placeholder="Traslados..." class="plan-input">
-                                    <input type="text" id="plan-dias-viernes" placeholder="Cant. días..." class="plan-input">
-                                    <input type="text" id="plan-precio-viernes" placeholder="Precio ideal..." class="plan-input">
-                                    <textarea id="plan-obs-viernes" placeholder="Observaciones libres..." class="plan-input plan-obs" rows="2"></textarea>
+                                    <label class="plan-label">📍 Destino/s</label>
+                                    <input type="text" id="plan-dest-viernes" class="plan-input">
+                                    
+                                    <label class="plan-label">🍽️ Régimen</label>
+                                    <input type="text" id="plan-reg-viernes" class="plan-input">
+                                    
+                                    <label class="plan-label">🚕 Traslados</label>
+                                    <input type="text" id="plan-trf-viernes" class="plan-input">
+                                    
+                                    <label class="plan-label">🌙 Cant. Días</label>
+                                    <input type="text" id="plan-dias-viernes" class="plan-input">
+                                    
+                                    <label class="plan-label">💰 Precio ideal</label>
+                                    <input type="text" id="plan-precio-viernes" placeholder="Ej: Entre 1500 y 1600..." class="plan-input">
+                                    
+                                    <label class="plan-label">📝 Observaciones</label>
+                                    <textarea id="plan-obs-viernes" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
                                 </div>
                             </div>
                         </div>
