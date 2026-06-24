@@ -553,13 +553,13 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.btnBuscar.addEventListener('click', applyFilters);
     [dom.filtroSalida, dom.filtroOrden].forEach(el => el.addEventListener('change', applyFilters));
 
-   // Lógica del botón Limpiar Filtros
+    // LÓGICA DEL BOTÓN LIMPIAR
     if(dom.btnLimpiar) {
         dom.btnLimpiar.addEventListener('click', () => {
             dom.filtroDestino.value = '';
             dom.filtroSalida.value = '';
-            dom.filtroOrden.value = 'reciente'; // Vuelve al orden por defecto
-            applyFilters(); // Recarga la grilla completa automáticamente
+            dom.filtroOrden.value = 'reciente';
+            applyFilters(); 
         });
     }
 
