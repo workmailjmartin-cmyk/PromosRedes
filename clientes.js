@@ -301,9 +301,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
     // --- CARGA Y FILTRADO ---
+    let textoListonGlobal = "SOLO X HOY"; // Texto por defecto
+
     async function fetchAndLoadPackages() { 
         showLoader(true);
         try { 
+            // 1. NUEVO: Traer la configuración del texto del listón desde Firebase
+            try {
+                const configDoc = await db.collection('metadata').doc('config').get();
+                if (configDoc.exists && configDoc.data().texto_liston) {
+                    textoListonGlobal = configDoc.data().texto_liston;
+                }
+            } catch(e) { console.error("Error trayendo config:", e); }
+
             const snapshot = await db.collection('paquetes').get();
             const cutoffEpoch = getCutoffEpoch();
             
@@ -312,12 +322,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (pkg.alcance === 'casa_central') return false; // Bloquea promo interna
                     if (pkg.status === 'pending') return false; // Bloquea no aprobados
                     
-                    // ❌ REGLA 1: Si el Admin marcó "Ocultar", no se muestra (ignora todo lo demás)
+                    // ❌ REGLA 1: Si el Admin marcó "Ocultar", no se muestra
                     if (pkg.ocultar_cliente) return false; 
                     
+                    // 📅 REGLA NUEVA: Ocultar promos de FEED automáticamente a los 14 días
+                    if (pkg.tipo_promo === 'FEED' && pkg.fecha_creacion) {
+                        const parts = pkg.fecha_creacion.split('/');
+                        if (parts.length === 3) {
+                            const fechaCreacion = new Date(parts[2], parts[1] - 1, parts[0]);
+                            const hoy = new Date();
+                            hoy.setHours(0,0,0,0);
+                            
+                            const diasPasados = Math.ceil((hoy - fechaCreacion) / (1000 * 60 * 60 * 24));
+                            if (diasPasados > 14) {
+                                return false; // Se oculta a los clientes (pero sigue en BD)
+                            }
+                        }
+                    }
+
                     // ⏳ REGLA 2: Corte de "La Cenicienta" (12hs)
-                    // Si NO está marcada la casilla verde "Reflejo a Cliente", rige el vencimiento normal.
-                    // Si está tildada, esta línea se ignora y la promo se sigue mostrando.
                     if (!pkg.reflejo_cliente && pkg.timestamp && pkg.timestamp < cutoffEpoch) return false; 
                     
                     return true;
@@ -327,11 +350,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 .filter(salida => salida && salida.trim() !== '') // Sacamos vacíos
                 .sort(); // Ordenamos alfabéticamente (A->Z)
 
-            // Limpiamos las opciones actuales del select (manteniendo "Todas")
+            // Limpiamos las opciones actuales del select
             if (dom.filtroSalida) {
                 dom.filtroSalida.innerHTML = '<option value="">Todas las Provincias</option>';
-                
-                // Creamos y agregamos las nuevas opciones dinámicas
                 salidasDisponibles.forEach(salida => {
                     const option = document.createElement('option');
                     option.value = salida;
@@ -405,23 +426,38 @@ document.addEventListener('DOMContentLoaded', () => {
             const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢','circuito':'🗺️'};
             const summaryIcons = [...new Set((Array.isArray(sGrid)?sGrid:[]).map(x => m[x.tipo] || '🔹'))].join(' '); 
 
+            // MAGIA: El Listón en Diagonal
+            let ribbonHtml = '';
+            if (pkg.tipo_promo === 'Solo X Hoy') {
+                const textoRibbon = textoListonGlobal || 'SOLO X HOY';
+                ribbonHtml = `
+                <div style="position: absolute; top: 0; right: 0; width: 110px; height: 110px; overflow: hidden; pointer-events: none; z-index: 10; border-radius: 0 8px 0 0;">
+                    <div style="position: absolute; top: 22px; right: -35px; width: 155px; transform: rotate(45deg); background: linear-gradient(90deg, #ffffff 0%, #56DDE0 100%); color: #11173d; font-weight: 800; font-size: 0.68em; text-align: center; padding: 4px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.15); letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap;">
+                        ${textoRibbon}
+                    </div>
+                </div>`;
+            }
+
             card.innerHTML = `
-                <div class="card-clickable" style="height:100%;">
+                <div class="card-clickable" style="height:100%; position: relative;">
+                    ${ribbonHtml}
                     <div class="card-header">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
-                            <div style="max-width:75%; padding-right:10px;">
+                            <div style="max-width:${pkg.tipo_promo === 'Solo X Hoy' ? '72%' : '100%'}; padding-right:10px;">
                                 <h3 style="margin:0;font-size:1.4em;line-height:1.2;color:#11173d;">${pkg.destino}</h3>
                             </div>
-                            ${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:5px 10px;border-radius:12px;font-weight:bold;font-size:0.8em;white-space:nowrap;">🌙 ${noches}</div>` : ''}
                         </div>
                         <div class="fecha">📅 Salida: ${fechaMostrar}</div>
                     </div>
                     
                     <div class="card-body">
-                        <div style="font-size:0.85em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div>
+                        <div style="font-size:0.85em;color:#555;display:flex;align-items:center;flex-wrap:wrap;gap:10px;line-height:1.4;">
+                            <span>${summaryIcons}</span>
+                            ${noches > 0 ? `<span style="background:#eef2f5;color:#11173d;padding:4px 8px;border-radius:12px;font-weight:bold;font-size:0.85em;display:inline-flex;align-items:center;gap:4px;">🌙 ${noches}</span>` : ''}
+                        </div>
                     </div>
                     
-                    <div class="card-footer" style="display:flex; justify-content:flex-end; align-items:flex-end;">
+                    <div class="card-footer" style="display:flex; justify-content:flex-end; align-items:flex-end; position:relative; z-index: 1;">
                         <div style="text-align: right;">
                             <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${lugarSalidaGrid || 'Varias'}</div>
                             <p class="precio-valor" style="margin: 5px 0 0 0;">
