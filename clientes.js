@@ -459,7 +459,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     <div class="card-footer" style="display:flex; justify-content:flex-end; align-items:flex-end; position:relative; z-index: 1;">
                         <div style="text-align: right;">
-                            <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${lugarSalidaGrid || 'Varias'}</div>
+                            <!-- ACÁ ESTÁ EL CAMBIO: "Desde" en gris, lugar en negrita azul oscuro -->
+                            <div style="font-size: 0.85em; color: #666; margin-bottom: -5px;">
+                                Desde <strong style="color: #11173d; font-weight: 800;">${lugarSalidaGrid || 'Varias'}</strong>
+                            </div>
                             <p class="precio-valor" style="margin: 5px 0 0 0;">
                                 ${pkg.moneda} $${formatMoney(Math.round(tarifaMostrar/2))} <span style="font-size:0.5em; color:#999; font-weight:normal;">x Persona</span>
                             </p>
