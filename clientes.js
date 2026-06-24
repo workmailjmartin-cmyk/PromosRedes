@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalBody: document.getElementById('modal-body'),
         modalClose: document.getElementById('modal-cerrar'),
         btnBuscar: document.getElementById('boton-buscar'),
+        btnLimpiar: document.getElementById('boton-limpiar'), // <-- ESTA LÍNEA ES NUEVA
         filtroDestino: document.getElementById('filtro-destino'),
         filtroSalida: document.getElementById('filtro-salida'),
         filtroOrden: document.getElementById('filtro-orden'),
@@ -459,7 +460,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     <div class="card-footer" style="display:flex; justify-content:flex-end; align-items:flex-end; position:relative; z-index: 1;">
                         <div style="text-align: right;">
-                            <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${lugarSalidaGrid || 'Varias'}</div>
+                            <!-- ACÁ ESTÁ EL CAMBIO: "Desde" en gris, lugar en negrita azul oscuro -->
+                            <div style="font-size: 0.85em; color: #666; margin-bottom: -5px;">
+                                Desde <strong style="color: #11173d; font-weight: 800;">${lugarSalidaGrid || 'Varias'}</strong>
+                            </div>
                             <p class="precio-valor" style="margin: 5px 0 0 0;">
                                 ${pkg.moneda} $${formatMoney(Math.round(tarifaMostrar/2))} <span style="font-size:0.5em; color:#999; font-weight:normal;">x Persona</span>
                             </p>
@@ -548,5 +552,15 @@ document.addEventListener('DOMContentLoaded', () => {
     window.onclick = e => { if(e.target === dom.modal) dom.modal.style.display='none'; };
     dom.btnBuscar.addEventListener('click', applyFilters);
     [dom.filtroSalida, dom.filtroOrden].forEach(el => el.addEventListener('change', applyFilters));
+
+    // LÓGICA DEL BOTÓN LIMPIAR
+    if(dom.btnLimpiar) {
+        dom.btnLimpiar.addEventListener('click', () => {
+            dom.filtroDestino.value = '';
+            dom.filtroSalida.value = '';
+            dom.filtroOrden.value = 'reciente';
+            applyFilters(); 
+        });
+    }
 
 });
