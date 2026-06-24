@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalBody: document.getElementById('modal-body'),
         modalClose: document.getElementById('modal-cerrar'),
         btnBuscar: document.getElementById('boton-buscar'),
+        btnLimpiar: document.getElementById('boton-limpiar'), // <-- ESTA LÍNEA ES NUEVA
         filtroDestino: document.getElementById('filtro-destino'),
         filtroSalida: document.getElementById('filtro-salida'),
         filtroOrden: document.getElementById('filtro-orden'),
@@ -551,5 +552,15 @@ document.addEventListener('DOMContentLoaded', () => {
     window.onclick = e => { if(e.target === dom.modal) dom.modal.style.display='none'; };
     dom.btnBuscar.addEventListener('click', applyFilters);
     [dom.filtroSalida, dom.filtroOrden].forEach(el => el.addEventListener('change', applyFilters));
+
+   // Lógica del botón Limpiar Filtros
+    if(dom.btnLimpiar) {
+        dom.btnLimpiar.addEventListener('click', () => {
+            dom.filtroDestino.value = '';
+            dom.filtroSalida.value = '';
+            dom.filtroOrden.value = 'reciente'; // Vuelve al orden por defecto
+            applyFilters(); // Recarga la grilla completa automáticamente
+        });
+    }
 
 });
