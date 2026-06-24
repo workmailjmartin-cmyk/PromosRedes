@@ -3331,16 +3331,19 @@ conectarPestanas();
 // GESTIÓN DINÁMICA DE PROMOCIONES
 // ==========================================
 var promocionesGlobal = [];
+window.textoListonGlobal = "SOLO X HOY"; // Texto por defecto para el listón
 
 window.cargarPromocionesAdmin = async () => {
     const contenedor = document.getElementById('lista-promos-admin');
     const filtroPromo = document.getElementById('filtro-promo');
     const uploadPromo = document.getElementById('upload-promo');
+    const inputListon = document.getElementById('admin-texto-liston'); // Agregamos el input del HTML
 
     try {
         const doc = await db.collection('metadata').doc('config').get();
-        if (doc.exists && doc.data().tipos_promocion) {
-            promocionesGlobal = doc.data().tipos_promocion;
+        if (doc.exists) {
+            if (doc.data().tipos_promocion) promocionesGlobal = doc.data().tipos_promocion;
+            if (doc.data().texto_liston) window.textoListonGlobal = doc.data().texto_liston; // Traemos el texto
         } else {
             promocionesGlobal = [
                 { nombre: "Solo X Hoy", alcance: "todos" },
@@ -3350,6 +3353,9 @@ window.cargarPromocionesAdmin = async () => {
         }
 
         const esAdmin = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+
+        // Mostramos el texto guardado en el cajón de configuración
+        if (inputListon) inputListon.value = window.textoListonGlobal;
 
         // 1. RENDERIZAR PANEL ADMIN
         if(contenedor) {
@@ -3367,7 +3373,8 @@ window.cargarPromocionesAdmin = async () => {
                 </div>`;
             });
         }
-// 2. RENDERIZAR BUSCADOR Y CARGA
+
+        // 2. RENDERIZAR BUSCADOR Y CARGA
         if(filtroPromo && uploadPromo) {
             const valorFiltro = filtroPromo.value;
             const valorUpload = uploadPromo.value;
@@ -3386,7 +3393,7 @@ window.cargarPromocionesAdmin = async () => {
             });
 
             if(valorFiltro) filtroPromo.value = valorFiltro;
-            if(valorUpload) uploadPromo.value = valorUpload;
+            if(valorUpload) uploadPromo.value = valorUpload; // 🛡️ Esto protege la edición de paquetes
         }
 
         // Refrescar grilla para aplicar invisibilidad si hubo cambios
@@ -3394,6 +3401,26 @@ window.cargarPromocionesAdmin = async () => {
 
     } catch(e) { console.error("Error promociones:", e); }
 };
+
+// 3. NUEVO: LÓGICA PARA GUARDAR EL LISTÓN
+const btnGuardarListon = document.getElementById('btn-guardar-liston');
+if(btnGuardarListon) {
+    btnGuardarListon.addEventListener('click', async () => {
+        const nuevoTexto = document.getElementById('admin-texto-liston').value.trim();
+        if(!nuevoTexto) return window.showAlert("Escribí un texto corto para el listón.", "error");
+        
+        showLoader(true, "Guardando...");
+        try {
+            await db.collection('metadata').doc('config').set({ texto_liston: nuevoTexto }, { merge: true });
+            window.textoListonGlobal = nuevoTexto; // Actualizamos la memoria
+            window.showAlert("¡Texto del listón actualizado!", "success");
+        } catch(e) { 
+            console.error(e);
+            window.showAlert("Error al guardar listón", "error"); 
+        }
+        showLoader(false);
+    });
+}
 
 const btnNuevaPromo = document.getElementById('btn-agregar-promo');
 if(btnNuevaPromo) {
