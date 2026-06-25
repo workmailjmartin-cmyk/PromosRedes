@@ -76,7 +76,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg);
         const tarifa = parseFloat(pkg['tarifa']) || 0;
-        const tarifaDoble = Math.round(tarifa / 2);
+        const divisor = parseInt(pkg.base_pasajeros) === 4 ? 4 : 2;
+        const tarifaPorPersona = Math.round(tarifa / divisor); 
+        const textoBase = divisor === 4 ? 'Base Cuádruple' : 'Base Doble';
         
         let servicios = [];
         try { servicios = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {}
@@ -422,7 +424,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             card.className = 'paquete-card'; 
+            card.className = 'paquete-card'; 
             const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; 
+            
+            // 👉 LÓGICA DINÁMICA DE BASE (2 o 4 Personas)
+            const divisor = parseInt(pkg.base_pasajeros) === 4 ? 4 : 2;
+            const tarifaPorPersona = Math.round(tarifaMostrar / divisor);
+            const textoBase = divisor === 4 ? 'Base Cuádruple' : 'Base Doble';
             
             const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢','circuito':'🗺️'};
             const summaryIcons = [...new Set((Array.isArray(sGrid)?sGrid:[]).map(x => m[x.tipo] || '🔹'))].join(' '); 
@@ -460,12 +468,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     <div class="card-footer" style="display:flex; justify-content:flex-end; align-items:flex-end; position:relative; z-index: 1;">
                         <div style="text-align: right;">
-                            <!-- ACÁ ESTÁ EL CAMBIO: "Desde" en gris, lugar en negrita azul oscuro -->
                             <div style="font-size: 0.85em; color: #666; margin-bottom: -5px;">
                                 Desde <strong style="color: #11173d; font-weight: 800;">${lugarSalidaGrid || 'Varias'}</strong>
                             </div>
                             <p class="precio-valor" style="margin: 5px 0 0 0;">
-                                ${pkg.moneda} $${formatMoney(Math.round(tarifaMostrar/2))} <span style="font-size:0.5em; color:#999; font-weight:normal;">x Persona</span>
+                                ${pkg.moneda} $${formatMoney(tarifaPorPersona)} <span style="font-size:0.5em; color:#999; font-weight:normal;">x Persona (${textoBase})</span>
                             </p>
                         </div>
                     </div>
@@ -496,7 +503,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const htmlCliente = renderServiciosClienteHTML(rawServicios); 
         const noches = getNoches(pkg); 
         const tarifa = parseFloat(pkg['tarifa']) || 0; 
-        const tarifaDoble = Math.round(tarifa / 2); 
+        const divisor = parseInt(pkg.base_pasajeros) === 4 ? 4 : 2;
+        const tarifaPorPersona = Math.round(tarifa / divisor); 
+        const textoBase = divisor === 4 ? 'Base Cuádruple' : 'Base Doble'; 
 
         // ACÁ SUCEDE LA MAGIA: Armamos el texto completo para el vendedor
         const textoCompletoParaVendedor = generarTextoPresupuesto(pkg);
@@ -534,8 +543,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             <div class="modal-footer-pricing" style="background:#11173d; color:white; padding:20px 30px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px; flex-wrap:wrap; gap:15px;">
                 <div style="text-align:left;">
-                    <small style="opacity:0.8; font-size: 0.85em; text-transform: uppercase;">Tarifa final por persona (Base Doble)</small>
-                    <div style="font-size:2.5em; font-weight:bold; color:#56DDE0; line-height: 1.1;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div>
+                    <small style="opacity:0.8; font-size: 0.85em; text-transform: uppercase;">Tarifa final por persona (${textoBase})</small>
+                    <div style="font-size:2.5em; font-weight:bold; color:#56DDE0; line-height: 1.1;">${pkg['moneda']} $${formatMoney(tarifaPorPersona)}</div>
                 </div>
                 <div style="text-align:right; max-width: 250px;">
                     <small style="color: #ef5a1a; font-size: 0.85em; line-height: 1.3; display: block; font-weight: 500;">
