@@ -489,7 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- MODAL DE CLIENTES B2C ---
+    // --- MODAL DE CLIENTES B2C (LIMPIO Y SIN FANTASMAS 👻) ---
     function openModal(pkg) {
         const rawServicios = pkg['servicios'] || pkg['item.servicios']; 
         let serviciosModal = []; 
@@ -497,7 +497,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let lugarSalidaModal = pkg['salida'];
         const esCircuitoModal = Array.isArray(serviciosModal) && serviciosModal.some(s => s.tipo === 'circuito');
-        const fechaModal = (!pkg['fecha_salida'] && esCircuitoModal) ? 'Múltiples Salidas' : formatDateAR(pkg['fecha_salida']);
+        const fechaModal = (!pkg['fecha_salida'] && esCircuitoModal) ? 'Múltiples Salidas' : (typeof formatDateAR === 'function' ? formatDateAR(pkg['fecha_salida']) : pkg.fecha_salida);
+        
         const tieneAereoModal = Array.isArray(serviciosModal) && serviciosModal.some(s => s.tipo === 'aereo');
         if (!tieneAereoModal) {
             const crucero = Array.isArray(serviciosModal) && serviciosModal.find(s => s.tipo === 'crucero');
@@ -506,24 +507,29 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (circuito && circuito.circuito_salida) lugarSalidaModal = circuito.circuito_salida;
         }
 
-        const htmlCliente = renderServiciosClienteHTML(rawServicios); 
-        const noches = getNoches(pkg); 
+        let htmlCliente = '';
+        if (typeof renderServiciosClienteHTML === 'function') {
+            htmlCliente = renderServiciosClienteHTML(rawServicios); 
+        }
+
+        const noches = typeof getNoches === 'function' ? getNoches(pkg) : 0; 
         const tarifa = parseFloat(pkg['tarifa']) || 0; 
         
-        // 👉 LÓGICA DINÁMICA BASE (2 o 4)
-        let divisor = 2;
-        if (pkg.base_pasajeros && parseInt(pkg.base_pasajeros) === 4) {
-            divisor = 4;
-        }
+        const divisor = parseInt(pkg.base_pasajeros) === 4 ? 4 : 2;
         const tarifaPorPersona = Math.round(tarifa / divisor); 
         const textoBase = divisor === 4 ? 'Base Cuádruple' : 'Base Doble'; 
 
-        const textoCompletoParaVendedor = generarTextoPresupuesto(pkg);
+        let textoCompletoParaVendedor = '';
+        if (typeof generarTextoPresupuesto === 'function') {
+            textoCompletoParaVendedor = generarTextoPresupuesto(pkg);
+        } else {
+            textoCompletoParaVendedor = `Viaje a ${pkg.destino}. Tarifa por persona: $${tarifaPorPersona} (${textoBase})`;
+        }
+
+        const nroWhatsapp = typeof WPP_NUMBER !== 'undefined' ? WPP_NUMBER : '';
         const mensajeWa = encodeURIComponent(`¡Hola Feliz Viaje! Vengo de la web y quiero consultar por este paquete:\n\n${textoCompletoParaVendedor}`);
         
-        // 👉 ESCUDO DE WHATSAPP: Si la variable falla, no rompe el click
-        const numeroWpp = typeof WPP_NUMBER !== 'undefined' ? WPP_NUMBER : '5491112345678';
-        const btnConsultarWpp = `<a href="https://wa.me/${numeroWpp}?text=${mensajeWa}" target="_blank" style="background: #25d366; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; text-align: center; display: block; margin-top: 20px; font-size: 1.1em; transition: 0.2s; box-shadow: 0 4px 10px rgba(37,211,102,0.3);" onmouseover="this.style.background='#1da851'" onmouseout="this.style.background='#25d366'">💬 Consultar al Asesor</a>`;
+        const btnConsultarWpp = `<a href="https://wa.me/${nroWhatsapp}?text=${mensajeWa}" target="_blank" style="background: #25d366; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; text-align: center; display: block; margin-top: 20px; font-size: 1.1em; transition: 0.2s; box-shadow: 0 4px 10px rgba(37,211,102,0.3);" onmouseover="this.style.background='#1da851'" onmouseout="this.style.background='#25d366'">💬 Consultar al Asesor</a>`;
 
         dom.modalBody.innerHTML = `
             <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
@@ -544,7 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p style="margin:5px 0; font-size:0.95em;"><b>📅 Salida:</b> ${fechaModal}</p>
                     <p style="margin:5px 0; font-size:0.95em;"><b>📍 Desde:</b> ${lugarSalidaModal || '-'}</p>
                     <p style="margin:5px 0; font-size:0.95em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p>
-                </div>a
+                </div>
 
                 <div class="modal-financiacion">
                     ${pkg['financiacion'] ? `<div style="margin-bottom:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em; color:#11173d;"><b>💳 Financiación / Notas:</b><br>${pkg['financiacion']}</div>` : ''}
@@ -556,7 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="modal-footer-pricing" style="background:#11173d; color:white; padding:20px 30px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px; flex-wrap:wrap; gap:15px;">
                 <div style="text-align:left;">
                     <small style="opacity:0.8; font-size: 0.85em; text-transform: uppercase;">Tarifa final por persona (${textoBase})</small>
-                    <div style="font-size:2.5em; font-weight:bold; color:#56DDE0; line-height: 1.1;">${pkg['moneda'] || 'USD'} $${formatMoney(tarifaPorPersona)}</div>
+                    <div style="font-size:2.5em; font-weight:bold; color:#56DDE0; line-height: 1.1;">${pkg['moneda'] || 'USD'} $${typeof formatMoney === 'function' ? formatMoney(tarifaPorPersona) : tarifaPorPersona}</div>
                 </div>
                 <div style="text-align:right; max-width: 250px;">
                     <small style="color: #ef5a1a; font-size: 0.85em; line-height: 1.3; display: block; font-weight: 500;">
@@ -565,6 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </small>
                 </div>
             </div>`;
+        
         dom.modal.style.display = 'flex';
     }
     
