@@ -297,7 +297,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
         const noches = getNoches(pkg);
         const tarifa = parseFloat(pkg['tarifa']) || 0;
-        const tarifaDoble = Math.round(tarifa / 2);
+        
+        // 👉 LÓGICA NUEVA: Detecta si es base doble o cuádruple
+        const divisor = parseInt(pkg.base_pasajeros) === 4 ? 4 : 2;
+        const tarifaPorPersona = Math.round(tarifa / divisor);
+        const textoBase = divisor === 4 ? 'Base Cuádruple' : 'Base Doble';
         
         let servicios = [];
         try { servicios = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {}
@@ -428,9 +432,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // 3. PIE DE PAGINA (PRECIO Y LEGALES)
-        texto += `💲*Tarifa final por Persona en Base Doble:*\n`;
-        texto += `${pkg.moneda} $${formatMoney(tarifaDoble)}\n\n`;
+        // 3. PIE DE PAGINA (PRECIO Y LEGALES) 👉 CON TEXTO DINÁMICO
+        texto += `💲*Tarifa final por Persona en ${textoBase}:*\n`;
+        texto += `${pkg.moneda} $${formatMoney(tarifaPorPersona)}\n\n`;
         
         if (pkg.financiacion) texto += `💳 Financiación: ${pkg.financiacion}\n\n`;
         
@@ -653,6 +657,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateInputs = dom.containerServicios.querySelectorAll('input[type="date"]');
         dateInputs.forEach(input => { input.min = minDate; if(input.value && input.value < minDate){ input.value = ''; input.style.borderColor = '#ef5a1a'; setTimeout(() => input.style.borderColor = '#ddd', 2000); } });
     }
+
+    // --- ANIMACIÓN DEL SWITCH DE PASAJEROS ---
+    window.toggleBasePasajeros = () => {
+        const input = document.getElementById('paquete-base-pasajeros');
+        if(!input) return;
+        
+        // Invertimos el valor
+        const nuevoValor = input.value === "2" ? "4" : "2";
+        window.setTogglePasajerosVisually(nuevoValor);
+        
+        // Recalculamos la guita al instante
+        if(typeof window.calcularPorPersona === 'function') window.calcularPorPersona();
+    };
+
+    window.setTogglePasajerosVisually = (val) => {
+        const input = document.getElementById('paquete-base-pasajeros');
+        const bg = document.getElementById('toggle-bg');
+        const opt2 = document.getElementById('opt-2');
+        const opt4 = document.getElementById('opt-4');
+        if(!input || !bg) return;
+
+        input.value = val;
+
+        if(val === "4") {
+            bg.style.left = "53px"; // Mueve el naranja a la derecha
+            opt2.style.color = "rgba(255,255,255,0.3)"; opt2.style.textShadow = "none";
+            opt4.style.color = "white"; opt4.style.textShadow = "0 1px 2px rgba(0,0,0,0.3)";
+        } else {
+            bg.style.left = "3px"; // Mueve el naranja a la izquierda
+            opt2.style.color = "white"; opt2.style.textShadow = "0 1px 2px rgba(0,0,0,0.3)";
+            opt4.style.color = "rgba(255,255,255,0.3)"; opt4.style.textShadow = "none";
+        }
+    };
 
     /// --- EVENTO PARA CALCULAR AUTOMÁTICAMENTE TARIFA X PERSONA ---
     window.calcularPorPersona = () => {
@@ -1691,7 +1728,7 @@ window.approvePackage = async (pkg) => {
         document.getElementById('upload-financiacion').value = pkg.financiacion || ''; 
         document.getElementById('upload-tarifa-total').value = pkg.tarifa; 
         if(document.getElementById('paquete-base-pasajeros')) {
-            document.getElementById('paquete-base-pasajeros').value = pkg.base_pasajeros || '2';
+            window.setTogglePasajerosVisually(pkg.base_pasajeros || '2');
         }
 
         // --- NUEVO: Cargar estado de los checkboxes al editar ---
