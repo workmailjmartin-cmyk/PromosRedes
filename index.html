@@ -365,14 +365,15 @@
                                 <label>Tarifa de Venta (Total)</label>
                                 <input type="number" id="upload-tarifa-total" required oninput="window.calcularPorPersona()">
                             </div>
-                            <div class="form-group" style="display: flex; flex-direction: column;">
-                                <label style="color: white; margin-bottom: 6px; font-weight: bold; font-size: 0.85em;">Base</label>
-                                <div style="position: relative; display: inline-flex; background: rgba(0,0,0,0.2); border-radius: 30px; width: 110px; height: 42px; align-items: center; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);" onclick="window.toggleBasePasajeros()">
+                            <div class="form-group" style="display: flex; flex-direction: column; align-items: center;">
+                                <label style="margin-bottom: 8px; font-weight: bold; font-size: 0.85em; text-align: center;">Base de Cotización</label>
+                                
+                                <div style="position: relative; display: inline-flex; background: rgba(0,0,0,0.25); border-radius: 40px; width: 150px; height: 50px; align-items: center; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);" onclick="window.toggleBasePasajeros()">
                                     
-                                    <div id="toggle-bg" style="position: absolute; left: 3px; width: 52px; height: 34px; background: #ef5a1a; border-radius: 20px; transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); box-shadow: 0 2px 5px rgba(0,0,0,0.2);"></div>
+                                    <div id="toggle-bg" style="position: absolute; left: 4px; width: 71px; height: 42px; background: #ef5a1a; border-radius: 30px; transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>
                                     
-                                    <div id="opt-2" style="flex: 1; text-align: center; z-index: 1; color: white; font-size: 1.2em; transition: 0.3s; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">👥</div>
-                                    <div id="opt-4" style="flex: 1; text-align: center; z-index: 1; color: rgba(255,255,255,0.3); font-size: 1.2em; transition: 0.3s; padding-top: 2px;">👥👥</div>
+                                    <div id="opt-2" style="flex: 1; text-align: center; z-index: 1; font-size: 1.6em; transition: 0.3s; filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.4)); opacity: 1;">👥</div>
+                                    <div id="opt-4" style="flex: 1; text-align: center; z-index: 1; font-size: 1.6em; transition: 0.3s; padding-top: 2px; opacity: 0.3; filter: grayscale(100%);">👥👥</div>
                                 </div>
                                 <input type="hidden" id="paquete-base-pasajeros" value="2">
                             </div>

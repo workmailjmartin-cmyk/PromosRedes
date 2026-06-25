@@ -681,13 +681,13 @@ document.addEventListener('DOMContentLoaded', () => {
         input.value = val;
 
         if(val === "4") {
-            bg.style.left = "53px"; // Mueve el naranja a la derecha
-            opt2.style.color = "rgba(255,255,255,0.3)"; opt2.style.textShadow = "none";
-            opt4.style.color = "white"; opt4.style.textShadow = "0 1px 2px rgba(0,0,0,0.3)";
+            bg.style.left = "75px"; // Distancia exacta para la mitad derecha
+            opt2.style.opacity = "0.3"; opt2.style.filter = "grayscale(100%)";
+            opt4.style.opacity = "1"; opt4.style.filter = "drop-shadow(0px 1px 2px rgba(0,0,0,0.4))";
         } else {
-            bg.style.left = "3px"; // Mueve el naranja a la izquierda
-            opt2.style.color = "white"; opt2.style.textShadow = "0 1px 2px rgba(0,0,0,0.3)";
-            opt4.style.color = "rgba(255,255,255,0.3)"; opt4.style.textShadow = "none";
+            bg.style.left = "4px"; // Distancia exacta para la mitad izquierda
+            opt2.style.opacity = "1"; opt2.style.filter = "drop-shadow(0px 1px 2px rgba(0,0,0,0.4))";
+            opt4.style.opacity = "0.3"; opt4.style.filter = "grayscale(100%)";
         }
     };
 
