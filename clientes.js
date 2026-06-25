@@ -401,7 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCards(list) {
         dom.grid.innerHTML = ''; 
         if (!list || list.length === 0) { 
-            dom.grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#666;">No encontramos viajes para esa búsqueda, ¡Contactanos al WhatsApp, nuestro asesor tiene una promo para vos!</p>'; 
+            dom.grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#666;">No encontramos viajes para esa búsqueda, ¡Contactanos al WhatsApp y lo armamos a medida!</p>'; 
             return; 
         }
         
@@ -409,7 +409,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!pkg.destino) return; 
             const card = document.createElement('div');
             
-            let sGrid = []; try { sGrid = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e){}
+            let sGrid = []; 
+            try { sGrid = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e){}
             const tieneAereo = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'aereo');
             const esCircuito = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'circuito');
             const fechaMostrar = (!pkg.fecha_salida && esCircuito && !tieneAereo) ? 'Múltiples Salidas' : formatDateAR(pkg.fecha_salida);
@@ -424,21 +425,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             card.className = 'paquete-card'; 
-            card.className = 'paquete-card'; 
             const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; 
             
-            // 👉 LÓGICA DINÁMICA DE BASE (2 o 4 Personas)
+            // LÓGICA MATEMÁTICA SEGURA
             const divisor = parseInt(pkg.base_pasajeros) === 4 ? 4 : 2;
             const tarifaPorPersona = Math.round(tarifaMostrar / divisor);
-            const textoBase = divisor === 4 ? 'Base Cuádruple' : 'Base Doble';
             
             const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢','circuito':'🗺️'};
             const summaryIcons = [...new Set((Array.isArray(sGrid)?sGrid:[]).map(x => m[x.tipo] || '🔹'))].join(' '); 
 
-            // MAGIA: El Listón en Diagonal
             let ribbonHtml = '';
             if (pkg.tipo_promo === 'Solo X Hoy') {
-                const textoRibbon = textoListonGlobal || 'SOLO X HOY';
+                const textoRibbon = typeof textoListonGlobal !== 'undefined' ? textoListonGlobal : 'SOLO X HOY';
                 ribbonHtml = `
                 <div style="position: absolute; top: 0; right: 0; width: 110px; height: 110px; overflow: hidden; pointer-events: none; z-index: 10; border-radius: 0 8px 0 0;">
                     <div style="position: absolute; top: 22px; right: -35px; width: 155px; transform: rotate(45deg); background: linear-gradient(90deg, #ffffff 0%, #56DDE0 100%); color: #11173d; font-weight: 800; font-size: 0.68em; text-align: center; padding: 4px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.15); letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap;">
@@ -472,18 +470,22 @@ document.addEventListener('DOMContentLoaded', () => {
                                 Desde <strong style="color: #11173d; font-weight: 800;">${lugarSalidaGrid || 'Varias'}</strong>
                             </div>
                             <p class="precio-valor" style="margin: 5px 0 0 0;">
-                                ${pkg.moneda} $${formatMoney(tarifaPorPersona)} <span style="font-size:0.5em; color:#999; font-weight:normal;">x Persona (${textoBase})</span>
+                                ${pkg.moneda} $${formatMoney(tarifaPorPersona)} <span style="font-size:0.5em; color:#999; font-weight:normal;">x Persona</span>
                             </p>
                         </div>
                     </div>
                 </div>`;
             
             dom.grid.appendChild(card); 
-            card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
+            
+            // Protección de click
+            card.querySelector('.card-clickable').addEventListener('click', () => {
+                try { openModal(pkg); } catch (err) { console.error("Error al abrir modal:", err); }
+            });
         });
     }
 
-    // --- MODAL DE CLIENTES B2C (CENSURADO Y CON TEXTO FULL PARA WHATSAPP) ---
+    // --- MODAL DE CLIENTES B2C (BLINDADO CONTRA ERRORES) ---
     function openModal(pkg) {
         const rawServicios = pkg['servicios'] || pkg['item.servicios']; 
         let serviciosModal = []; 
@@ -491,7 +493,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let lugarSalidaModal = pkg['salida'];
         const esCircuitoModal = Array.isArray(serviciosModal) && serviciosModal.some(s => s.tipo === 'circuito');
-        const fechaModal = (!pkg['fecha_salida'] && esCircuitoModal) ? 'Múltiples Salidas' : formatDateAR(pkg['fecha_salida']);
+        
+        // ESCUDO: Verificamos si existe la función de fechas
+        const fechaModal = (!pkg['fecha_salida'] && esCircuitoModal) ? 'Múltiples Salidas' : (typeof formatDateAR === 'function' ? formatDateAR(pkg['fecha_salida']) : pkg['fecha_salida']);
+        
         const tieneAereoModal = Array.isArray(serviciosModal) && serviciosModal.some(s => s.tipo === 'aereo');
         if (!tieneAereoModal) {
             const crucero = Array.isArray(serviciosModal) && serviciosModal.find(s => s.tipo === 'crucero');
@@ -500,18 +505,33 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (circuito && circuito.circuito_salida) lugarSalidaModal = circuito.circuito_salida;
         }
 
-        const htmlCliente = renderServiciosClienteHTML(rawServicios); 
-        const noches = getNoches(pkg); 
+        // ESCUDO: Verificamos si existe la función de HTML
+        let htmlCliente = '';
+        if (typeof renderServiciosClienteHTML === 'function') {
+            htmlCliente = renderServiciosClienteHTML(rawServicios); 
+        }
+
+        const noches = typeof getNoches === 'function' ? getNoches(pkg) : 0; 
         const tarifa = parseFloat(pkg['tarifa']) || 0; 
+        
+        // LÓGICA DINÁMICA BASE (2 o 4)
         const divisor = parseInt(pkg.base_pasajeros) === 4 ? 4 : 2;
         const tarifaPorPersona = Math.round(tarifa / divisor); 
         const textoBase = divisor === 4 ? 'Base Cuádruple' : 'Base Doble'; 
 
-        // ACÁ SUCEDE LA MAGIA: Armamos el texto completo para el vendedor
-        const textoCompletoParaVendedor = generarTextoPresupuesto(pkg);
+        // ESCUDO: Armamos el texto completo para el vendedor de forma segura
+        let textoCompletoParaVendedor = '';
+        if (typeof generarTextoPresupuesto === 'function') {
+            textoCompletoParaVendedor = generarTextoPresupuesto(pkg);
+        } else {
+            textoCompletoParaVendedor = `Viaje a ${pkg.destino}. Tarifa por persona: $${tarifaPorPersona} (${textoBase})`;
+        }
+
+        // ESCUDO: Verificamos el número de WhatsApp
+        const nroWhatsapp = typeof WPP_NUMBER !== 'undefined' ? WPP_NUMBER : '';
         const mensajeWa = encodeURIComponent(`¡Hola Feliz Viaje! Vengo de la web y quiero consultar por este paquete:\n\n${textoCompletoParaVendedor}`);
         
-        const btnConsultarWpp = `<a href="https://wa.me/${WPP_NUMBER}?text=${mensajeWa}" target="_blank" style="background: #25d366; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; text-align: center; display: block; margin-top: 20px; font-size: 1.1em; transition: 0.2s; box-shadow: 0 4px 10px rgba(37,211,102,0.3);" onmouseover="this.style.background='#1da851'" onmouseout="this.style.background='#25d366'">💬 Consultar al Asesor</a>`;
+        const btnConsultarWpp = `<a href="https://wa.me/${nroWhatsapp}?text=${mensajeWa}" target="_blank" style="background: #25d366; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; text-align: center; display: block; margin-top: 20px; font-size: 1.1em; transition: 0.2s; box-shadow: 0 4px 10px rgba(37,211,102,0.3);" onmouseover="this.style.background='#1da851'" onmouseout="this.style.background='#25d366'">💬 Consultar al Asesor</a>`;
 
         dom.modalBody.innerHTML = `
             <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
