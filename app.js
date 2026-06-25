@@ -1726,12 +1726,8 @@ window.approvePackage = async (pkg) => {
         document.getElementById('upload-moneda').value = pkg.moneda; 
         document.getElementById('upload-promo').value = pkg.tipo_promo; 
         document.getElementById('upload-financiacion').value = pkg.financiacion || ''; 
-        document.getElementById('upload-tarifa-total').value = pkg.tarifa; 
-        if(document.getElementById('paquete-base-pasajeros')) {
-            window.setTogglePasajerosVisually(pkg.base_pasajeros || '2');
-        }
-
-        // --- NUEVO: Cargar estado de los checkboxes al editar ---
+        
+        // --- Cargar estado de los checkboxes al editar ---
         if(document.getElementById('chk-reflejo')) {
             document.getElementById('chk-reflejo').checked = pkg.reflejo_cliente || false;
         }
@@ -1750,11 +1746,28 @@ window.approvePackage = async (pkg) => {
             servicios.forEach(s => agregarModuloServicio(s.tipo, s)); 
         } 
         
-        window.calcularTotal(); 
+        // 🛠️ REVISIÓN PROFUNDA: Sumamos los costos internos, pero bloqueamos el recargo automático
+        let t = 0;
+        document.querySelectorAll('.input-costo').forEach(i => t += parseFloat(i.value) || 0);
+        if(dom.inputCostoTotal) dom.inputCostoTotal.value = t;
+
+        // Restauramos la Tarifa Total exacta que guardó el usuario originalmente
+        document.getElementById('upload-tarifa-total').value = pkg.tarifa; 
+
+        // Posicionamos el switch ampliado en la mitad correspondiente (2 o 4)
+        if(document.getElementById('paquete-base-pasajeros')) {
+            window.setTogglePasajerosVisually(pkg.base_pasajeros ? pkg.base_pasajeros.toString() : '2');
+        }
+
+        // Actualizamos exclusivamente el indicador verde "x Persona" con los datos reales restaurados
+        if (typeof window.calcularPorPersona === 'function') {
+            window.calcularPorPersona();
+        }
+        
         dom.modal.style.display = 'none'; 
         showView('upload'); 
         window.scrollTo(0,0); 
-        window.showAlert("Modo Edición Activado.", "info"); 
+        window.showAlert("Modo Edición Activado. Se respetaron los valores exactos cargados originalmente.", "info"); 
     };
 
     function openModal(pkg) {
@@ -1777,7 +1790,15 @@ window.approvePackage = async (pkg) => {
                 lugarSalidaModal = circuito.circuito_salida;
             }
         }
-        const htmlCliente = renderServiciosClienteHTML(rawServicios); const htmlCostos = renderCostosProveedoresHTML(rawServicios); const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2); 
+        const htmlCliente = renderServiciosClienteHTML(rawServicios); 
+        const htmlCostos = renderCostosProveedoresHTML(rawServicios); 
+        const noches = getNoches(pkg); 
+        const tarifa = parseFloat(pkg['tarifa']) || 0; 
+        
+        // 👉 LÓGICA DINÁMICA: Detecta el divisor y el texto
+        const divisor = parseInt(pkg.base_pasajeros) === 4 ? 4 : 2;
+        const tarifaPorPersona = Math.round(tarifa / divisor);
+        const textoBase = divisor === 4 ? 'Base Cuádruple' : 'Base Doble'; 
         const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`; 
         let adminTools = ''; 
         const isOwner = pkg.editor_email === currentUser.email; 
@@ -1851,7 +1872,7 @@ window.approvePackage = async (pkg) => {
                 <div style="display:flex; gap:30px;">
                     <div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div>
                     <div><small style="opacity:0.7;">Tarifa Final</small><div style="font-size:1.2em; font-weight:bold; color:#ef5a1a;">${pkg['moneda']} $${formatMoney(tarifa)}</div></div>
-                    <div><small style="opacity:0.7;">x Persona (Base Doble)</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div></div>
+                    <div><small style="opacity:0.7;">x Persona (${textoBase})</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaPorPersona)}</div></div>
                 </div>
                 <div style="text-align:right;"><small style="opacity:0.7;">Cargado por:</small><div style="font-size:0.9em;">${pkg['creador']}</div></div>
             </div>`;
