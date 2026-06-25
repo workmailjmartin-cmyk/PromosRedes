@@ -1726,12 +1726,8 @@ window.approvePackage = async (pkg) => {
         document.getElementById('upload-moneda').value = pkg.moneda; 
         document.getElementById('upload-promo').value = pkg.tipo_promo; 
         document.getElementById('upload-financiacion').value = pkg.financiacion || ''; 
-        document.getElementById('upload-tarifa-total').value = pkg.tarifa; 
-        if(document.getElementById('paquete-base-pasajeros')) {
-            window.setTogglePasajerosVisually(pkg.base_pasajeros || '2');
-        }
-
-        // --- NUEVO: Cargar estado de los checkboxes al editar ---
+        
+        // --- Cargar estado de los checkboxes al editar ---
         if(document.getElementById('chk-reflejo')) {
             document.getElementById('chk-reflejo').checked = pkg.reflejo_cliente || false;
         }
@@ -1750,11 +1746,28 @@ window.approvePackage = async (pkg) => {
             servicios.forEach(s => agregarModuloServicio(s.tipo, s)); 
         } 
         
-        window.calcularTotal(); 
+        // 🛠️ REVISIÓN PROFUNDA: Sumamos los costos internos, pero bloqueamos el recargo automático
+        let t = 0;
+        document.querySelectorAll('.input-costo').forEach(i => t += parseFloat(i.value) || 0);
+        if(dom.inputCostoTotal) dom.inputCostoTotal.value = t;
+
+        // Restauramos la Tarifa Total exacta que guardó el usuario originalmente
+        document.getElementById('upload-tarifa-total').value = pkg.tarifa; 
+
+        // Posicionamos el switch ampliado en la mitad correspondiente (2 o 4)
+        if(document.getElementById('paquete-base-pasajeros')) {
+            window.setTogglePasajerosVisually(pkg.base_pasajeros ? pkg.base_pasajeros.toString() : '2');
+        }
+
+        // Actualizamos exclusivamente el indicador verde "x Persona" con los datos reales restaurados
+        if (typeof window.calcularPorPersona === 'function') {
+            window.calcularPorPersona();
+        }
+        
         dom.modal.style.display = 'none'; 
         showView('upload'); 
         window.scrollTo(0,0); 
-        window.showAlert("Modo Edición Activado.", "info"); 
+        window.showAlert("Modo Edición Activado. Se respetaron los valores exactos cargados originalmente.", "info"); 
     };
 
     function openModal(pkg) {
