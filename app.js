@@ -654,19 +654,23 @@ document.addEventListener('DOMContentLoaded', () => {
         dateInputs.forEach(input => { input.min = minDate; if(input.value && input.value < minDate){ input.value = ''; input.style.borderColor = '#ef5a1a'; setTimeout(() => input.style.borderColor = '#ddd', 2000); } });
     }
 
-    // --- EVENTO PARA CALCULAR AUTOMÁTICAMENTE TARIFA X PERSONA ---
-    // Agregamos el Listener aquí mismo para asegurar que funcione siempre
+    /// --- EVENTO PARA CALCULAR AUTOMÁTICAMENTE TARIFA X PERSONA ---
+    window.calcularPorPersona = () => {
+        const totalInput = document.getElementById('upload-tarifa-total');
+        const personaInput = document.getElementById('upload-tarifa-persona');
+        const baseSelect = document.getElementById('paquete-base-pasajeros');
+        
+        if (totalInput && personaInput) {
+            const total = parseFloat(totalInput.value) || 0;
+            // Si el selector está en 4, divide por 4. Si no, divide por 2 por defecto.
+            const divisor = (baseSelect && parseInt(baseSelect.value) === 4) ? 4 : 2;
+            const porPersona = Math.round(total / divisor);
+            personaInput.value = formatMoney(porPersona);
+        }
+    };
+
     if(dom.inputTarifaTotal) {
-        dom.inputTarifaTotal.addEventListener('input', () => {
-            const total = parseFloat(dom.inputTarifaTotal.value) || 0;
-            const porPersona = Math.round(total / 2);
-            
-            // Buscamos el input por ID
-            const inputPersona = document.getElementById('upload-tarifa-persona');
-            if(inputPersona) {
-                inputPersona.value = formatMoney(porPersona);
-            }
-        });
+        dom.inputTarifaTotal.addEventListener('input', window.calcularPorPersona);
     }
 
     function processPackageHistory(rawList) {
@@ -1297,8 +1301,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if(dom.inputCostoTotal) dom.inputCostoTotal.value = t;
         const tarifaSugerida = Math.round(t * 1.185);
         if(dom.inputTarifaTotal) dom.inputTarifaTotal.value = tarifaSugerida;
+        
+        // Disparamos el cálculo por persona automático actualizado
         if (typeof window.calcularPorPersona === 'function') {
-            dom.inputTarifaTotal.dispatchEvent(new Event('input'));
+            window.calcularPorPersona();
         }
     };
 
@@ -1430,6 +1436,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     fecha_creacion: fechaCreacionFormateada,
                     reflejo_cliente: document.getElementById('chk-reflejo') ? document.getElementById('chk-reflejo').checked : false,
                     cultar_cliente: document.getElementById('chk-ocultar') ? document.getElementById('chk-ocultar').checked : false,
+                    base_pasajeros: document.getElementById('paquete-base-pasajeros') ? parseInt(document.getElementById('paquete-base-pasajeros').value) : 2
                 };
 
         // 🧹 FILTRO PROFUNDO: Busca y destruye campos sin nombre o undefined en TODOS los niveles
@@ -1604,7 +1611,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${lugarSalidaGrid}</div>
                             
                             <p class="precio-valor" style="margin: 5px 0 0 0;">
-                                ${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar/2))}
+                                ${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar / (parseInt(pkg.base_pasajeros) === 4 ? 4 : 2)))}
                             </p>
                         </div>
                     </div>
@@ -1683,6 +1690,9 @@ window.approvePackage = async (pkg) => {
         document.getElementById('upload-promo').value = pkg.tipo_promo; 
         document.getElementById('upload-financiacion').value = pkg.financiacion || ''; 
         document.getElementById('upload-tarifa-total').value = pkg.tarifa; 
+        if(document.getElementById('paquete-base-pasajeros')) {
+            document.getElementById('paquete-base-pasajeros').value = pkg.base_pasajeros || '2';
+        }
 
         // --- NUEVO: Cargar estado de los checkboxes al editar ---
         if(document.getElementById('chk-reflejo')) {

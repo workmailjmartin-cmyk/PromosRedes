@@ -366,7 +366,14 @@
                                 <input type="number" id="upload-tarifa-total" required oninput="window.calcularPorPersona()">
                             </div>
                             <div class="form-group">
-                                <label>x Persona (Base Doble)</label>
+                                <label>Base de Pasajeros</label>
+                                <select id="paquete-base-pasajeros" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;" onchange="window.calcularPorPersona()">
+                                    <option value="2">Base Doble (2)</option>
+                                    <option value="4">Base Cuádruple (4)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>x Persona</label>
                                 <input type="text" id="upload-tarifa-persona" readonly style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #4caf50; font-weight: bold; cursor: default;">
                             </div>
                         </div>
