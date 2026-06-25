@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalBody: document.getElementById('modal-body'),
         modalClose: document.getElementById('modal-cerrar'),
         btnBuscar: document.getElementById('boton-buscar'),
-        btnLimpiar: document.getElementById('boton-limpiar'), // <-- ESTA LÍNEA ES NUEVA
+        btnLimpiar: document.getElementById('boton-limpiar'),
         filtroDestino: document.getElementById('filtro-destino'),
         filtroSalida: document.getElementById('filtro-salida'),
         filtroOrden: document.getElementById('filtro-orden'),
@@ -71,11 +71,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return hasData ? Math.ceil((maxDate - start) / 86400000) : 0;
     }
 
-    // El generador de presupuestos exacto de tu sistema interno
+    // --- GENERADOR DE TEXTO PRESUPUESTO B2C ---
     function generarTextoPresupuesto(pkg) {
         const fechaCotizacion = pkg.fecha_creacion ? pkg.fecha_creacion : new Date().toLocaleDateString('es-AR');
-        const noches = getNoches(pkg);
+        const noches = typeof getNoches === 'function' ? getNoches(pkg) : 0;
         const tarifa = parseFloat(pkg['tarifa']) || 0;
+        
+        // 👉 LÓGICA DINÁMICA: Calcula la base sin romper el código
         const divisor = parseInt(pkg.base_pasajeros) === 4 ? 4 : 2;
         const tarifaPorPersona = Math.round(tarifa / divisor); 
         const textoBase = divisor === 4 ? 'Base Cuádruple' : 'Base Doble';
@@ -84,18 +86,18 @@ document.addEventListener('DOMContentLoaded', () => {
         try { servicios = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e) {}
 
         const tieneSeguro = Array.isArray(servicios) && servicios.some(s => 
-            s.tipo === 'seguro' || (s.tipo === 'bus' && s.asistencia === true)
+            s.tipo === 'seguro' || (s.tipo === 'bus' && s.asistencia === true) || s.tipo === 'crucero'
         );
 
         let texto = `*${pkg.destino.toUpperCase()}*\n`;
         texto += `PAQUETE\n\n`;
         
         const esCircuitoTxt = Array.isArray(servicios) && servicios.some(s => s.tipo === 'circuito');
-        const fechaTxt = (!pkg.fecha_salida && esCircuitoTxt) ? 'Múltiples Salidas' : formatDateAR(pkg.fecha_salida);
+        const tieneAereo = Array.isArray(servicios) && servicios.some(s => s.tipo === 'aereo');
+        const fechaTxt = (!pkg.fecha_salida && esCircuitoTxt && !tieneAereo) ? 'Múltiples Salidas' : (typeof formatDateAR === 'function' ? formatDateAR(pkg.fecha_salida) : pkg.fecha_salida);
         texto += `📅 Salida: ${fechaTxt}\n`;
         
         let lugarSalida = pkg.salida;
-        const tieneAereo = Array.isArray(servicios) && servicios.some(s => s.tipo === 'aereo');
         if (!tieneAereo) {
             const crucero = Array.isArray(servicios) && servicios.find(s => s.tipo === 'crucero');
             const circuito = Array.isArray(servicios) && servicios.find(s => s.tipo === 'circuito');
@@ -113,13 +115,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     let eIda = (s.escalas_ida !== undefined) ? parseInt(s.escalas_ida) : (parseInt(s.escalas) || 0);
                     let eVuelta = (s.escalas_vuelta !== undefined) ? parseInt(s.escalas_vuelta) : (parseInt(s.escalas) || 0);
                     let escalasTxt = "";
-                    if (eIda === eVuelta) escalasTxt = formatEscalasTexto(eIda);
-                    else escalasTxt = `IDA: ${formatEscalasTexto(eIda)} | REGRESO: ${formatEscalasTexto(eVuelta)}`;
+                    if (eIda === eVuelta) escalasTxt = typeof formatEscalasTexto === 'function' ? formatEscalasTexto(eIda) : `${eIda} Escalas`;
+                    else escalasTxt = `IDA: ${typeof formatEscalasTexto === 'function' ? formatEscalasTexto(eIda) : eIda} | REGRESO: ${typeof formatEscalasTexto === 'function' ? formatEscalasTexto(eVuelta) : eVuelta}`;
 
                     texto += `> ✈️ *AÉREO*\n`;
                     if (s.aeropuerto_salida) texto += `🛫 *Salida desde:* ${s.aeropuerto_salida}\n`;
                     texto += `${s.aerolinea || 'Aerolínea'}\n`;
-                    texto += `${formatDateAR(s.fecha_aereo)}${s.fecha_regreso ? ' - ' + formatDateAR(s.fecha_regreso) : ''}\n`;
+                    texto += `${typeof formatDateAR === 'function' ? formatDateAR(s.fecha_aereo) : s.fecha_aereo}${s.fecha_regreso ? ' - ' + (typeof formatDateAR === 'function' ? formatDateAR(s.fecha_regreso) : s.fecha_regreso) : ''}\n`;
                     texto += `${escalasTxt} | ${s.tipo_equipaje || '-'}\n\n`;
                 } else if (s.tipo === 'hotel') {
                     let stars = ''; if(s.hotel_estrellas) { for(let i=0; i<s.hotel_estrellas; i++) stars += '⭐'; }
@@ -127,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     texto += `${s.hotel_nombre} ${stars}\n`;
                     if(s.regimen) texto += `(${s.regimen})\n`;
                     if(s.noches) texto += `${s.noches} Noches`;
-                    if(s.checkin) texto += ` | Ingreso: ${formatDateAR(s.checkin)}`; 
+                    if(s.checkin) texto += ` | Ingreso: ${typeof formatDateAR === 'function' ? formatDateAR(s.checkin) : s.checkin}`; 
                     texto += `\n`;
                     if(s.hotel_link) texto += `📍 Ubicación: ${s.hotel_link}\n`;
                     texto += `\n`;
@@ -157,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     texto += `> 🚢 *CRUCERO ${s.crucero_naviera ? s.crucero_naviera.toUpperCase() : ''}*\n`;
                     if (s.crucero_noches) texto += ` *Duración:* ${s.crucero_noches} Noches\n`;
                     if (s.crucero_puerto_salida) texto += ` Puerto de Salida: ${s.crucero_puerto_salida}\n`;
-                    if (s.checkin) texto += ` Fechas: ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
+                    if (s.checkin) texto += ` Fechas: ${typeof formatDateAR === 'function' ? formatDateAR(s.checkin) : s.checkin} al ${typeof formatDateAR === 'function' ? formatDateAR(s.checkout || '') : s.checkout}\n`;
                     if (s.crucero_paradas) texto += ` Recorrido: ${s.crucero_paradas}\n`;
                     texto += ` Incluye:\n- Pensión Completa\n- Asistencia al Viajero\n`;
                     if (s.crucero_bebidas) texto += `- Paquete de Bebidas\n`;
@@ -170,15 +172,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     texto += `> 🗺️ *CIRCUITO: ${s.circuito_nombre ? s.circuito_nombre.toUpperCase() : ''}*\n`;
                     if (s.circuito_noches) texto += `Duración: ${s.circuito_noches} Noches\n`;
                     if (s.circuito_salida) texto += `Salida desde: ${s.circuito_salida}\n`;
-                    if (s.checkin) texto += `*Fechas:* ${formatDateAR(s.checkin)} al ${formatDateAR(s.checkout || '')}\n`;
+                    if (s.checkin) texto += `*Fechas:* ${typeof formatDateAR === 'function' ? formatDateAR(s.checkin) : s.checkin} al ${typeof formatDateAR === 'function' ? formatDateAR(s.checkout || '') : s.checkout}\n`;
                     if (s.circuito_descripcion) texto += `Detalle: ${s.circuito_descripcion}\n`;
                     texto += `\n`;
                 }
             });
         }
 
-        texto += `💲*Tarifa final por Persona en Base Doble:*\n`;
-        texto += `${pkg.moneda} $${formatMoney(tarifaDoble)}\n\n`;
+        // 👉 ACÁ SE ARREGLÓ EL ERROR QUE ROMPÍA EL CLIC
+        texto += `💲*Tarifa final por Persona en ${textoBase}:*\n`;
+        texto += `${pkg.moneda} $${typeof formatMoney === 'function' ? formatMoney(tarifaPorPersona) : tarifaPorPersona}\n\n`;
+        
         if (pkg.financiacion) texto += `💳 Financiación: ${pkg.financiacion}\n\n`;
         texto += `--------------------------------------------\n`;
         texto += `Información importante:\n`;
@@ -189,8 +193,9 @@ document.addEventListener('DOMContentLoaded', () => {
         texto += `-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n`;
         texto += `-Las plazas y precios pueden modificarse en cualquier momento según disponibilidad de vuelos y hotel.\n\n`;
         texto += `¿Encontraste una mejor oferta? ¡Compartila con nosotros y la mejoramos para vos!\n\n`;
-        texto += `✈ Políticas generales de aerolíneas (tarifas económicas)\n`;
+        texto += `✈️ Políticas generales de aerolíneas (tarifas económicas)\n`;
         texto += `-Equipaje y la selección de asientos no están incluidos (pueden tener costo adicional)\n\n`;
+        
         if (tieneSeguro) texto += `Asistencia al viajero es requisito obligatorio en la mayoría de los destinos internacionales`;
         else texto += `Asistencia al viajero no incluida. Puede añadirse al reservar o más adelante. Es requisito obligatorio en la mayoría de los destinos internacionales`;
 
@@ -539,7 +544,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p style="margin:5px 0; font-size:0.95em;"><b>📅 Salida:</b> ${fechaModal}</p>
                     <p style="margin:5px 0; font-size:0.95em;"><b>📍 Desde:</b> ${lugarSalidaModal || '-'}</p>
                     <p style="margin:5px 0; font-size:0.95em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p>
-                </div>
+                </div>a
 
                 <div class="modal-financiacion">
                     ${pkg['financiacion'] ? `<div style="margin-bottom:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em; color:#11173d;"><b>💳 Financiación / Notas:</b><br>${pkg['financiacion']}</div>` : ''}
