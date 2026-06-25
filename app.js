@@ -1599,85 +1599,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- RENDERIZADO DE GRILLA B2C ---
-    function renderCards(list) {
-        dom.grid.innerHTML = ''; 
-        if (!list || list.length === 0) { 
-            dom.grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#666;">No encontramos viajes para esa búsqueda, ¡Contactanos al WhatsApp y lo armamos a medida!</p>'; 
-            return; 
-        }
-        
+    function renderCards(list, targetGrid = dom.grid) {
+        targetGrid.innerHTML = ''; if (!list || list.length === 0) { targetGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;">No hay resultados.</p>'; return; }
         list.forEach(pkg => {
             if (!pkg.destino) return; 
-            const card = document.createElement('div');
-            
-            let sGrid = []; try { sGrid = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e){}
-            const tieneAereo = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'aereo');
-            const esCircuito = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'circuito');
-            const fechaMostrar = (!pkg.fecha_salida && esCircuito && !tieneAereo) ? 'Múltiples Salidas' : formatDateAR(pkg.fecha_salida);
-            
-            const noches = getNoches(pkg);
+            const card = document.createElement('div'); const noches = getNoches(pkg);
+           // --- LÓGICA INTELIGENTE DE SALIDA PARA LA GRILLA ---
             let lugarSalidaGrid = pkg['salida'];
-            if (!tieneAereo) {
+            let sGrid = []; try { sGrid = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e){}
+            const tieneAereoGrid = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'aereo');
+            
+           // Lógica de Múltiples salidas para Circuitos (EL AÉREO MANDA)
+            const esCircuitoGrid = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'circuito');
+            const fechaMostrar = (!pkg['fecha_salida'] && esCircuitoGrid && !tieneAereoGrid) ? 'Múltiples Salidas' : formatDateAR(pkg['fecha_salida']);
+            if (!tieneAereoGrid) {
                 const crucero = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'crucero');
                 const circuito = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'circuito');
-                if (crucero && crucero.crucero_puerto_salida) lugarSalidaGrid = crucero.crucero_puerto_salida;
-                else if (circuito && circuito.circuito_salida) lugarSalidaGrid = circuito.circuito_salida;
+                if (crucero && crucero.crucero_puerto_salida) {
+                    lugarSalidaGrid = crucero.crucero_puerto_salida;
+                } else if (circuito && circuito.circuito_salida) {
+                    lugarSalidaGrid = circuito.circuito_salida;
+                }
             }
-
-            card.className = 'paquete-card'; 
-            const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; 
-            
-            // LÓGICA MATEMÁTICA
-            const divisor = parseInt(pkg.base_pasajeros) === 4 ? 4 : 2;
-            const tarifaPorPersona = Math.round(tarifaMostrar / divisor);
-            
-            const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢','circuito':'🗺️'};
-            const summaryIcons = [...new Set((Array.isArray(sGrid)?sGrid:[]).map(x => m[x.tipo] || '🔹'))].join(' '); 
-
-            let ribbonHtml = '';
-            if (pkg.tipo_promo === 'Solo X Hoy') {
-                const textoRibbon = typeof textoListonGlobal !== 'undefined' ? textoListonGlobal : 'SOLO X HOY';
-                ribbonHtml = `
-                <div style="position: absolute; top: 0; right: 0; width: 110px; height: 110px; overflow: hidden; pointer-events: none; z-index: 10; border-radius: 0 8px 0 0;">
-                    <div style="position: absolute; top: 22px; right: -35px; width: 155px; transform: rotate(45deg); background: linear-gradient(90deg, #ffffff 0%, #56DDE0 100%); color: #11173d; font-weight: 800; font-size: 0.68em; text-align: center; padding: 4px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.15); letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap;">
-                        ${textoRibbon}
-                    </div>
-                </div>`;
-            }
+            card.className = 'paquete-card'; const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; const summaryIcons = getSummaryIcons(pkg); 
+            const bubbleStyle = `background-color:#56DDE0;color:#11173d;padding:4px 12px;border-radius:20px;font-weight:600;font-size:0.75em;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.05);`; 
+            let statusTag = ''; if (pkg.status === 'pending') statusTag = `<span style="background-color:#ffeaa7; color:#d35400; padding:2px 8px; border-radius:10px; font-size:0.7em; margin-left:5px;">⏳ En Revisión</span>`;
 
             card.innerHTML = `
-                <div class="card-clickable" style="height:100%; position: relative;">
-                    ${ribbonHtml}
+                <div class="card-clickable">
                     <div class="card-header">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
-                            <div style="max-width:${pkg.tipo_promo === 'Solo X Hoy' ? '72%' : '100%'}; padding-right:10px;">
-                                <h3 style="margin:0;font-size:1.4em;line-height:1.2;color:#11173d;">${pkg.destino}</h3>
+                            <div style="max-width:75%; padding-right:30px;">
+                                <h3 style="margin:0;font-size:1.5em;line-height:1.2;color:#11173d;">${pkg['destino']} ${statusTag}</h3>
                             </div>
+                            ${noches > 0 ? `<div style="background:#eef2f5;color:#11173d;padding:5px 10px;border-radius:12px;font-weight:bold;font-size:0.8em;white-space:nowrap;">🌙 ${noches}</div>` : ''}
                         </div>
                         <div class="fecha">📅 Salida: ${fechaMostrar}</div>
                     </div>
                     
                     <div class="card-body">
-                        <div style="font-size:0.85em;color:#555;display:flex;align-items:center;flex-wrap:wrap;gap:10px;line-height:1.4;">
-                            <span>${summaryIcons}</span>
-                            ${noches > 0 ? `<span style="background:#eef2f5;color:#11173d;padding:4px 8px;border-radius:12px;font-weight:bold;font-size:0.85em;display:inline-flex;align-items:center;gap:4px;">🌙 ${noches}</span>` : ''}
-                        </div>
+                        <div style="font-size:0.85em;color:#555;display:flex;flex-wrap:wrap;line-height:1.4;">${summaryIcons}</div>
                     </div>
                     
-                    <div class="card-footer" style="display:flex; justify-content:flex-end; align-items:flex-end; position:relative; z-index: 1;">
+                    <div class="card-footer" style="display:flex; justify-content:space-between; align-items:flex-end;">
+                        <div><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
+                        
                         <div style="text-align: right;">
-                            <div style="font-size: 0.85em; color: #666; margin-bottom: -5px;">
-                                Desde <strong style="color: #11173d; font-weight: 800;">${lugarSalidaGrid || 'Varias'}</strong>
-                            </div>
+                            <div style="font-size: 0.85em; color: #666; font-weight: 500; margin-bottom: -5px;">Desde ${lugarSalidaGrid}</div>
+                            
                             <p class="precio-valor" style="margin: 5px 0 0 0;">
-                                ${pkg.moneda} $${formatMoney(tarifaPorPersona)} <span style="font-size:0.5em; color:#999; font-weight:normal;">x Persona</span>
+                                ${pkg['moneda']} $${formatMoney(Math.round(tarifaMostrar / (parseInt(pkg.base_pasajeros) === 4 ? 4 : 2)))}
                             </p>
                         </div>
                     </div>
                 </div>`;
             
-            dom.grid.appendChild(card); 
+            targetGrid.appendChild(card); 
             card.querySelector('.card-clickable').addEventListener('click', () => openModal(pkg));
         });
     }
@@ -1749,8 +1726,12 @@ window.approvePackage = async (pkg) => {
         document.getElementById('upload-moneda').value = pkg.moneda; 
         document.getElementById('upload-promo').value = pkg.tipo_promo; 
         document.getElementById('upload-financiacion').value = pkg.financiacion || ''; 
-        
-        // --- Cargar estado de los checkboxes al editar ---
+        document.getElementById('upload-tarifa-total').value = pkg.tarifa; 
+        if(document.getElementById('paquete-base-pasajeros')) {
+            window.setTogglePasajerosVisually(pkg.base_pasajeros || '2');
+        }
+
+        // --- NUEVO: Cargar estado de los checkboxes al editar ---
         if(document.getElementById('chk-reflejo')) {
             document.getElementById('chk-reflejo').checked = pkg.reflejo_cliente || false;
         }
@@ -1769,31 +1750,16 @@ window.approvePackage = async (pkg) => {
             servicios.forEach(s => agregarModuloServicio(s.tipo, s)); 
         } 
         
-        // 🛠️ REVISIÓN PROFUNDA: Sumamos los costos internos, pero bloqueamos el recargo automático
-        let t = 0;
-        document.querySelectorAll('.input-costo').forEach(i => t += parseFloat(i.value) || 0);
-        if(dom.inputCostoTotal) dom.inputCostoTotal.value = t;
-
-        // Restauramos la Tarifa Total exacta que guardó el usuario originalmente
-        document.getElementById('upload-tarifa-total').value = pkg.tarifa; 
-
-        // Posicionamos el switch ampliado en la mitad correspondiente (2 o 4)
-        if(document.getElementById('paquete-base-pasajeros')) {
-            window.setTogglePasajerosVisually(pkg.base_pasajeros ? pkg.base_pasajeros.toString() : '2');
-        }
-
-        // Actualizamos exclusivamente el indicador verde "x Persona" con los datos reales restaurados
-        if (typeof window.calcularPorPersona === 'function') {
-            window.calcularPorPersona();
-        }
-        
+        window.calcularTotal(); 
         dom.modal.style.display = 'none'; 
         showView('upload'); 
         window.scrollTo(0,0); 
-        window.showAlert("Modo Edición Activado. Se respetaron los valores exactos cargados originalmente.", "info"); 
+        window.showAlert("Modo Edición Activado.", "info"); 
     };
 
     function openModal(pkg) {
+        window.currentModalPackage = pkg;
+        if (typeof renderServiciosClienteHTML !== 'function') return alert("Error interno.");
         const rawServicios = pkg['servicios'] || pkg['item.servicios']; 
         let serviciosModal = []; 
         try { serviciosModal = typeof rawServicios === 'string' ? JSON.parse(rawServicios) : rawServicios; } catch(e) {}
@@ -1805,66 +1771,89 @@ window.approvePackage = async (pkg) => {
         if (!tieneAereoModal) {
             const crucero = Array.isArray(serviciosModal) && serviciosModal.find(s => s.tipo === 'crucero');
             const circuito = Array.isArray(serviciosModal) && serviciosModal.find(s => s.tipo === 'circuito');
-            if (crucero && crucero.crucero_puerto_salida) lugarSalidaModal = crucero.crucero_puerto_salida;
-            else if (circuito && circuito.circuito_salida) lugarSalidaModal = circuito.circuito_salida;
+            if (crucero && crucero.crucero_puerto_salida) {
+                lugarSalidaModal = crucero.crucero_puerto_salida;
+            } else if (circuito && circuito.circuito_salida) {
+                lugarSalidaModal = circuito.circuito_salida;
+            }
+        }
+        const htmlCliente = renderServiciosClienteHTML(rawServicios); const htmlCostos = renderCostosProveedoresHTML(rawServicios); const noches = getNoches(pkg); const tarifa = parseFloat(pkg['tarifa']) || 0; const tarifaDoble = Math.round(tarifa / 2); 
+        const bubbleStyle = `background-color: #56DDE0; color: #11173d; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`; 
+        let adminTools = ''; 
+        const isOwner = pkg.editor_email === currentUser.email; 
+        const canEdit = userData.rol === 'admin' || userData.rol === 'editor' || (userData.rol === 'usuario' && pkg.status === 'pending' && isOwner);
+        
+        if (canEdit) { 
+            const btnApprove = (userData.rol === 'admin' || userData.rol === 'editor') && pkg.status === 'pending' ? `<button class="btn btn-primario" onclick="approvePackage(currentModalPackage)" style="padding:5px 15px; font-size:0.8em; background:#2ecc71;">✅ Aprobar</button>` : ''; 
+            
+            // --- NUEVO: Herramientas de Visibilidad B2C (Solo Jefes) ---
+            let visibilidadTools = '';
+            if (userData.rol === 'admin' || userData.rol === 'editor') {
+                const isAnclado = pkg.reflejo_cliente === true;
+                const isOculto = pkg.ocultar_cliente === true;
+                const pkgId = pkg.id_paquete || pkg.id || pkg['item.id'];
+                
+                // Botones de control rápido (Anclar y Ocultar)
+                const btnAnclar = `<button title="Anclar a B2C (Ignora corte 12hs)" onclick="window.toggleVisibilidad('${pkgId}', 'reflejo_cliente', ${isAnclado})" style="padding:4px 12px; font-size:0.9em; font-weight:bold; border-radius:6px; cursor:pointer; border: 1px solid ${isAnclado ? '#1e8e3e' : '#555'}; background: ${isAnclado ? '#e6f4ea' : 'transparent'}; color: ${isAnclado ? '#1e8e3e' : '#ccc'}; transition: 0.2s;">✅ Anclar</button>`;
+                
+                const btnOcultar = `<button title="Ocultar en B2C " onclick="window.toggleVisibilidad('${pkgId}', 'ocultar_cliente', ${isOculto})" style="padding:4px 12px; font-size:0.9em; font-weight:bold; border-radius:6px; cursor:pointer; border: 1px solid ${isOculto ? '#d93025' : '#555'}; background: ${isOculto ? '#fce8e6' : 'transparent'}; color: ${isOculto ? '#d93025' : '#ccc'}; transition: 0.2s;">❌ Ocultar</button>`;
+                
+                visibilidadTools = `<div style="display:flex; gap:8px; margin-top: 8px;">${btnAnclar}${btnOcultar}</div>`;
+            }
+
+            // --- ESTRUCTURA FINAL DE LA BOTONERA APILADA ---
+            adminTools = `
+            <div class="modal-tools" style="position: absolute; top: 15px; right: 50px; display:flex; flex-direction:column; align-items:flex-end;">
+                <div style="display:flex; gap:10px;">
+                    ${btnApprove}
+                    <button class="btn btn-secundario" onclick="startEditing(currentModalPackage)" style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button>
+                    <button class="btn btn-secundario" onclick="deletePackage(currentModalPackage)" style="padding:5px 15px; font-size:0.8em; background:#e74c3c; color:white;">🗑️ Borrar</button>
+                </div>
+                ${visibilidadTools}
+            </div>`; 
         }
 
-        const htmlCliente = renderServiciosClienteHTML(rawServicios); 
-        const noches = getNoches(pkg); 
-        const tarifa = parseFloat(pkg['tarifa']) || 0; 
-
-        // LÓGICA DE DETECCIÓN (Para el footer azul oscuro)
-        const divisor = parseInt(pkg.base_pasajeros) === 4 ? 4 : 2;
-        const tarifaPorPersona = Math.round(tarifa / divisor); 
-        const textoBase = divisor === 4 ? 'Base Cuádruple' : 'Base Doble';
-
-        const textoCompletoParaVendedor = generarTextoPresupuesto(pkg);
-        
-        // Verificamos si WPP_NUMBER existe, por seguridad
-        const nroWhatsapp = typeof WPP_NUMBER !== 'undefined' ? WPP_NUMBER : '';
-        const mensajeWa = encodeURIComponent(`¡Hola Feliz Viaje! Vengo de la web y quiero consultar por este paquete:\n\n${textoCompletoParaVendedor}`);
-        
-        const btnConsultarWpp = `<a href="https://wa.me/${nroWhatsapp}?text=${mensajeWa}" target="_blank" style="background: #25d366; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; text-align: center; display: block; margin-top: 20px; font-size: 1.1em; transition: 0.2s; box-shadow: 0 4px 10px rgba(37,211,102,0.3);" onmouseover="this.style.background='#1da851'" onmouseout="this.style.background='#25d366'">💬 Consultar al Asesor</a>`;
+        const btnCopiar = `<button class="btn" onclick='copiarPresupuesto(currentModalPackage)' style="background:#34495e; color:white; padding: 5px 15px; font-size:0.8em; display:flex; align-items:center; gap:5px;">📋 Copiar</button>`;
 
         dom.modalBody.innerHTML = `
+            ${adminTools}
             <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <h2 style="margin:0;font-size:2.2em;line-height:1.1;">${pkg['destino']}</h2>
                 </div>
+                <div style="margin-top:5px;"><span style="${bubbleStyle}">${pkg['tipo_promo']}</span></div>
             </div>
 
-            <div class="modal-layout-grid" style="padding: 20px;">
-                
-                <div class="modal-itinerario">
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px;">
+                <div>
                     <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Itinerario</h3>
                     ${htmlCliente}
                 </div>
-                
-                <div class="modal-resumen" style="background:#f9fbfd; padding:15px; border-radius:8px; border: 1px solid #e5e7eb;">
-                    <h4 style="margin:0 0 15px 0; color:#11173d; font-size:1.2em;">Resumen del Viaje</h4>
-                    <p style="margin:5px 0; font-size:0.95em;"><b>📅 Salida:</b> ${fechaModal}</p>
-                    <p style="margin:5px 0; font-size:0.95em;"><b>📍 Desde:</b> ${lugarSalidaModal || '-'}</p>
-                    <p style="margin:5px 0; font-size:0.95em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p>
+                <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
+                        <h4 style="margin:0; color:#11173d;">Resumen</h4>
+                        ${btnCopiar}
+                    </div>
+                    <p style="margin:5px 0; font-size:0.9em;"><b>📅 Salida:</b> ${fechaModal}</p>
+                    <p style="margin:5px 0; font-size:0.9em;"><b>📍 Desde:</b> ${lugarSalidaModal}</p>
+                    <p style="margin:5px 0; font-size:0.9em;"><b>🌙 Duración:</b> ${noches > 0 ? noches + ' Noches' : '-'}</p>
+                    <p style="margin:5px 0; font-size:0.9em;"><b>📅 Cargado el:</b> ${pkg['fecha_creacion'] || '-'}</p>
+                    
+                    <div>
+                        <h4 style="margin:20px 0 10px 0; color:#11173d; border-top:1px solid #eee; padding-top:15px;">Costos (Interno)</h4>
+                        ${htmlCostos}
+                    </div>
+                    ${pkg['financiacion'] ? `<div style="margin-top:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em;"><b>💳 Financiación:</b> ${pkg['financiacion']}</div>` : ''}
                 </div>
-
-                <div class="modal-financiacion">
-                    ${pkg['financiacion'] ? `<div style="margin-bottom:15px; background:#e3f2fd; padding:10px; border-radius:5px; font-size:0.85em; color:#11173d;"><b>💳 Financiación / Notas:</b><br>${pkg['financiacion']}</div>` : ''}
-                    ${btnConsultarWpp}
-                </div>
-
             </div>
             
-            <div class="modal-footer-pricing" style="background:#11173d; color:white; padding:20px 30px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px; flex-wrap:wrap; gap:15px;">
-                <div style="text-align:left;">
-                    <small style="opacity:0.8; font-size: 0.85em; text-transform: uppercase;">Tarifa final por persona (${textoBase})</small>
-                    <div style="font-size:2.5em; font-weight:bold; color:#56DDE0; line-height: 1.1;">${pkg['moneda']} $${formatMoney(tarifaPorPersona)}</div>
+            <div style="background:#11173d; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center; border-radius:0 0 12px 12px;">
+                <div style="display:flex; gap:30px;">
+                    <div><small style="opacity:0.7;">Costo Total</small><div style="font-size:1.2em; font-weight:bold;">${pkg['moneda']} $${formatMoney(pkg['costos_proveedor'])}</div></div>
+                    <div><small style="opacity:0.7;">Tarifa Final</small><div style="font-size:1.2em; font-weight:bold; color:#ef5a1a;">${pkg['moneda']} $${formatMoney(tarifa)}</div></div>
+                    <div><small style="opacity:0.7;">x Persona (Base Doble)</small><div style="font-size:1.2em; font-weight:bold; color:#4caf50;">${pkg['moneda']} $${formatMoney(tarifaDoble)}</div></div>
                 </div>
-                <div style="text-align:right; max-width: 250px;">
-                    <small style="color: #ef5a1a; font-size: 0.85em; line-height: 1.3; display: block; font-weight: 500;">
-                        * Tarifas y cupos sujetos a disponibilidad.<br>
-                        Revisar <a href="https://felizviaje.tur.ar/informacion-antes-de-contratar" target="_blank" style="color: #56DDE0; text-decoration: underline;">bases y condiciones</a>.
-                    </small>
-                </div>
+                <div style="text-align:right;"><small style="opacity:0.7;">Cargado por:</small><div style="font-size:0.9em;">${pkg['creador']}</div></div>
             </div>`;
         dom.modal.style.display = 'flex';
     }
