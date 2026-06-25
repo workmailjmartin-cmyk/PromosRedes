@@ -401,7 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCards(list) {
         dom.grid.innerHTML = ''; 
         if (!list || list.length === 0) { 
-            dom.grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#666;">No encontramos viajes para esa búsqueda, ¡Contactanos al WhatsApp y lo armamos a medida!</p>'; 
+            dom.grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#666;">No encontramos viajes para esa búsqueda, ¡Contactanos al WhatsApp, nuestro asesor tiene una promo para vos!</p>'; 
             return; 
         }
         
