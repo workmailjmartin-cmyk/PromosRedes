@@ -1943,28 +1943,43 @@ window.approvePackage = async (pkg) => {
         });
     }
 
-    // 🚀 NUEVO: Hipervínculo inteligente con Scroll al día
-    window.irAlCalendarioMarketing = (diaObjetivo = null) => {
-        showView('marketing');
+    // 🚀 NUEVO: Hipervínculo inteligente con Scroll al día (EFECTO PREMIUM)
+    window.irAlCalendarioMarketing = async (diaObjetivo = null) => {
+        showView('marketing'); // Cambiamos de pestaña
+        
         if (typeof window.renderizarCalendario === 'function') {
-            window.vistaCalendarioMkt = 'PROPIOS'; // Forzamos que vean SOLO lo suyo al entrar
-            window.renderizarCalendario();
+            window.vistaCalendarioMkt = 'PROPIOS'; // Forzamos "Mis Tareas"
+            showLoader(true, "Cargando tu calendario..."); // Cartelito para que no toque nada
+            
+            // LA MAGIA: Esperamos que Firebase dibuje absolutamente todo antes de movernos
+            await window.renderizarCalendario(); 
+            
+            showLoader(false);
         }
         
-        // Le damos un respiro de 100ms para que termine de dibujar el calendario y luego bajamos
+        // Le damos un pequeñísimo respiro al navegador para acomodar el HTML y patinamos
         setTimeout(() => {
             if (diaObjetivo) {
                 const targetEl = document.getElementById(`cal-mkt-day-${diaObjetivo}`);
                 if (targetEl) {
-                    // Patina suavemente hasta dejar el recuadro en el centro
+                    // Patina suavemente hasta dejar el recuadro en el centro de la pantalla
                     targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    // Lo ilumina 2 segundos para que el usuario sepa que es ese
-                    targetEl.style.transition = '0.3s';
-                    targetEl.style.boxShadow = '0 0 0 5px rgba(239, 90, 26, 0.4)';
-                    setTimeout(() => targetEl.style.boxShadow = 'none', 2500);
-                    return;
+                    
+                    // Efecto de Destello Naranja Premium
+                    targetEl.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+                    targetEl.style.transform = 'scale(1.02)';
+                    targetEl.style.boxShadow = '0 0 0 6px rgba(239, 90, 26, 0.4)';
+                    
+                    // Lo apaga a los 2.5 segundos
+                    setTimeout(() => {
+                        targetEl.style.transform = 'scale(1)';
+                        targetEl.style.boxShadow = 'none';
+                    }, 2500);
+                    
+                    return; // Terminamos con éxito
                 }
             }
+            // Si por algún motivo no llegó el día, sube arriba de todo
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }, 150);
     };
