@@ -1930,145 +1930,102 @@ window.approvePackage = async (pkg) => {
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
     if(dom.filtroCreador) dom.filtroCreador.addEventListener('change', applyFilters);
 
-    // 14. LOGICA CALENDARIO SEMANAL
-    
-    // Toggle Desplegable
-    if(domPlanner.header) {
-        domPlanner.header.addEventListener('click', () => {
-            domPlanner.header.classList.toggle('open');
-            domPlanner.body.classList.toggle('open');
+    // 14. MINI PLANNER SEMANAL (Radar Dashboard)
+    const domMiniPlanner = {
+        header: document.getElementById('planner-header-btn'),
+        body: document.getElementById('planner-body-content')
+    };
+
+    if(domMiniPlanner.header) {
+        domMiniPlanner.header.addEventListener('click', () => {
+            domMiniPlanner.header.classList.toggle('open');
+            domMiniPlanner.body.classList.toggle('open');
         });
     }
 
-    const diasSemana = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
-
-    // Inicializar Calendario
-    async function initWeeklyPlanner() {
-        if(domPlanner.container) {
-            domPlanner.container.style.display = 'block';
-            domPlanner.header.classList.add('open');
-            domPlanner.body.classList.add('open');
-            highlightCurrentDay();
-            await loadPlanningData();
+    // El hipervínculo mágico al calendario
+    window.irAlCalendarioMarketing = () => {
+        showView('marketing');
+        if (typeof window.renderizarCalendario === 'function') {
+            window.vistaCalendarioMkt = 'PROPIOS'; // Forzamos que vean SOLO lo suyo al entrar
+            window.renderizarCalendario();
         }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
-        const isStaff = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+    window.initWeeklyPlanner = async () => {
+        // Dejamos la persiana abierta por defecto al entrar
+        if(domMiniPlanner.header) domMiniPlanner.header.classList.add('open');
+        if(domMiniPlanner.body) domMiniPlanner.body.classList.add('open');
 
-        diasSemana.forEach(dia => {
-            const readDiv = document.getElementById(`read-${dia}`);
-            const editDiv = document.getElementById(`edit-${dia}`);
-            if(readDiv && editDiv) {
-                if (isStaff) {
-                    // Los administradores ven el formulario de carga
-                    readDiv.style.display = 'none';
-                    editDiv.style.display = 'flex';
-                } else {
-                    // Los vendedores ven la lista bonita y limpia
-                    editDiv.style.display = 'none';
-                    readDiv.style.display = 'flex';
+        try {
+            // Descargamos las tareas de forma silenciosa para contarlas
+            const snapshot = await db.collection('calendario_marketing').get();
+            // Cuidado con no pisar la variable global si ya existía
+            if(typeof tareasMarketingGlobal === 'undefined') window.tareasMarketingGlobal = [];
+            tareasMarketingGlobal = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            const hoy = new Date();
+            // Matemática para calcular el Lunes exacto de esta semana
+            const day = hoy.getDay();
+            const diff = hoy.getDate() - day + (day === 0 ? -6 : 1); 
+            const lunes = new Date(hoy.setDate(diff));
+
+            const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
+
+            // Recorremos los 5 días de Lunes (0) a Viernes (4)
+            for (let i = 0; i < 5; i++) {
+                const fechaDia = new Date(lunes);
+                fechaDia.setDate(lunes.getDate() + i);
+                
+                const anio = fechaDia.getFullYear();
+                const mes = String(fechaDia.getMonth() + 1).padStart(2, '0');
+                const diaStr = String(fechaDia.getDate()).padStart(2, '0');
+                const fechaString = `${anio}-${mes}-${diaStr}`;
+
+                // Inyectamos la fecha exacta visual (Ej: 26/06)
+                const spanFecha = document.getElementById(`mini-date-${i+1}`);
+                if(spanFecha) spanFecha.innerText = `${diaStr}/${mes}`;
+
+                // Resaltar HOY
+                const card = document.getElementById(`mini-day-${i+1}`);
+                if (card) {
+                    const hoyPuro = new Date().setHours(0,0,0,0);
+                    if (fechaDia.setHours(0,0,0,0) === hoyPuro) {
+                        card.style.border = '2px solid #ef5a1a';
+                        card.style.background = '#fffdf0';
+                        card.style.transform = 'scale(1.03)';
+                    } else {
+                        card.style.border = '1px solid #e5e7eb';
+                        card.style.background = 'white';
+                        card.style.transform = 'scale(1)';
+                    }
+                    card.onmouseover = () => card.style.boxShadow = '0 6px 15px rgba(239,90,26,0.15)';
+                    card.onmouseout = () => card.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
+                }
+
+                // Filtrar solo las tareas del día que le corresponden a ESA franquicia
+                let tareasDelDia = tareasMarketingGlobal.filter(t => t.fecha === fechaString);
+                const tareasMias = tareasDelDia.filter(t => 
+                    Array.isArray(t.asignado) 
+                        ? (t.asignado.includes(miFranquicia) || t.asignado.includes('TODOS')) 
+                        : (t.asignado === miFranquicia || t.asignado === 'TODOS')
+                );
+
+                // Dibujar la Campanita 🔔
+                const contentDiv = document.getElementById(`mini-content-${i+1}`);
+                if(contentDiv) {
+                    if (tareasMias.length > 0) {
+                        contentDiv.innerHTML = `<div style="background: #eefaf6; color: #047857; padding: 6px; border-radius: 6px; font-weight: bold; font-size: 0.9em; display:flex; align-items:center; justify-content:center; gap:5px; border: 1px solid #10b981;"><span>🔔</span> ${tareasMias.length} Tarea${tareasMias.length > 1 ? 's' : ''}</div>`;
+                    } else {
+                        contentDiv.innerHTML = `<div style="color: #9ca3af; font-size: 0.85em; padding: 6px;">✅ Libre</div>`;
+                    }
                 }
             }
-        });
-
-        if(domPlanner.btnSave) domPlanner.btnSave.style.display = isStaff ? 'inline-block' : 'none';
-    }
-
-    function highlightCurrentDay() {
-        for (let i = 1; i <= 5; i++) {
-            const card = document.getElementById(`day-card-${i}`);
-            if (card) card.classList.remove('today');
+        } catch(e) {
+            console.error("Error cargando el radar de tareas:", e);
         }
-        const today = new Date();
-        const dayIndex = today.getDay(); 
-        if (dayIndex >= 1 && dayIndex <= 5) {
-            const card = document.getElementById(`day-card-${dayIndex}`);
-            if (card) {
-                card.classList.add('today');
-                const span = document.getElementById(`date-${dayIndex}`);
-                if(span) span.innerText = `${today.getDate()}/${today.getMonth()+1}`;
-            }
-        }
-    }
-
-    async function loadPlanningData() {
-        try {
-            const doc = await db.collection('config').doc('planning_weekly').get();
-            if (doc.exists) {
-                const data = doc.data();
-                
-                diasSemana.forEach(dia => {
-                    let dayData = data[dia] || {};
-                    
-                    // 🛡️ REGLA DE COMPATIBILIDAD: Si es texto viejo, lo convertimos a observaciones
-                    if (typeof dayData === 'string') {
-                        dayData = { obs: dayData }; 
-                    }
-
-                    // 1. Llenar los inputs (Para los Administradores)
-                    if(document.getElementById(`plan-dest-${dia}`)) document.getElementById(`plan-dest-${dia}`).value = dayData.destino || '';
-                    if(document.getElementById(`plan-reg-${dia}`)) document.getElementById(`plan-reg-${dia}`).value = dayData.regimen || '';
-                    if(document.getElementById(`plan-trf-${dia}`)) document.getElementById(`plan-trf-${dia}`).value = dayData.traslados || '';
-                    if(document.getElementById(`plan-dias-${dia}`)) document.getElementById(`plan-dias-${dia}`).value = dayData.dias || '';
-                    if(document.getElementById(`plan-precio-${dia}`)) document.getElementById(`plan-precio-${dia}`).value = dayData.precio || '';
-                    if(document.getElementById(`plan-recom-${dia}`)) document.getElementById(`plan-recom-${dia}`).value = dayData.recom || ''; // NUEVO CAMPO
-                    if(document.getElementById(`plan-obs-${dia}`)) document.getElementById(`plan-obs-${dia}`).value = dayData.obs || '';
-
-                    // 2. Armar el HTML limpio (Para los Vendedores)
-                    const readDiv = document.getElementById(`read-${dia}`);
-                    if(readDiv) {
-                        let html = '';
-                        if(dayData.destino) html += `<div><span style="color:#ef5a1a; font-weight:bold; font-size: 1.1em;">📍 ${dayData.destino}</span></div>`;
-                        if(dayData.regimen) html += `<div><b>🍽️ Régimen:</b> ${dayData.regimen}</div>`;
-                        if(dayData.traslados) html += `<div><b>🚕 Traslados:</b> ${dayData.traslados}</div>`;
-                        if(dayData.dias) html += `<div><b>🌙 Días:</b> ${dayData.dias}</div>`;
-                        if(dayData.precio) html += `<div><b>💰 Precio Ideal:</b> ${dayData.precio}</div>`;
-                        if(dayData.recom) html += `<div><b style="color:#3498db;">💡 Cotizar en:</b> ${dayData.recom}</div>`; // NUEVO CAMPO
-                        if(dayData.obs) html += `<div style="margin-top:6px; padding-top:6px; border-top:1px dashed #e5e7eb; color:#555;"><i>📝 ${dayData.obs}</i></div>`;
-                        
-                        if(!html) html = '<div style="color:#999; text-align:center; margin-top:20px;">Sin pedidos para hoy</div>';
-                        readDiv.innerHTML = html;
-                    }
-                });
-            }
-        } catch (e) {
-            console.error("Error cargando planner:", e);
-        }
-    }
-
-    if(domPlanner.btnSave) {
-        domPlanner.btnSave.addEventListener('click', async () => {
-            showLoader(true, "Guardando agenda...");
-            try {
-                const payload = {
-                    last_update: new Date(),
-                    updated_by: currentUser.email
-                };
-
-                diasSemana.forEach(dia => {
-                    // Armamos el objeto de cada día recopilando sus 7 campos
-                    payload[dia] = {
-                        destino: document.getElementById(`plan-dest-${dia}`) ? document.getElementById(`plan-dest-${dia}`).value.trim() : '',
-                        regimen: document.getElementById(`plan-reg-${dia}`) ? document.getElementById(`plan-reg-${dia}`).value.trim() : '',
-                        traslados: document.getElementById(`plan-trf-${dia}`) ? document.getElementById(`plan-trf-${dia}`).value.trim() : '',
-                        dias: document.getElementById(`plan-dias-${dia}`) ? document.getElementById(`plan-dias-${dia}`).value.trim() : '',
-                        precio: document.getElementById(`plan-precio-${dia}`) ? document.getElementById(`plan-precio-${dia}`).value.trim() : '',
-                        recom: document.getElementById(`plan-recom-${dia}`) ? document.getElementById(`plan-recom-${dia}`).value.trim() : '', // NUEVO CAMPO
-                        obs: document.getElementById(`plan-obs-${dia}`) ? document.getElementById(`plan-obs-${dia}`).value.trim() : ''
-                    };
-                });
-
-                await db.collection('config').doc('planning_weekly').set(payload, { merge: true });
-                await window.showAlert("✅ Planificación detallada actualizada.", "success");
-                
-                // Refrescamos visualmente al guardar
-                await loadPlanningData();
-            } catch (e) {
-                console.error(e);
-                window.showAlert("Error al guardar planificación.", "error");
-            }
-            showLoader(false);
-        });
-    }
+    };
 
     // 1. Activar el filtro cuando cambien la opción de salida
     if(dom.filtroSalida) dom.filtroSalida.addEventListener('change', applyFilters);

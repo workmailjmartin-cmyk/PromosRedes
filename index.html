@@ -68,164 +68,45 @@
                     <button id="btn-sub-buscar" class="btn" style="background: #11173d; color: white; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">🔍 Buscar</button>
                     <button id="btn-sub-cargar" class="btn" style="background: #f3f4f6; color: #6b7280; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">➕ Cargar</button>
                 </div>
-                <div id="weekly-planner" class="planner-wrapper" style="display:none;">
+                <div id="weekly-planner" class="planner-wrapper" style="margin-bottom: 20px;">
                     <div class="planner-header" id="planner-header-btn">
-                        <div class="planner-title">
-                            📅 Planificación Semanal: Cotizaciones Solo x Hoy (COT SXH)
-                        </div>
+                        <div class="planner-title" style="font-weight: bold; color: #11173d;">📅 Mis Tareas de esta Semana</div>
                         <div class="planner-toggle-icon">▼</div>
                     </div>
                     
                     <div class="planner-body" id="planner-body-content">
-                        <div class="planner-grid">
-                            <style>
-                                .plan-input { width: 100%; box-sizing: border-box; border: none; border-bottom: 1px dashed #d1d5db; padding: 4px 2px; font-size: 0.85em; background: transparent; color: #11173d; outline: none; margin-bottom: 6px; transition: 0.2s; font-family: inherit; }
-                                .plan-input:focus { border-bottom: 1px solid #ef5a1a; background: #fffdf0; }
-                                .plan-obs { resize: vertical; border: 1px solid #e5e7eb; background: #f9fafb; border-radius: 6px; padding: 8px; margin-top: 2px; min-height: 80px; }
-                                .plan-obs:focus { border: 1px solid #ef5a1a; background: #fffdf0; }
-                                .day-read { flex: 1; display: flex; flex-direction: column; gap: 6px; font-size: 0.85em; overflow-y: auto; padding-right: 5px; }
-                                .day-edit { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding-right: 5px; }
-                                .plan-label { font-size: 0.7em; font-weight: bold; color: #6b7280; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-                            </style>
+                        <div id="mini-planner-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; padding: 20px; background: #f9fafb;">
                             
-                            <div class="day-card" id="day-card-1">
-                                <div class="day-title">Lunes <span id="date-1" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <div class="day-read" id="read-lunes" style="display:none;"></div>
-                                <div class="day-edit" id="edit-lunes" style="display:none;">
-                                    <label class="plan-label">📍 Destino/s</label>
-                                    <input type="text" id="plan-dest-lunes" class="plan-input">
-                                    
-                                    <label class="plan-label">🍽️ Régimen</label>
-                                    <input type="text" id="plan-reg-lunes" class="plan-input">
-                                    
-                                    <label class="plan-label">🚕 Traslados</label>
-                                    <input type="text" id="plan-trf-lunes" class="plan-input">
-                                    
-                                    <label class="plan-label">🌙 Cant. Días</label>
-                                    <input type="text" id="plan-dias-lunes" class="plan-input">
-                                    
-                                    <label class="plan-label">💰 Precio ideal</label>
-                                    <input type="text" id="plan-precio-lunes" class="plan-input">
-
-                                    <label class="plan-label">💡 Recomendamos cotizar en</label>
-                                    <input type="text" id="plan-recom-lunes" class="plan-input">
-                                    
-                                    <label class="plan-label">📝 Observaciones</label>
-                                    <textarea id="plan-obs-lunes" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
-                                </div>
+                            <div class="day-card" id="mini-day-1" onclick="irAlCalendarioMarketing()" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                <div style="font-weight: bold; color: #11173d; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Lunes</div>
+                                <div id="mini-date-1" style="color: #6b7280; font-size: 0.75em; margin-bottom: 10px;">--/--</div>
+                                <div id="mini-content-1">⏳</div>
                             </div>
                             
-                            <div class="day-card" id="day-card-2">
-                                <div class="day-title">Martes <span id="date-2" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <div class="day-read" id="read-martes" style="display:none;"></div>
-                                <div class="day-edit" id="edit-martes" style="display:none;">
-                                    <label class="plan-label">📍 Destino/s</label>
-                                    <input type="text" id="plan-dest-martes" class="plan-input">
-                                    
-                                    <label class="plan-label">🍽️ Régimen</label>
-                                    <input type="text" id="plan-reg-martes" class="plan-input">
-                                    
-                                    <label class="plan-label">🚕 Traslados</label>
-                                    <input type="text" id="plan-trf-martes" class="plan-input">
-                                    
-                                    <label class="plan-label">🌙 Cant. Días</label>
-                                    <input type="text" id="plan-dias-martes" class="plan-input">
-                                    
-                                    <label class="plan-label">💰 Precio ideal</label>
-                                    <input type="text" id="plan-precio-martes" class="plan-input">
-
-                                    <label class="plan-label">💡 Recomendamos cotizar en</label>
-                                    <input type="text" id="plan-recom-martes" class="plan-input">
-                                    
-                                    <label class="plan-label">📝 Observaciones</label>
-                                    <textarea id="plan-obs-martes" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
-                                </div>
+                            <div class="day-card" id="mini-day-2" onclick="irAlCalendarioMarketing()" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                <div style="font-weight: bold; color: #11173d; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Martes</div>
+                                <div id="mini-date-2" style="color: #6b7280; font-size: 0.75em; margin-bottom: 10px;">--/--</div>
+                                <div id="mini-content-2">⏳</div>
                             </div>
                             
-                            <div class="day-card" id="day-card-3">
-                                <div class="day-title">Miércoles <span id="date-3" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <div class="day-read" id="read-miercoles" style="display:none;"></div>
-                                <div class="day-edit" id="edit-miercoles" style="display:none;">
-                                    <label class="plan-label">📍 Destino/s</label>
-                                    <input type="text" id="plan-dest-miercoles" class="plan-input">
-                                    
-                                    <label class="plan-label">🍽️ Régimen</label>
-                                    <input type="text" id="plan-reg-miercoles" class="plan-input">
-                                    
-                                    <label class="plan-label">🚕 Traslados</label>
-                                    <input type="text" id="plan-trf-miercoles" class="plan-input">
-                                    
-                                    <label class="plan-label">🌙 Cant. Días</label>
-                                    <input type="text" id="plan-dias-miercoles" class="plan-input">
-                                    
-                                    <label class="plan-label">💰 Precio ideal</label>
-                                    <input type="text" id="plan-precio-miercoles" class="plan-input">
-
-                                    <label class="plan-label">💡 Recomendamos cotizar en</label>
-                                    <input type="text" id="plan-recom-miercoles" class="plan-input">
-                                    
-                                    <label class="plan-label">📝 Observaciones</label>
-                                    <textarea id="plan-obs-miercoles" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
-                                </div>
+                            <div class="day-card" id="mini-day-3" onclick="irAlCalendarioMarketing()" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                <div style="font-weight: bold; color: #11173d; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Miércoles</div>
+                                <div id="mini-date-3" style="color: #6b7280; font-size: 0.75em; margin-bottom: 10px;">--/--</div>
+                                <div id="mini-content-3">⏳</div>
                             </div>
                             
-                            <div class="day-card" id="day-card-4">
-                                <div class="day-title">Jueves <span id="date-4" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <div class="day-read" id="read-jueves" style="display:none;"></div>
-                                <div class="day-edit" id="edit-jueves" style="display:none;">
-                                    <label class="plan-label">📍 Destino/s</label>
-                                    <input type="text" id="plan-dest-jueves" class="plan-input">
-                                    
-                                    <label class="plan-label">🍽️ Régimen</label>
-                                    <input type="text" id="plan-reg-jueves" class="plan-input">
-                                    
-                                    <label class="plan-label">🚕 Traslados</label>
-                                    <input type="text" id="plan-trf-jueves" class="plan-input">
-                                    
-                                    <label class="plan-label">🌙 Cant. Días</label>
-                                    <input type="text" id="plan-dias-jueves" class="plan-input">
-                                    
-                                    <label class="plan-label">💰 Precio ideal</label>
-                                    <input type="text" id="plan-precio-jueves" class="plan-input">
-
-                                    <label class="plan-label">💡 Recomendamos cotizar en</label>
-                                    <input type="text" id="plan-recom-jueves" class="plan-input">
-                                    
-                                    <label class="plan-label">📝 Observaciones</label>
-                                    <textarea id="plan-obs-jueves" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
-                                </div>
+                            <div class="day-card" id="mini-day-4" onclick="irAlCalendarioMarketing()" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                <div style="font-weight: bold; color: #11173d; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Jueves</div>
+                                <div id="mini-date-4" style="color: #6b7280; font-size: 0.75em; margin-bottom: 10px;">--/--</div>
+                                <div id="mini-content-4">⏳</div>
                             </div>
                             
-                            <div class="day-card" id="day-card-5">
-                                <div class="day-title">Viernes <span id="date-5" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <div class="day-read" id="read-viernes" style="display:none;"></div>
-                                <div class="day-edit" id="edit-viernes" style="display:none;">
-                                    <label class="plan-label">📍 Destino/s</label>
-                                    <input type="text" id="plan-dest-viernes" class="plan-input">
-                                    
-                                    <label class="plan-label">🍽️ Régimen</label>
-                                    <input type="text" id="plan-reg-viernes" class="plan-input">
-                                    
-                                    <label class="plan-label">🚕 Traslados</label>
-                                    <input type="text" id="plan-trf-viernes" class="plan-input">
-                                    
-                                    <label class="plan-label">🌙 Cant. Días</label>
-                                    <input type="text" id="plan-dias-viernes" class="plan-input">
-                                    
-                                    <label class="plan-label">💰 Precio ideal</label>
-                                    <input type="text" id="plan-precio-viernes" class="plan-input">
-
-                                    <label class="plan-label">💡 Recomendamos cotizar en</label>
-                                    <input type="text" id="plan-recom-viernes" class="plan-input">
-                                    
-                                    <label class="plan-label">📝 Observaciones</label>
-                                    <textarea id="plan-obs-viernes" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
-                                </div>
+                            <div class="day-card" id="mini-day-5" onclick="irAlCalendarioMarketing()" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                <div style="font-weight: bold; color: #11173d; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Viernes</div>
+                                <div id="mini-date-5" style="color: #6b7280; font-size: 0.75em; margin-bottom: 10px;">--/--</div>
+                                <div id="mini-content-5">⏳</div>
                             </div>
-                        </div>
-                        
-                        <div class="planner-actions">
-                            <button id="btn-save-planning" class="btn btn-primario" style="padding: 8px 20px; font-size:0.9em;">💾 Guardar Planificación</button>
+
                         </div>
                     </div>
                 </div>
