@@ -2834,7 +2834,7 @@ window.renderizarCalendario = async () => {
     }
 };
 
-// Función para ver los detalles de una tarea
+// Función para ver los detalles y dibujar los "Badges" (Viñetas EN LISTA VERTICAL)
 window.verDetalleTareaMkt = (event, idTarea) => {
     event.stopPropagation(); 
     
@@ -2868,12 +2868,12 @@ window.verDetalleTareaMkt = (event, idTarea) => {
             </div>`;
     }
 
-    // 🌟 PRESENTACIÓN LIMPIA DE LA COTIZACIÓN ESPECIAL
+    // PRESENTACIÓN LIMPIA DE LA COTIZACIÓN ESPECIAL
     let contenidoDetalle = '';
     if (tarea.tipo === TAG_COTIZACION_HISTORIA && tarea.cotiz_data) {
         const d = tarea.cotiz_data;
-        const servStr = d.servicios && d.servicios.length > 0 ? d.servicios.join(', ') : '-';
-        const mesesStr = d.meses && d.meses.length > 0 ? d.meses.join(', ') : '-';
+        const servStr = d.servicios && d.servicios.length > 0 ? d.servicios.join(' / ') : '-';
+        const mesesStr = d.meses && d.meses.length > 0 ? d.meses.join(' / ') : '-';
         const hotelesStr = d.hoteles && d.hoteles.length > 0 ? d.hoteles.join(' / ') : '-';
 
         contenidoDetalle = `<ul style="line-height:1.8; margin-top:10px; padding-left:20px; color:#333; font-size: 0.95em;">`;
@@ -2886,19 +2886,34 @@ window.verDetalleTareaMkt = (event, idTarea) => {
         if(d.cuotas) contenidoDetalle += `<li><b>💳 Con seña y cuotas:</b> ${d.cuotas}</li>`;
         if(d.obs) contenidoDetalle += `<li><b>📝 Observaciones:</b> <span style="white-space:pre-wrap;">${d.obs}</span></li>`;
         
-        // Bloque de seguridad para obs internas
         const esAdminEditor = userData && (userData.rol === 'admin' || userData.rol === 'editor');
         if (esAdminEditor && d.obs_internas) {
             contenidoDetalle += `<li style="color:#c0392b; background:#fdedec; padding:8px; border-radius:6px; margin-top:8px; list-style:none;"><b>🔒 Obs. Internas:</b> <span style="white-space:pre-wrap;">${d.obs_internas}</span></li>`;
         }
         contenidoDetalle += `</ul>`;
     } else {
-        // Tarea Normal
         contenidoDetalle = `<p style="white-space: pre-wrap; color: #555; line-height: 1.6; font-size: 0.95em; margin-top:10px;">${tarea.notas || 'Sin instrucciones adicionales.'}</p>`;
     }
 
-    // Leemos el array de asignados limpiamente
-    const textoAsignados = Array.isArray(tarea.asignado) ? tarea.asignado.join(', ') : (tarea.asignado || 'Sin asignar');
+    // MAGIA VISUAL: Badges para Franquicias en COLUMNA (Lista vertical)
+    let textoAsignadosHTML = '';
+    if (Array.isArray(tarea.asignado)) {
+        if (tarea.asignado.includes('TODOS')) {
+            textoAsignadosHTML = `<span style="background: #eefaf6; color: #047857; padding: 4px 10px; border-radius: 6px; font-size: 0.85em; font-weight:bold; border: 1px solid #10b981; display:inline-block; margin-top:5px;">📢 A Todas las Franquicias</span>`;
+        } else {
+            // ACÁ ESTÁ EL CAMBIO: flex-direction: column y align-items: flex-start
+            textoAsignadosHTML = `<div style="display:flex; flex-direction:column; align-items:flex-start; gap:6px; margin-top:5px;">` + 
+                tarea.asignado.map(f => `<span style="background: #eff6ff; color: #1e3a8a; padding: 4px 10px; border-radius: 6px; font-size: 0.85em; font-weight:bold; border: 1px solid #bfdbfe;">🏢 ${f}</span>`).join('') +
+                `</div>`;
+        }
+    } else {
+        // Compatibilidad para tareas muy viejas
+        if (tarea.asignado === 'TODOS') {
+            textoAsignadosHTML = `<span style="background: #eefaf6; color: #047857; padding: 4px 10px; border-radius: 6px; font-size: 0.85em; font-weight:bold; border: 1px solid #10b981; display:inline-block; margin-top:5px;">📢 A Todas las Franquicias</span>`;
+        } else {
+            textoAsignadosHTML = `<span style="background: #eff6ff; color: #1e3a8a; padding: 4px 10px; border-radius: 6px; font-size: 0.85em; font-weight:bold; border: 1px solid #bfdbfe; display:inline-block; margin-top:5px;">🏢 ${tarea.asignado || 'Sin asignar'}</span>`;
+        }
+    }
 
     modalBody.innerHTML = `
         ${adminTools}
@@ -2915,11 +2930,11 @@ window.verDetalleTareaMkt = (event, idTarea) => {
                 ${contenidoDetalle}
                 ${driveHtml}
             </div>
-            <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;">
+            <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content; border: 1px solid #e5e7eb;">
                 <h4 style="margin:0 0 15px 0; color:#11173d; border-bottom:1px solid #eee; padding-bottom:10px;">Resumen</h4>
                 <p style="margin:8px 0 15px 0; font-size:0.95em;"><b>📅 Entrega:</b> ${fechaFormat}</p>
-                <p style="margin:8px 0 4px 0; font-size:0.95em;"><b>🏢 Asignado a:</b></p>
-                <div style="color:#ef5a1a; font-weight:bold; font-size: 1em; line-height: 1.4;">${textoAsignados}</div>
+                <div style="margin:8px 0 4px 0; font-size:0.95em;"><b>🏢 Asignado a:</b></div>
+                ${textoAsignadosHTML}
             </div>
         </div>
         
@@ -3220,6 +3235,23 @@ document.addEventListener('click', (e) => {
         dropdown.style.display = 'none';
     }
 });
+
+// --- DEVOLVIENDO LA VIDA AL BOTÓN CERRAR ---
+const btnCerrarMkt = document.getElementById('modal-marketing-cerrar');
+if(btnCerrarMkt) {
+    btnCerrarMkt.onclick = () => { 
+        if(modalMkt) modalMkt.style.display = 'none'; 
+        if(formMkt) formMkt.reset(); 
+    };
+}
+if(modalMkt) {
+    modalMkt.addEventListener('click', (e) => {
+        if(e.target === modalMkt) {
+            modalMkt.style.display = 'none';
+            if(formMkt) formMkt.reset();
+        }
+    });
+}
 
 if (formMkt) {
     formMkt.addEventListener('submit', async (e) => {
