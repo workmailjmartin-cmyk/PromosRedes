@@ -1893,6 +1893,9 @@ window.approvePackage = async (pkg) => {
         // Activamos la vista y el botón solo si existen realmente
         if (dom.views[n]) dom.views[n].classList.add('active');
         if (dom.nav[n]) dom.nav[n].classList.add('active');
+
+        // 🚀 SCROLL AUTOMÁTICO AL CAMBIAR DE SECCIÓN
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     if (dom.nav.search) dom.nav.search.onclick = () => showView('search');
     
