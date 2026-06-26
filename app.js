@@ -2572,7 +2572,6 @@ if(tabUsers && tabCalc) {
     };
 
     // FUNCIONES AUXILIARES DEL EDITOR
-    // FUNCIONES AUXILIARES DEL EDITOR
     window.editarNombreServicio = () => {
         const srv = dbCalculadora.find(s => s.id === servicioEditandoId);
         const nuevoNombre = prompt("Editá el nombre y el emoji (Ej: 🚌 Paquete en BUS):", srv.nombre);
@@ -3157,21 +3156,70 @@ window.editarTareaMkt = async (tarea) => {
     modalMkt.style.display = 'flex';
 };
 
-// Generador de Checkboxes de Franquicias
+// Generador del Buscador Múltiple de Franquicias (BOTONES ILUMINADOS 🚀)
 async function llenarComboFranquiciasMkt(seleccionadosPrevios = []) {
     const contenedor = document.getElementById('marketing-asignado-container');
-    let html = `<label style="font-weight:bold; cursor:pointer;"><input type="checkbox" class="chk-franquicia-mkt" value="TODOS" ${seleccionadosPrevios.includes('TODOS') ? 'checked' : ''}> 📢 A Todas las Franquicias</label><hr style="margin:5px 0; border:0; border-top:1px solid #ddd;">`;
+    const isTodosChecked = seleccionadosPrevios.includes('TODOS');
+    
+    let html = `
+        <label class="franq-item ${isTodosChecked ? 'selected' : ''}">
+            <input type="checkbox" style="display:none;" class="chk-franquicia-mkt" value="TODOS" ${isTodosChecked ? 'checked' : ''} onchange="this.parentElement.classList.toggle('selected', this.checked); window.actualizarTextoFranqMkt();"> 
+            📢 A Todas las Franquicias
+        </label>
+        <hr style="margin:5px 0; border:0; border-top:1px solid #ddd; width:100%;">
+    `;
+    
     try {
         const doc = await db.collection('metadata').doc('config').get();
         if (doc.exists && doc.data().franquicias) {
             doc.data().franquicias.forEach(f => {
-                const isChecked = seleccionadosPrevios.includes(f) ? 'checked' : '';
-                html += `<label style="cursor:pointer;"><input type="checkbox" class="chk-franquicia-mkt" value="${f}" ${isChecked}> 🏢 ${f}</label>`;
+                const isChecked = seleccionadosPrevios.includes(f);
+                html += `
+                    <label class="franq-item franq-filterable ${isChecked ? 'selected' : ''}">
+                        <input type="checkbox" style="display:none;" class="chk-franquicia-mkt" value="${f}" ${isChecked ? 'checked' : ''} onchange="this.parentElement.classList.toggle('selected', this.checked); window.actualizarTextoFranqMkt();"> 
+                        🏢 <span class="franq-name">${f}</span>
+                    </label>
+                `;
             });
         }
     } catch(e) {}
     contenedor.innerHTML = html;
+    window.actualizarTextoFranqMkt();
 }
+
+// Filtro del buscador de franquicias en tiempo real
+window.filtrarFranquiciasMkt = () => {
+    const term = document.getElementById('mkt-franq-search').value.toLowerCase();
+    const items = document.querySelectorAll('.franq-filterable');
+    items.forEach(item => {
+        const name = item.querySelector('.franq-name').innerText.toLowerCase();
+        item.style.display = name.includes(term) ? 'flex' : 'none';
+    });
+};
+
+// Actualiza el texto de la cabecera del desplegable
+window.actualizarTextoFranqMkt = () => {
+    const checked = document.querySelectorAll('.chk-franquicia-mkt:checked');
+    const span = document.getElementById('franq-select-text');
+    if(!span) return;
+    if(checked.length === 0) {
+        span.innerText = "Seleccionar franquicias...";
+        span.style.color = "#6b7280";
+    } else if(Array.from(checked).some(c => c.value === 'TODOS')) {
+        span.innerHTML = "<span style='background:#eefaf6; color:#047857; padding:4px 10px; border-radius:6px; font-size:0.9em; font-weight:bold;'>📢 A Todas las Franquicias</span>";
+    } else {
+        span.innerHTML = `<span style='background:#eff6ff; color:#1e3a8a; padding:4px 10px; border-radius:6px; font-size:0.9em; font-weight:bold;'>${checked.length} Franquicias asignadas</span>`;
+    }
+};
+
+// Cerrar el desplegable si hacen clic en cualquier otra parte de la pantalla
+document.addEventListener('click', (e) => {
+    const container = document.getElementById('franq-select-container');
+    const dropdown = document.getElementById('franq-dropdown');
+    if(container && dropdown && !container.contains(e.target)) {
+        dropdown.style.display = 'none';
+    }
+});
 
 if (formMkt) {
     formMkt.addEventListener('submit', async (e) => {
@@ -3180,7 +3228,7 @@ if (formMkt) {
         
         let tareaOriginal = isEditingMktId ? tareasMarketingGlobal.find(t => t.id === isEditingMktId) : null;
 
-        // Recopilamos las franquicias tildadas
+        // Recopilamos las franquicias tildadas de los nuevos botones iluminados
         const chkAsignados = document.querySelectorAll('.chk-franquicia-mkt:checked');
         let asignadosArray = Array.from(chkAsignados).map(c => c.value);
         if (asignadosArray.length === 0) {
@@ -3190,7 +3238,7 @@ if (formMkt) {
         
         const tipoSelect = document.getElementById('marketing-tipo').value;
 
-        // Recopilamos los datos si es la especial
+        // Recopilamos los datos específicos si es la especial (Solo X Hoy)
         let cotizData = null;
         if (tipoSelect === TAG_COTIZACION_HISTORIA) {
             cotizData = {
@@ -3209,7 +3257,7 @@ if (formMkt) {
         const payload = {
             fecha: document.getElementById('marketing-fecha-input').value,
             tipo: tipoSelect,
-            asignado: asignadosArray, // AHORA ES UN ARRAY SIEMPRE
+            asignado: asignadosArray, // ARRAY COMPLETO MULTIPLE
             drive: document.getElementById('marketing-drive').value,
             notas: document.getElementById('marketing-notas').value,
             cotiz_data: cotizData,
