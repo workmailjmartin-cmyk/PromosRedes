@@ -1943,37 +1943,47 @@ window.approvePackage = async (pkg) => {
         });
     }
 
-    // El hipervínculo mágico al calendario
-    window.irAlCalendarioMarketing = () => {
+    // 🚀 NUEVO: Hipervínculo inteligente con Scroll al día
+    window.irAlCalendarioMarketing = (diaObjetivo = null) => {
         showView('marketing');
         if (typeof window.renderizarCalendario === 'function') {
             window.vistaCalendarioMkt = 'PROPIOS'; // Forzamos que vean SOLO lo suyo al entrar
             window.renderizarCalendario();
         }
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        // Le damos un respiro de 100ms para que termine de dibujar el calendario y luego bajamos
+        setTimeout(() => {
+            if (diaObjetivo) {
+                const targetEl = document.getElementById(`cal-mkt-day-${diaObjetivo}`);
+                if (targetEl) {
+                    // Patina suavemente hasta dejar el recuadro en el centro
+                    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Lo ilumina 2 segundos para que el usuario sepa que es ese
+                    targetEl.style.transition = '0.3s';
+                    targetEl.style.boxShadow = '0 0 0 5px rgba(239, 90, 26, 0.4)';
+                    setTimeout(() => targetEl.style.boxShadow = 'none', 2500);
+                    return;
+                }
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 150);
     };
 
     window.initWeeklyPlanner = async () => {
-        // Dejamos la persiana abierta por defecto al entrar
         if(domMiniPlanner.header) domMiniPlanner.header.classList.add('open');
         if(domMiniPlanner.body) domMiniPlanner.body.classList.add('open');
 
         try {
-            // Descargamos las tareas de forma silenciosa para contarlas
             const snapshot = await db.collection('calendario_marketing').get();
-            // Cuidado con no pisar la variable global si ya existía
             if(typeof tareasMarketingGlobal === 'undefined') window.tareasMarketingGlobal = [];
             tareasMarketingGlobal = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
             const hoy = new Date();
-            // Matemática para calcular el Lunes exacto de esta semana
             const day = hoy.getDay();
             const diff = hoy.getDate() - day + (day === 0 ? -6 : 1); 
             const lunes = new Date(hoy.setDate(diff));
-
             const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
 
-            // Recorremos los 5 días de Lunes (0) a Viernes (4)
             for (let i = 0; i < 5; i++) {
                 const fechaDia = new Date(lunes);
                 fechaDia.setDate(lunes.getDate() + i);
@@ -1983,11 +1993,9 @@ window.approvePackage = async (pkg) => {
                 const diaStr = String(fechaDia.getDate()).padStart(2, '0');
                 const fechaString = `${anio}-${mes}-${diaStr}`;
 
-                // Inyectamos la fecha exacta visual (Ej: 26/06)
                 const spanFecha = document.getElementById(`mini-date-${i+1}`);
                 if(spanFecha) spanFecha.innerText = `${diaStr}/${mes}`;
 
-                // Resaltar HOY
                 const card = document.getElementById(`mini-day-${i+1}`);
                 if (card) {
                     const hoyPuro = new Date().setHours(0,0,0,0);
@@ -2002,17 +2010,20 @@ window.approvePackage = async (pkg) => {
                     }
                     card.onmouseover = () => card.style.boxShadow = '0 6px 15px rgba(239,90,26,0.15)';
                     card.onmouseout = () => card.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
+                    
+                    // 🚀 ACÁ LE PASAMOS EL DÍA EXACTO AL HACER CLIC
+                    card.onclick = () => window.irAlCalendarioMarketing(diaStr);
                 }
 
-                // Filtrar solo las tareas del día que le corresponden a ESA franquicia
                 let tareasDelDia = tareasMarketingGlobal.filter(t => t.fecha === fechaString);
+                
+                // Filtro blindado para leer Array o Textos viejos
                 const tareasMias = tareasDelDia.filter(t => 
                     Array.isArray(t.asignado) 
                         ? (t.asignado.includes(miFranquicia) || t.asignado.includes('TODOS')) 
                         : (t.asignado === miFranquicia || t.asignado === 'TODOS')
                 );
 
-                // Dibujar la Campanita 🔔
                 const contentDiv = document.getElementById(`mini-content-${i+1}`);
                 if(contentDiv) {
                     if (tareasMias.length > 0) {
@@ -2022,9 +2033,7 @@ window.approvePackage = async (pkg) => {
                     }
                 }
             }
-        } catch(e) {
-            console.error("Error cargando el radar de tareas:", e);
-        }
+        } catch(e) { console.error("Error cargando el radar:", e); }
     };
 
     // 1. Activar el filtro cuando cambien la opción de salida
@@ -2627,20 +2636,16 @@ window.renderizarCalendario = async () => {
     const labelMes = document.getElementById('mes-actual-label');
     if (!grid || !labelMes) return;
 
-    // 👁️ 1. CONFIGURACIÓN DEL FILTRO POR DEFECTO (Inteligencia por Rol)
     if (!window.vistaCalendarioMkt) {
         const esAdmin = userData && (userData.rol === 'admin' || userData.rol === 'editor');
         window.vistaCalendarioMkt = esAdmin ? 'RED' : 'PROPIOS';
     }
 
-    // 👁️ 2. DIBUJAR EL SWITCH (Sin tocar el HTML)
     let toggleContainer = document.getElementById('toggle-mkt-container');
     if (!toggleContainer) {
         toggleContainer = document.createElement('div');
         toggleContainer.id = 'toggle-mkt-container';
         toggleContainer.style.cssText = 'display: flex; justify-content: flex-end; margin-bottom: 15px; width: 100%;';
-        
-        // Lo intentamos insertar justo arriba de los nombres de los días ("Dom", "Lun")
         const headerDias = document.querySelector('.header-dias-semana');
         if(headerDias) {
             headerDias.parentNode.insertBefore(toggleContainer, headerDias);
@@ -2649,7 +2654,6 @@ window.renderizarCalendario = async () => {
         }
     }
 
-    // Lógica visual del Switch (Naranja si está activo, Gris si no)
     const isPropios = window.vistaCalendarioMkt === 'PROPIOS';
     toggleContainer.innerHTML = `
         <div style="background: #f3f4f6; padding: 4px; border-radius: 30px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid #e5e7eb;">
@@ -2662,10 +2666,8 @@ window.renderizarCalendario = async () => {
         </div>
     `;
 
-    // Ponemos un mensajito de carga mientras buscamos en Firebase
     grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6b7280; font-weight: bold;">Cargando tareas... ⏳</div>';
 
-    // 1. DESCARGAMOS LAS TAREAS DE LA BASE DE DATOS
     try {
         const snapshot = await db.collection('calendario_marketing').get();
         tareasMarketingGlobal = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -2682,7 +2684,6 @@ window.renderizarCalendario = async () => {
     const primerDia = new Date(anio, mes, 1).getDay();
     const diasEnMes = new Date(anio, mes + 1, 0).getDate();
 
-    // Rellenar espacios vacíos antes del 1 del mes
     for (let i = 0; i < primerDia; i++) {
         const divVacio = document.createElement('div');
         divVacio.style.cssText = "background: transparent; min-height: 100px;";
@@ -2690,26 +2691,22 @@ window.renderizarCalendario = async () => {
     }
 
     const hoyReal = new Date();
-    // Conseguimos "hoy" pero a las 00:00:00 para comparar fácil
     const hoyPuro = new Date(hoyReal.getFullYear(), hoyReal.getMonth(), hoyReal.getDate());
     
-    // Dibujamos todos los días
     for (let dia = 1; dia <= diasEnMes; dia++) {
         const fechaCelda = new Date(anio, mes, dia);
         const esHoy = (fechaCelda.getTime() === hoyPuro.getTime());
-        const esPasado = (fechaCelda < hoyPuro); // ¡MAGIA ACÁ! Se da cuenta si el día ya pasó
+        const esPasado = (fechaCelda < hoyPuro); 
         
         const divDia = document.createElement('div');
-        
         const diaSemana = fechaCelda.getDay();
         const esFinde = (diaSemana === 0 || diaSemana === 6);
-
         const colorFondo = esFinde ? '#f9fafb' : 'white';
-        
-        // Si es pasado lo hacemos transparente (0.4), si es finde un poquito (0.8), sino 1.
-        let opacidadFinal = '1';
-        if (esPasado) opacidadFinal = '0.4'; 
-        else if (esFinde) opacidadFinal = '0.8';
+        let opacidadFinal = esPasado ? '0.4' : (esFinde ? '0.8' : '1');
+
+        // 🚀 NUEVO: Le inyectamos el ID para que el patinaje (scroll) lo encuentre
+        const diaStrLimpio = String(dia).padStart(2, '0');
+        divDia.id = `cal-mkt-day-${diaStrLimpio}`;
 
         divDia.style.cssText = `
             background: ${colorFondo}; opacity: ${opacidadFinal}; border: 1px solid ${esHoy ? '#ef5a1a' : '#e5e7eb'}; border-radius: 8px; 
@@ -2717,7 +2714,6 @@ window.renderizarCalendario = async () => {
             transition: box-shadow 0.2s, transform 0.2s, opacity 0.2s; box-shadow: ${esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none'};
         `;
         
-        // Efecto hover (Iluminar al pasar el mouse)
         if (esPasado) {
             divDia.onmouseover = () => { divDia.style.boxShadow = '0 4px 10px rgba(0,0,0,0.05)'; divDia.style.opacity = '0.8'; };
             divDia.onmouseout = () => { divDia.style.boxShadow = 'none'; divDia.style.opacity = '0.4'; };
@@ -2726,34 +2722,37 @@ window.renderizarCalendario = async () => {
             divDia.onmouseout = () => divDia.style.boxShadow = esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none';
         }
 
-        // Armamos la fecha exacta de este cuadradito
-        const fechaString = `${anio}-${String(mes+1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-        
-        // Filtramos las tareas que caen EXACTAMENTE en este día
+        const fechaString = `${anio}-${String(mes+1).padStart(2, '0')}-${diaStrLimpio}`;
         let tareasDelDia = tareasMarketingGlobal.filter(t => t.fecha === fechaString);
 
-        // 👁️ 3. APLICAR EL FILTRO DE VISTA (El "Ojito")
+        // 👁️ 3. APLICAR EL FILTRO DE VISTA (EL ARREGLO PARA LEER ARRAYS)
+        const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
         if (window.vistaCalendarioMkt === 'PROPIOS') {
-            const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
-            // Solo deja pasar las que me asignaron a mí o las que son globales ("TODOS")
-            tareasDelDia = tareasDelDia.filter(t => t.asignado === miFranquicia || t.asignado === 'TODOS');
+            tareasDelDia = tareasDelDia.filter(t => {
+                if (Array.isArray(t.asignado)) {
+                    return t.asignado.includes(miFranquicia) || t.asignado.includes('TODOS');
+                } else {
+                    return t.asignado === miFranquicia || t.asignado === 'TODOS';
+                }
+            });
         }
 
-        // Creamos el HTML de las tarjetitas
         let htmlTareas = '';
         tareasDelDia.forEach(tarea => {
-            
-            // LA MAGIA: Verificamos si esta tarea es para el usuario que está mirando la pantalla
-            const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
-            const esParaMi = Array.isArray(tarea.asignado) ? (tarea.asignado.includes(miFranquicia) || tarea.asignado.includes('TODOS')) : (tarea.asignado === miFranquicia || tarea.asignado === 'TODOS');
+            // LÓGICA ARRAY PARA SABER SI ES MÍA Y PINTAR EL RECUADRO AZUL Y LA CAMPANA
+            const esParaMi = Array.isArray(tarea.asignado) 
+                ? (tarea.asignado.includes(miFranquicia) || tarea.asignado.includes('TODOS')) 
+                : (tarea.asignado === miFranquicia || tarea.asignado === 'TODOS');
 
-            // Buscamos el color y abreviatura de la etiqueta
             const infoEtiqueta = etiquetasMarketingGlobal.find(e => e.nombre === tarea.tipo) || { abrev: 'MKT', color: '#6b7280' };
-
-            // Diseño: Si es para mí (azul vibrante). Si es de otro (gris neutro).
             const fondoTarea = esParaMi ? '#eff6ff' : '#f9fafb';
             const bordeIzquierdo = esParaMi ? '4px solid #3b82f6' : '2px solid #e5e7eb';
             const colorTextoAsignado = esParaMi ? '#1e3a8a' : '#6b7280';
+            
+            // Texto abreviado para no explotar la tarjetita
+            const asignadoMostrado = Array.isArray(tarea.asignado) 
+                ? (tarea.asignado.includes('TODOS') ? 'Todas' : (tarea.asignado.length > 1 ? `Múltiples (${tarea.asignado.length})` : tarea.asignado[0]))
+                : tarea.asignado;
 
             htmlTareas += `
                 <div onclick="window.verDetalleTareaMkt(event, '${tarea.id}')"
@@ -2768,13 +2767,12 @@ window.renderizarCalendario = async () => {
                     </div>
                     
                     <div style="font-weight: 700; font-size: 0.75em; color: ${colorTextoAsignado}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        Para: ${tarea.asignado}
+                        Para: ${asignadoMostrado}
                     </div>
                 </div>
             `;
         });
 
-        // Inyectamos todo adentro del día
         divDia.innerHTML = `
             <div style="font-weight: bold; font-size: 1.1em; color: ${esHoy ? '#ef5a1a' : '#11173d'}; margin-bottom: 8px;">${dia}</div>
             <div style="flex: 1; display: flex; flex-direction: column;">
@@ -2782,7 +2780,6 @@ window.renderizarCalendario = async () => {
             </div>
         `;
 
-        // Al hacer clic en el espacio en blanco del día, abre para crear una tarea nueva
         divDia.onclick = () => {
             window.abrirFormularioMarketing(fechaString);
         };
