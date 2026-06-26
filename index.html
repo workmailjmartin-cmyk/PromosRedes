@@ -747,20 +747,84 @@
                 </div>
 
                 <div class="form-group" style="margin:0;">
-                    <label>Asignado a</label>
-                    <select id="marketing-asignado" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                        <option value="">Cargando opciones...</option>
-                    </select>
+                    <label>Asignado a (Podés tildar varias)</label>
+                    <div id="marketing-asignado-container" style="max-height: 120px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; background: #f9fafb; display:flex; flex-direction:column; gap:8px; font-size:0.9em;">
+                        Cargando opciones...
+                    </div>
                 </div>
 
-                <div class="form-group" style="margin:0;">
-                    <label>Link de Carpeta (Google Drive)</label>
-                    <input type="url" id="marketing-drive" placeholder="https://drive.google.com/..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <div id="marketing-campos-estandar" style="display:flex; flex-direction:column; gap:15px;">
+                    <div class="form-group" style="margin:0;">
+                        <label>Link de Carpeta (Google Drive)</label>
+                        <input type="url" id="marketing-drive" placeholder="https://drive.google.com/..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label>Instrucciones y Detalles</label>
+                        <textarea id="marketing-notas" rows="3" placeholder="Ej: Subir el video en formato vertical, usar logo blanco..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; font-family: inherit;"></textarea>
+                    </div>
                 </div>
 
-                <div class="form-group" style="margin:0;">
-                    <label>Instrucciones y Detalles</label>
-                    <textarea id="marketing-notas" rows="3" placeholder="Ej: Subir el video en formato vertical, usar logo blanco..." required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; font-family: inherit;"></textarea>
+                <div id="marketing-campos-cotizacion" style="display:none; flex-direction:column; gap:12px; background:#fffdf0; padding:15px; border-radius:8px; border: 1px solid #f1c40f;">
+                    
+                    <div class="form-group" style="margin:0;"><label>📍 Destino <span style="color:red">*</span></label><input type="text" id="mkt-cotiz-destino" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc;"></div>
+                    
+                    <div class="form-group" style="margin:0;"><label>✅ Servicio</label>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; font-size:0.9em;">
+                            <label><input type="checkbox" class="chk-mkt-servicio" value="Paquete"> Paquete</label>
+                            <label><input type="checkbox" class="chk-mkt-servicio" value="Vuelos"> Vuelos</label>
+                            <label><input type="checkbox" class="chk-mkt-servicio" value="Alojamientos"> Alojamientos</label>
+                            <label><input type="checkbox" class="chk-mkt-servicio" value="Circuitos"> Circuitos</label>
+                            <label><input type="checkbox" class="chk-mkt-servicio" value="Traslado"> Traslado</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin:0;"><label>📅 Fechas de Viaje</label>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; font-size:0.85em;">
+                            <label><input type="checkbox" class="chk-mkt-mes" value="Enero"> Ene</label>
+                            <label><input type="checkbox" class="chk-mkt-mes" value="Febrero"> Feb</label>
+                            <label><input type="checkbox" class="chk-mkt-mes" value="Marzo"> Mar</label>
+                            <label><input type="checkbox" class="chk-mkt-mes" value="Abril"> Abr</label>
+                            <label><input type="checkbox" class="chk-mkt-mes" value="Mayo"> May</label>
+                            <label><input type="checkbox" class="chk-mkt-mes" value="Junio"> Jun</label>
+                            <label><input type="checkbox" class="chk-mkt-mes" value="Julio"> Jul</label>
+                            <label><input type="checkbox" class="chk-mkt-mes" value="Agosto"> Ago</label>
+                            <label><input type="checkbox" class="chk-mkt-mes" value="Septiembre"> Sep</label>
+                            <label><input type="checkbox" class="chk-mkt-mes" value="Octubre"> Oct</label>
+                            <label><input type="checkbox" class="chk-mkt-mes" value="Noviembre"> Nov</label>
+                            <label><input type="checkbox" class="chk-mkt-mes" value="Diciembre"> Dic</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin:0;"><label>🌙 Cant. de Noches</label><input type="text" id="mkt-cotiz-noches" placeholder="Ej: 7 noches..." style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc;"></div>
+
+                    <div class="form-group" style="margin:0;"><label>🏨 Tipo de Hotel</label>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; font-size:0.9em;">
+                            <label><input type="checkbox" class="chk-mkt-hotel" value="Low cost"> Low cost</label>
+                            <label><input type="checkbox" class="chk-mkt-hotel" value="Medium"> Medium</label>
+                            <label><input type="checkbox" class="chk-mkt-hotel" value="Premium"> Premium</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin:0;"><label>🍽️ Régimen</label>
+                        <select id="mkt-cotiz-regimen" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc;">
+                            <option value="Sin regimen">Sin régimen</option>
+                            <option value="Desayuno">Desayuno</option>
+                            <option value="Media Pension">Media Pensión</option>
+                            <option value="All Inclusive">All Inclusive</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin:0;"><label>💳 Con seña y cuotas</label>
+                        <select id="mkt-cotiz-cuotas" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc;">
+                            <option value="Si">Sí</option>
+                            <option value="No">No</option>
+                        </select>
+                        <small style="color:#d35400; display:block; margin-top:4px; line-height:1.2;">* Para calcular seña hacer NETO AEREO + Ganancia del paquete: Las cuotas son los meses que queden a la salida. Obligatorio todos los servicios con cancelación gratis.</small>
+                    </div>
+
+                    <div class="form-group" style="margin:0;"><label>📝 Observaciones</label><textarea id="mkt-cotiz-obs" rows="2" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc;"></textarea></div>
+                    
+                    <div id="container-obs-internas" class="form-group" style="margin:0; display:none;"><label style="color:#c0392b;">🔒 Observaciones Internas (Solo Admin/Editores)</label><textarea id="mkt-cotiz-obsinternas" rows="2" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #fadbd8; background:#fdedec;"></textarea></div>
                 </div>
 
                 <button type="submit" style="background: #ef5a1a; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px;">

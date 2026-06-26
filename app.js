@@ -2789,7 +2789,7 @@ window.renderizarCalendario = async () => {
             
             // LA MAGIA: Verificamos si esta tarea es para el usuario que está mirando la pantalla
             const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
-            const esParaMi = (tarea.asignado === miFranquicia || tarea.asignado === 'TODOS');
+            const esParaMi = Array.isArray(tarea.asignado) ? (tarea.asignado.includes(miFranquicia) || tarea.asignado.includes('TODOS')) : (tarea.asignado === miFranquicia || tarea.asignado === 'TODOS');
 
             // Buscamos el color y abreviatura de la etiqueta
             const infoEtiqueta = etiquetasMarketingGlobal.find(e => e.nombre === tarea.tipo) || { abrev: 'MKT', color: '#6b7280' };
@@ -2835,31 +2835,24 @@ window.renderizarCalendario = async () => {
     }
 };
 
-// Función para ver los detalles de una tarea (AHORA USA EL MODAL PREMIUM DE PROMOS)
+// Función para ver los detalles de una tarea
 window.verDetalleTareaMkt = (event, idTarea) => {
     event.stopPropagation(); 
     
     const tarea = tareasMarketingGlobal.find(t => t.id === idTarea);
     if(!tarea) return;
 
-    // 🪄 EL TRUCO: Usamos el mismo contenedor exacto de los paquetes (Promos)
     const modal = dom.modal;
     const modalBody = dom.modalBody;
 
-    // 1. Fechas y Etiquetas
     const partes = tarea.fecha.split('-');
     const fechaFormat = `${partes[2]}/${partes[1]}/${partes[0]}`;
     const infoEtiqueta = etiquetasMarketingGlobal.find(e => e.nombre === tarea.tipo) || { abrev: 'MKT', color: '#56DDE0' };
-    
-    // Etiqueta adentro del modal (Igual que Promos)
     const bubbleStyle = `background-color: ${infoEtiqueta.color}; color: white; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`;
 
-    // 2. Permisos y Botones finitos
-    let adminTools = '';
     const tienePermisos = userData && (userData.rol === 'admin' || userData.rol === 'editor' || currentUser.email === tarea.creador);
-    
+    let adminTools = '';
     if (tienePermisos) {
-        // Botones Editar/Borrar idénticos a los de Paquetes
         adminTools = `
         <div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">
             <button class="btn btn-secundario" onclick="window.editarTareaMktProxy('${tarea.id}')" style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button>
@@ -2867,18 +2860,47 @@ window.verDetalleTareaMkt = (event, idTarea) => {
         </div>`;
     }
 
-    // 3. Estilo para el link de Drive (Más ordenado y cliqueable)
     let driveHtml = '';
     if (tarea.drive && tarea.drive.trim() !== "") {
         driveHtml = `
             <div style="margin-top: 20px; background: #eef2f5; padding: 15px; border-radius: 8px;">
                 <h4 style="margin: 0 0 8px 0; color: #11173d;">📁 Archivo / Link de Drive</h4>
                 <a href="${tarea.drive}" target="_blank" style="color: #ef5a1a; text-decoration: none; word-break: break-all; font-weight: 500;">${tarea.drive}</a>
-            </div>
-        `;
+            </div>`;
     }
 
-    // 4. INYECTAMOS EL HTML CON LA ESTRUCTURA DE PAQUETES
+    // 🌟 PRESENTACIÓN LIMPIA DE LA COTIZACIÓN ESPECIAL
+    let contenidoDetalle = '';
+    if (tarea.tipo === TAG_COTIZACION_HISTORIA && tarea.cotiz_data) {
+        const d = tarea.cotiz_data;
+        const servStr = d.servicios && d.servicios.length > 0 ? d.servicios.join(', ') : '-';
+        const mesesStr = d.meses && d.meses.length > 0 ? d.meses.join(', ') : '-';
+        const hotelesStr = d.hoteles && d.hoteles.length > 0 ? d.hoteles.join(' / ') : '-';
+
+        contenidoDetalle = `<ul style="line-height:1.8; margin-top:10px; padding-left:20px; color:#333; font-size: 0.95em;">`;
+        if(d.destino) contenidoDetalle += `<li><b>📍 Destino:</b> ${d.destino}</li>`;
+        if(servStr !== '-') contenidoDetalle += `<li><b>✅ Servicios incluidos:</b> ${servStr}</li>`;
+        if(mesesStr !== '-') contenidoDetalle += `<li><b>📅 Meses de viaje:</b> ${mesesStr}</li>`;
+        if(d.noches) contenidoDetalle += `<li><b>🌙 Noches:</b> ${d.noches}</li>`;
+        if(hotelesStr !== '-') contenidoDetalle += `<li><b>🏨 Categoría de Hotel:</b> ${hotelesStr}</li>`;
+        if(d.regimen) contenidoDetalle += `<li><b>🍽️ Régimen:</b> ${d.regimen}</li>`;
+        if(d.cuotas) contenidoDetalle += `<li><b>💳 Con seña y cuotas:</b> ${d.cuotas}</li>`;
+        if(d.obs) contenidoDetalle += `<li><b>📝 Observaciones:</b> <span style="white-space:pre-wrap;">${d.obs}</span></li>`;
+        
+        // Bloque de seguridad para obs internas
+        const esAdminEditor = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+        if (esAdminEditor && d.obs_internas) {
+            contenidoDetalle += `<li style="color:#c0392b; background:#fdedec; padding:8px; border-radius:6px; margin-top:8px; list-style:none;"><b>🔒 Obs. Internas:</b> <span style="white-space:pre-wrap;">${d.obs_internas}</span></li>`;
+        }
+        contenidoDetalle += `</ul>`;
+    } else {
+        // Tarea Normal
+        contenidoDetalle = `<p style="white-space: pre-wrap; color: #555; line-height: 1.6; font-size: 0.95em; margin-top:10px;">${tarea.notas || 'Sin instrucciones adicionales.'}</p>`;
+    }
+
+    // Leemos el array de asignados limpiamente
+    const textoAsignados = Array.isArray(tarea.asignado) ? tarea.asignado.join(', ') : (tarea.asignado || 'Sin asignar');
+
     modalBody.innerHTML = `
         ${adminTools}
         <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
@@ -2890,16 +2912,15 @@ window.verDetalleTareaMkt = (event, idTarea) => {
 
         <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; padding: 20px;">
             <div>
-                <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Instrucciones y Detalles</h3>
-                <p style="white-space: pre-wrap; color: #555; line-height: 1.6; font-size: 0.95em; margin-top:10px;">${tarea.notas || 'Sin instrucciones adicionales.'}</p>
+                <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Detalles de Contenido</h3>
+                ${contenidoDetalle}
                 ${driveHtml}
             </div>
             <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;">
                 <h4 style="margin:0 0 15px 0; color:#11173d; border-bottom:1px solid #eee; padding-bottom:10px;">Resumen</h4>
                 <p style="margin:8px 0 15px 0; font-size:0.95em;"><b>📅 Entrega:</b> ${fechaFormat}</p>
-                
                 <p style="margin:8px 0 4px 0; font-size:0.95em;"><b>🏢 Asignado a:</b></p>
-                <div style="color:#ef5a1a; font-weight:bold; font-size: 1.1em; line-height: 1.3;">${tarea.asignado}</div>
+                <div style="color:#ef5a1a; font-weight:bold; font-size: 1em; line-height: 1.4;">${textoAsignados}</div>
             </div>
         </div>
         
@@ -2910,7 +2931,6 @@ window.verDetalleTareaMkt = (event, idTarea) => {
             </div>
         </div>
     `;
-
     modal.style.display = 'flex';
 };
 
@@ -2984,6 +3004,7 @@ if(btnSig) {
 
 // --- 3. GESTIÓN DE ETIQUETAS DE MARKETING ---
 let etiquetasMarketingGlobal = [];
+const TAG_COTIZACION_HISTORIA = "Cotización SOLO X HOY- Historia";
 
 window.cargarEtiquetasMarketing = async () => {
     const contenedor = document.getElementById('lista-etiquetas-admin');
@@ -2992,9 +3013,13 @@ window.cargarEtiquetasMarketing = async () => {
         const doc = await db.collection('metadata').doc('config').get();
         if(doc.exists && doc.data().tipos_marketing) etiquetasMarketingGlobal = doc.data().tipos_marketing;
 
+        // 🛡️ PROTECCIÓN: Inyectamos la etiqueta dura si alguien la borró de la base
+        if (!etiquetasMarketingGlobal.find(e => e.nombre === TAG_COTIZACION_HISTORIA)) {
+            etiquetasMarketingGlobal.unshift({ nombre: TAG_COTIZACION_HISTORIA, abrev: "COT-H", color: "#f1c40f" });
+        }
+
         if(contenedor) {
             contenedor.innerHTML = '';
-            if(etiquetasMarketingGlobal.length === 0) contenedor.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay etiquetas creadas.</span>';
             etiquetasMarketingGlobal.forEach((eti, index) => {
                 contenedor.innerHTML += `
                 <div style="background: ${eti.color}15; border: 1px solid ${eti.color}; color: #11173d; padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 0.85em;">
@@ -3013,25 +3038,16 @@ window.cargarEtiquetasMarketing = async () => {
         const leyendaCalendario = document.getElementById('leyenda-etiquetas-marketing');
         if(leyendaCalendario) {
             leyendaCalendario.innerHTML = '';
-            if(etiquetasMarketingGlobal.length === 0) {
-                leyendaCalendario.innerHTML = '<span style="color: #999; font-size: 0.8em;">No hay etiquetas creadas.</span>';
-            } else {
-                etiquetasMarketingGlobal.forEach(eti => {
-                    leyendaCalendario.innerHTML += `
-                        <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85em; color: #555; background: #f9fafb; padding: 4px 10px; border-radius: 6px; border: 1px solid #e5e7eb;">
-                            <span style="background: ${eti.color}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">${eti.abrev}</span>
-                            <span style="font-weight: 500;">= ${eti.nombre}</span>
-                        </div>
-                    `;
-                });
-            }
+            etiquetasMarketingGlobal.forEach(eti => {
+                leyendaCalendario.innerHTML += `
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85em; color: #555; background: #f9fafb; padding: 4px 10px; border-radius: 6px; border: 1px solid #e5e7eb;">
+                        <span style="background: ${eti.color}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">${eti.abrev}</span>
+                        <span style="font-weight: 500;">= ${eti.nombre}</span>
+                    </div>`;
+            });
         }
-        
     } catch(e) { console.error("Error al cargar etiquetas:", e); }
 };
- 
-
-
 
 const btnNuevaEti = document.getElementById('btn-agregar-etiqueta');
 if(btnNuevaEti) {
@@ -3054,6 +3070,10 @@ if(btnNuevaEti) {
 }
 
 window.borrarEtiquetaMkt = async (index) => {
+    // 🛡️ BLOQUEO: No dejamos borrar la especial
+    if(etiquetasMarketingGlobal[index].nombre === TAG_COTIZACION_HISTORIA) {
+        return window.showAlert("No podés borrar esta etiqueta reservada del sistema.", "error");
+    }
     if(!confirm("¿Borrar esta etiqueta?")) return;
     etiquetasMarketingGlobal.splice(index, 1);
     showLoader(true, "Borrando...");
@@ -3062,107 +3082,152 @@ window.borrarEtiquetaMkt = async (index) => {
     showLoader(false);
 };
 
+
 // --- 4. FORMULARIO Y MODAL DE TAREAS ---
 const modalMkt = document.getElementById('modal-marketing');
 const formMkt = document.getElementById('form-marketing');
-const selectAsignado = document.getElementById('marketing-asignado');
+
+// Lógica para alternar el formulario
+document.getElementById('marketing-tipo').addEventListener('change', (e) => {
+    const isSpecial = e.target.value === TAG_COTIZACION_HISTORIA;
+    document.getElementById('marketing-campos-estandar').style.display = isSpecial ? 'none' : 'flex';
+    document.getElementById('marketing-campos-cotizacion').style.display = isSpecial ? 'flex' : 'none';
+    
+    // Obligatorios dinámicos
+    document.getElementById('marketing-notas').required = !isSpecial;
+    document.getElementById('mkt-cotiz-destino').required = isSpecial;
+
+    // Mostrar observaciones internas solo a jefes
+    const esAdminEditor = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+    document.getElementById('container-obs-internas').style.display = (isSpecial && esAdminEditor) ? 'block' : 'none';
+});
 
 // Abre para CREAR
 window.abrirFormularioMarketing = async (fechaElegida) => {
     if (!modalMkt) return;
-    isEditingMktId = null; // Reiniciamos el ID de edición
-    if(formMkt) formMkt.reset(); // Limpiamos el formulario
+    isEditingMktId = null;
+    if(formMkt) formMkt.reset();
+    document.querySelectorAll('.chk-mkt-servicio, .chk-mkt-mes, .chk-mkt-hotel').forEach(c => c.checked = false);
+    
+    // Forzamos el cambio visual para reiniciar la pantalla
+    document.getElementById('marketing-tipo').dispatchEvent(new Event('change'));
 
     const partes = fechaElegida.split('-');
     document.getElementById('marketing-fecha-display').innerText = `${partes[2]}/${partes[1]}/${partes[0]}`;
     document.getElementById('marketing-fecha-input').value = fechaElegida;
     
-    await llenarComboFranquiciasMkt();
+    await llenarComboFranquiciasMkt([]);
     modalMkt.style.display = 'flex';
 };
 
-// Abre para EDITAR (Nueva función)
+// Abre para EDITAR
 window.editarTareaMkt = async (tarea) => {
     if (!modalMkt) return;
-    isEditingMktId = tarea.id; // Guardamos el ID que estamos editando
-    
-    // Ocultamos el modal de detalle y abrimos el de carga
+    isEditingMktId = tarea.id;
     document.getElementById('modal-detalle-tarea').style.display = 'none';
 
     const partes = tarea.fecha.split('-');
     document.getElementById('marketing-fecha-display').innerText = `${partes[2]}/${partes[1]}/${partes[0]}`;
     document.getElementById('marketing-fecha-input').value = tarea.fecha;
 
-    await llenarComboFranquiciasMkt();
-
-    // Llenamos los datos existentes
     document.getElementById('marketing-tipo').value = tarea.tipo || '';
-    document.getElementById('marketing-asignado').value = tarea.asignado || '';
+    
+    // Llenamos el combo múltiple
+    let asignadosArr = Array.isArray(tarea.asignado) ? tarea.asignado : [tarea.asignado];
+    await llenarComboFranquiciasMkt(asignadosArr);
+
     document.getElementById('marketing-drive').value = tarea.drive || '';
     document.getElementById('marketing-notas').value = tarea.notas || '';
 
+    // Si es la especial, llenamos sus datos
+    if (tarea.tipo === TAG_COTIZACION_HISTORIA && tarea.cotiz_data) {
+        document.getElementById('mkt-cotiz-destino').value = tarea.cotiz_data.destino || '';
+        document.getElementById('mkt-cotiz-noches').value = tarea.cotiz_data.noches || '';
+        document.getElementById('mkt-cotiz-regimen').value = tarea.cotiz_data.regimen || 'Sin regimen';
+        document.getElementById('mkt-cotiz-cuotas').value = tarea.cotiz_data.cuotas || 'Si';
+        document.getElementById('mkt-cotiz-obs').value = tarea.cotiz_data.obs || '';
+        document.getElementById('mkt-cotiz-obsinternas').value = tarea.cotiz_data.obs_internas || '';
+
+        document.querySelectorAll('.chk-mkt-servicio').forEach(c => c.checked = (tarea.cotiz_data.servicios || []).includes(c.value));
+        document.querySelectorAll('.chk-mkt-mes').forEach(c => c.checked = (tarea.cotiz_data.meses || []).includes(c.value));
+        document.querySelectorAll('.chk-mkt-hotel').forEach(c => c.checked = (tarea.cotiz_data.hoteles || []).includes(c.value));
+    }
+
+    document.getElementById('marketing-tipo').dispatchEvent(new Event('change'));
     modalMkt.style.display = 'flex';
 };
 
-// Función auxiliar para cargar el combo (para no repetir código)
-async function llenarComboFranquiciasMkt() {
-    selectAsignado.innerHTML = '<option value="">Seleccionar...</option><option value="TODOS">📢 A Todas las Franquicias</option>';
+// Generador de Checkboxes de Franquicias
+async function llenarComboFranquiciasMkt(seleccionadosPrevios = []) {
+    const contenedor = document.getElementById('marketing-asignado-container');
+    let html = `<label style="font-weight:bold; cursor:pointer;"><input type="checkbox" class="chk-franquicia-mkt" value="TODOS" ${seleccionadosPrevios.includes('TODOS') ? 'checked' : ''}> 📢 A Todas las Franquicias</label><hr style="margin:5px 0; border:0; border-top:1px solid #ddd;">`;
     try {
         const doc = await db.collection('metadata').doc('config').get();
         if (doc.exists && doc.data().franquicias) {
-            doc.data().franquicias.forEach(f => selectAsignado.innerHTML += `<option value="${f}">🏢 ${f}</option>`);
+            doc.data().franquicias.forEach(f => {
+                const isChecked = seleccionadosPrevios.includes(f) ? 'checked' : '';
+                html += `<label style="cursor:pointer;"><input type="checkbox" class="chk-franquicia-mkt" value="${f}" ${isChecked}> 🏢 ${f}</label>`;
+            });
         }
-    } catch(e) { console.error(e); }
+    } catch(e) {}
+    contenedor.innerHTML = html;
 }
-
-const btnCerrarMkt = document.getElementById('modal-marketing-cerrar');
-if(btnCerrarMkt) btnCerrarMkt.onclick = () => { modalMkt.style.display = 'none'; if(formMkt) formMkt.reset(); };
 
 if (formMkt) {
     formMkt.addEventListener('submit', async (e) => {
         e.preventDefault();
         showLoader(true, isEditingMktId ? "Actualizando tarea..." : "Guardando tarea...");
         
-        // Buscamos si hay datos originales para conservarlos (creador y timestamp original)
-        let tareaOriginal = null;
-        if (isEditingMktId) {
-            tareaOriginal = tareasMarketingGlobal.find(t => t.id === isEditingMktId);
+        let tareaOriginal = isEditingMktId ? tareasMarketingGlobal.find(t => t.id === isEditingMktId) : null;
+
+        // Recopilamos las franquicias tildadas
+        const chkAsignados = document.querySelectorAll('.chk-franquicia-mkt:checked');
+        let asignadosArray = Array.from(chkAsignados).map(c => c.value);
+        if (asignadosArray.length === 0) {
+            showLoader(false);
+            return window.showAlert("Tenés que asignar la tarea a al menos una franquicia", "error");
+        }
+        
+        const tipoSelect = document.getElementById('marketing-tipo').value;
+
+        // Recopilamos los datos si es la especial
+        let cotizData = null;
+        if (tipoSelect === TAG_COTIZACION_HISTORIA) {
+            cotizData = {
+                destino: document.getElementById('mkt-cotiz-destino').value,
+                servicios: Array.from(document.querySelectorAll('.chk-mkt-servicio:checked')).map(c=>c.value),
+                meses: Array.from(document.querySelectorAll('.chk-mkt-mes:checked')).map(c=>c.value),
+                noches: document.getElementById('mkt-cotiz-noches').value,
+                hoteles: Array.from(document.querySelectorAll('.chk-mkt-hotel:checked')).map(c=>c.value),
+                regimen: document.getElementById('mkt-cotiz-regimen').value,
+                cuotas: document.getElementById('mkt-cotiz-cuotas').value,
+                obs: document.getElementById('mkt-cotiz-obs').value,
+                obs_internas: document.getElementById('mkt-cotiz-obsinternas').value
+            };
         }
 
         const payload = {
             fecha: document.getElementById('marketing-fecha-input').value,
-            tipo: document.getElementById('marketing-tipo').value,
-            asignado: document.getElementById('marketing-asignado').value,
+            tipo: tipoSelect,
+            asignado: asignadosArray, // AHORA ES UN ARRAY SIEMPRE
             drive: document.getElementById('marketing-drive').value,
             notas: document.getElementById('marketing-notas').value,
-            // Si editamos, mantenemos al creador original. Si es nueva, ponemos al actual.
+            cotiz_data: cotizData,
             creador: isEditingMktId && tareaOriginal ? tareaOriginal.creador : ((userData && userData.franquicia) ? userData.franquicia : (currentUser ? currentUser.email : 'Anónimo')),
-            // Misma lógica para la fecha de creación
             timestamp: isEditingMktId && tareaOriginal ? tareaOriginal.timestamp : Date.now(),
-            // Agregamos una marca de quién editó
             last_edited_by: isEditingMktId ? currentUser.email : null
         };
 
         try {
-            if (isEditingMktId) {
-                // Modo Edición
-                await db.collection('calendario_marketing').doc(isEditingMktId).update(payload);
-                window.showAlert("¡Tarea actualizada con éxito!", "success");
-            } else {
-                // Modo Creación
-                await db.collection('calendario_marketing').add(payload);
-                window.showAlert("¡Tarea asignada con éxito!", "success");
-            }
+            if (isEditingMktId) await db.collection('calendario_marketing').doc(isEditingMktId).update(payload);
+            else await db.collection('calendario_marketing').add(payload);
             
+            window.showAlert("¡Tarea guardada con éxito!", "success");
             modalMkt.style.display = 'none';
             formMkt.reset();
-            isEditingMktId = null; // Limpiamos el control
-
+            isEditingMktId = null;
             await window.renderizarCalendario();
-        } catch(error) {
-            console.error(error);
-            window.showAlert("Error al guardar en BD.", "error");
-        }
+        } catch(error) { window.showAlert("Error al guardar en BD.", "error"); }
         showLoader(false);
     });
 }
@@ -3655,7 +3720,7 @@ window.renderizarCalendarioAgentes = async () => {
         let htmlTareas = '';
         tareasDelDia.forEach(tarea => {
             const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
-            const esParaMi = (tarea.asignado === miFranquicia || tarea.asignado === 'TODOS');
+            const esParaMi = Array.isArray(tarea.asignado) ? (tarea.asignado.includes(miFranquicia) || tarea.asignado.includes('TODOS')) : (tarea.asignado === miFranquicia || tarea.asignado === 'TODOS');
             const infoEtiqueta = etiquetasMarketingGlobal.find(e => e.nombre === tarea.tipo) || { abrev: 'AGT', color: '#6b7280' };
 
             const fondoTarea = esParaMi ? '#fffdf0' : '#f9fafb';
