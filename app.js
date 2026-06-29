@@ -1893,6 +1893,9 @@ window.approvePackage = async (pkg) => {
         // Activamos la vista y el botón solo si existen realmente
         if (dom.views[n]) dom.views[n].classList.add('active');
         if (dom.nav[n]) dom.nav[n].classList.add('active');
+
+        // 🚀 SCROLL AUTOMÁTICO AL CAMBIAR DE SECCIÓN
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     if (dom.nav.search) dom.nav.search.onclick = () => showView('search');
     
@@ -1930,145 +1933,126 @@ window.approvePackage = async (pkg) => {
     if(dom.filtroOrden) dom.filtroOrden.addEventListener('change', applyFilters);
     if(dom.filtroCreador) dom.filtroCreador.addEventListener('change', applyFilters);
 
-    // 14. LOGICA CALENDARIO SEMANAL
-    
-    // Toggle Desplegable
-    if(domPlanner.header) {
-        domPlanner.header.addEventListener('click', () => {
-            domPlanner.header.classList.toggle('open');
-            domPlanner.body.classList.toggle('open');
+    // 14. MINI PLANNER SEMANAL (Radar Dashboard)
+    const domMiniPlanner = {
+        header: document.getElementById('planner-header-btn'),
+        body: document.getElementById('planner-body-content')
+    };
+
+    if(domMiniPlanner.header) {
+        domMiniPlanner.header.addEventListener('click', () => {
+            domMiniPlanner.header.classList.toggle('open');
+            domMiniPlanner.body.classList.toggle('open');
         });
     }
 
-    const diasSemana = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
-
-    // Inicializar Calendario
-    async function initWeeklyPlanner() {
-        if(domPlanner.container) {
-            domPlanner.container.style.display = 'block';
-            domPlanner.header.classList.add('open');
-            domPlanner.body.classList.add('open');
-            highlightCurrentDay();
-            await loadPlanningData();
+    // 🚀 NUEVO: Hipervínculo inteligente con Scroll al día (EFECTO PREMIUM)
+    window.irAlCalendarioMarketing = async (diaObjetivo = null) => {
+        showView('marketing'); // Cambiamos de pestaña
+        
+        if (typeof window.renderizarCalendario === 'function') {
+            window.vistaCalendarioMkt = 'PROPIOS'; // Forzamos "Mis Tareas"
+            showLoader(true, "Cargando tu calendario..."); // Cartelito para que no toque nada
+            
+            // LA MAGIA: Esperamos que Firebase dibuje absolutamente todo antes de movernos
+            await window.renderizarCalendario(); 
+            
+            showLoader(false);
         }
-
-        const isStaff = userData && (userData.rol === 'admin' || userData.rol === 'editor');
-
-        diasSemana.forEach(dia => {
-            const readDiv = document.getElementById(`read-${dia}`);
-            const editDiv = document.getElementById(`edit-${dia}`);
-            if(readDiv && editDiv) {
-                if (isStaff) {
-                    // Los administradores ven el formulario de carga
-                    readDiv.style.display = 'none';
-                    editDiv.style.display = 'flex';
-                } else {
-                    // Los vendedores ven la lista bonita y limpia
-                    editDiv.style.display = 'none';
-                    readDiv.style.display = 'flex';
+        
+        // Le damos un pequeñísimo respiro al navegador para acomodar el HTML y patinamos
+        setTimeout(() => {
+            if (diaObjetivo) {
+                const targetEl = document.getElementById(`cal-mkt-day-${diaObjetivo}`);
+                if (targetEl) {
+                    // Patina suavemente hasta dejar el recuadro en el centro de la pantalla
+                    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // Efecto de Destello Naranja Premium
+                    targetEl.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+                    targetEl.style.transform = 'scale(1.02)';
+                    targetEl.style.boxShadow = '0 0 0 6px rgba(239, 90, 26, 0.4)';
+                    
+                    // Lo apaga a los 2.5 segundos
+                    setTimeout(() => {
+                        targetEl.style.transform = 'scale(1)';
+                        targetEl.style.boxShadow = 'none';
+                    }, 2500);
+                    
+                    return; // Terminamos con éxito
                 }
             }
-        });
+            // Si por algún motivo no llegó el día, sube arriba de todo
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 150);
+    };
 
-        if(domPlanner.btnSave) domPlanner.btnSave.style.display = isStaff ? 'inline-block' : 'none';
-    }
+    window.initWeeklyPlanner = async () => {
+        if(domMiniPlanner.header) domMiniPlanner.header.classList.add('open');
+        if(domMiniPlanner.body) domMiniPlanner.body.classList.add('open');
 
-    function highlightCurrentDay() {
-        for (let i = 1; i <= 5; i++) {
-            const card = document.getElementById(`day-card-${i}`);
-            if (card) card.classList.remove('today');
-        }
-        const today = new Date();
-        const dayIndex = today.getDay(); 
-        if (dayIndex >= 1 && dayIndex <= 5) {
-            const card = document.getElementById(`day-card-${dayIndex}`);
-            if (card) {
-                card.classList.add('today');
-                const span = document.getElementById(`date-${dayIndex}`);
-                if(span) span.innerText = `${today.getDate()}/${today.getMonth()+1}`;
-            }
-        }
-    }
-
-    async function loadPlanningData() {
         try {
-            const doc = await db.collection('config').doc('planning_weekly').get();
-            if (doc.exists) {
-                const data = doc.data();
+            const snapshot = await db.collection('calendario_marketing').get();
+            if(typeof tareasMarketingGlobal === 'undefined') window.tareasMarketingGlobal = [];
+            tareasMarketingGlobal = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            const hoy = new Date();
+            const day = hoy.getDay();
+            const diff = hoy.getDate() - day + (day === 0 ? -6 : 1); 
+            const lunes = new Date(hoy.setDate(diff));
+            const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
+
+            for (let i = 0; i < 5; i++) {
+                const fechaDia = new Date(lunes);
+                fechaDia.setDate(lunes.getDate() + i);
                 
-                diasSemana.forEach(dia => {
-                    let dayData = data[dia] || {};
+                const anio = fechaDia.getFullYear();
+                const mes = String(fechaDia.getMonth() + 1).padStart(2, '0');
+                const diaStr = String(fechaDia.getDate()).padStart(2, '0');
+                const fechaString = `${anio}-${mes}-${diaStr}`;
+
+                const spanFecha = document.getElementById(`mini-date-${i+1}`);
+                if(spanFecha) spanFecha.innerText = `${diaStr}/${mes}`;
+
+                const card = document.getElementById(`mini-day-${i+1}`);
+                if (card) {
+                    const hoyPuro = new Date().setHours(0,0,0,0);
+                    if (fechaDia.setHours(0,0,0,0) === hoyPuro) {
+                        card.style.border = '2px solid #ef5a1a';
+                        card.style.background = '#fffdf0';
+                        card.style.transform = 'scale(1.03)';
+                    } else {
+                        card.style.border = '1px solid #e5e7eb';
+                        card.style.background = 'white';
+                        card.style.transform = 'scale(1)';
+                    }
+                    card.onmouseover = () => card.style.boxShadow = '0 6px 15px rgba(239,90,26,0.15)';
+                    card.onmouseout = () => card.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
                     
-                    // 🛡️ REGLA DE COMPATIBILIDAD: Si es texto viejo, lo convertimos a observaciones
-                    if (typeof dayData === 'string') {
-                        dayData = { obs: dayData }; 
-                    }
+                    // 🚀 ACÁ LE PASAMOS EL DÍA EXACTO AL HACER CLIC
+                    card.onclick = () => window.irAlCalendarioMarketing(diaStr);
+                }
 
-                    // 1. Llenar los inputs (Para los Administradores)
-                    if(document.getElementById(`plan-dest-${dia}`)) document.getElementById(`plan-dest-${dia}`).value = dayData.destino || '';
-                    if(document.getElementById(`plan-reg-${dia}`)) document.getElementById(`plan-reg-${dia}`).value = dayData.regimen || '';
-                    if(document.getElementById(`plan-trf-${dia}`)) document.getElementById(`plan-trf-${dia}`).value = dayData.traslados || '';
-                    if(document.getElementById(`plan-dias-${dia}`)) document.getElementById(`plan-dias-${dia}`).value = dayData.dias || '';
-                    if(document.getElementById(`plan-precio-${dia}`)) document.getElementById(`plan-precio-${dia}`).value = dayData.precio || '';
-                    if(document.getElementById(`plan-recom-${dia}`)) document.getElementById(`plan-recom-${dia}`).value = dayData.recom || ''; // NUEVO CAMPO
-                    if(document.getElementById(`plan-obs-${dia}`)) document.getElementById(`plan-obs-${dia}`).value = dayData.obs || '';
-
-                    // 2. Armar el HTML limpio (Para los Vendedores)
-                    const readDiv = document.getElementById(`read-${dia}`);
-                    if(readDiv) {
-                        let html = '';
-                        if(dayData.destino) html += `<div><span style="color:#ef5a1a; font-weight:bold; font-size: 1.1em;">📍 ${dayData.destino}</span></div>`;
-                        if(dayData.regimen) html += `<div><b>🍽️ Régimen:</b> ${dayData.regimen}</div>`;
-                        if(dayData.traslados) html += `<div><b>🚕 Traslados:</b> ${dayData.traslados}</div>`;
-                        if(dayData.dias) html += `<div><b>🌙 Días:</b> ${dayData.dias}</div>`;
-                        if(dayData.precio) html += `<div><b>💰 Precio Ideal:</b> ${dayData.precio}</div>`;
-                        if(dayData.recom) html += `<div><b style="color:#3498db;">💡 Cotizar en:</b> ${dayData.recom}</div>`; // NUEVO CAMPO
-                        if(dayData.obs) html += `<div style="margin-top:6px; padding-top:6px; border-top:1px dashed #e5e7eb; color:#555;"><i>📝 ${dayData.obs}</i></div>`;
-                        
-                        if(!html) html = '<div style="color:#999; text-align:center; margin-top:20px;">Sin pedidos para hoy</div>';
-                        readDiv.innerHTML = html;
-                    }
-                });
-            }
-        } catch (e) {
-            console.error("Error cargando planner:", e);
-        }
-    }
-
-    if(domPlanner.btnSave) {
-        domPlanner.btnSave.addEventListener('click', async () => {
-            showLoader(true, "Guardando agenda...");
-            try {
-                const payload = {
-                    last_update: new Date(),
-                    updated_by: currentUser.email
-                };
-
-                diasSemana.forEach(dia => {
-                    // Armamos el objeto de cada día recopilando sus 7 campos
-                    payload[dia] = {
-                        destino: document.getElementById(`plan-dest-${dia}`) ? document.getElementById(`plan-dest-${dia}`).value.trim() : '',
-                        regimen: document.getElementById(`plan-reg-${dia}`) ? document.getElementById(`plan-reg-${dia}`).value.trim() : '',
-                        traslados: document.getElementById(`plan-trf-${dia}`) ? document.getElementById(`plan-trf-${dia}`).value.trim() : '',
-                        dias: document.getElementById(`plan-dias-${dia}`) ? document.getElementById(`plan-dias-${dia}`).value.trim() : '',
-                        precio: document.getElementById(`plan-precio-${dia}`) ? document.getElementById(`plan-precio-${dia}`).value.trim() : '',
-                        recom: document.getElementById(`plan-recom-${dia}`) ? document.getElementById(`plan-recom-${dia}`).value.trim() : '', // NUEVO CAMPO
-                        obs: document.getElementById(`plan-obs-${dia}`) ? document.getElementById(`plan-obs-${dia}`).value.trim() : ''
-                    };
-                });
-
-                await db.collection('config').doc('planning_weekly').set(payload, { merge: true });
-                await window.showAlert("✅ Planificación detallada actualizada.", "success");
+                let tareasDelDia = tareasMarketingGlobal.filter(t => t.fecha === fechaString);
                 
-                // Refrescamos visualmente al guardar
-                await loadPlanningData();
-            } catch (e) {
-                console.error(e);
-                window.showAlert("Error al guardar planificación.", "error");
+                // Filtro blindado para leer Array o Textos viejos
+                const tareasMias = tareasDelDia.filter(t => 
+                    Array.isArray(t.asignado) 
+                        ? (t.asignado.includes(miFranquicia) || t.asignado.includes('TODOS')) 
+                        : (t.asignado === miFranquicia || t.asignado === 'TODOS')
+                );
+
+                const contentDiv = document.getElementById(`mini-content-${i+1}`);
+                if(contentDiv) {
+                    if (tareasMias.length > 0) {
+                        contentDiv.innerHTML = `<div style="background: #eefaf6; color: #047857; padding: 6px; border-radius: 6px; font-weight: bold; font-size: 0.9em; display:flex; align-items:center; justify-content:center; gap:5px; border: 1px solid #10b981;"><span>🔔</span> ${tareasMias.length} Tarea${tareasMias.length > 1 ? 's' : ''}</div>`;
+                    } else {
+                        contentDiv.innerHTML = `<div style="color: #9ca3af; font-size: 0.85em; padding: 6px;">✅ Libre</div>`;
+                    }
+                }
             }
-            showLoader(false);
-        });
-    }
+        } catch(e) { console.error("Error cargando el radar:", e); }
+    };
 
     // 1. Activar el filtro cuando cambien la opción de salida
     if(dom.filtroSalida) dom.filtroSalida.addEventListener('change', applyFilters);
@@ -2572,7 +2556,6 @@ if(tabUsers && tabCalc) {
     };
 
     // FUNCIONES AUXILIARES DEL EDITOR
-    // FUNCIONES AUXILIARES DEL EDITOR
     window.editarNombreServicio = () => {
         const srv = dbCalculadora.find(s => s.id === servicioEditandoId);
         const nuevoNombre = prompt("Editá el nombre y el emoji (Ej: 🚌 Paquete en BUS):", srv.nombre);
@@ -2671,20 +2654,16 @@ window.renderizarCalendario = async () => {
     const labelMes = document.getElementById('mes-actual-label');
     if (!grid || !labelMes) return;
 
-    // 👁️ 1. CONFIGURACIÓN DEL FILTRO POR DEFECTO (Inteligencia por Rol)
     if (!window.vistaCalendarioMkt) {
         const esAdmin = userData && (userData.rol === 'admin' || userData.rol === 'editor');
         window.vistaCalendarioMkt = esAdmin ? 'RED' : 'PROPIOS';
     }
 
-    // 👁️ 2. DIBUJAR EL SWITCH (Sin tocar el HTML)
     let toggleContainer = document.getElementById('toggle-mkt-container');
     if (!toggleContainer) {
         toggleContainer = document.createElement('div');
         toggleContainer.id = 'toggle-mkt-container';
         toggleContainer.style.cssText = 'display: flex; justify-content: flex-end; margin-bottom: 15px; width: 100%;';
-        
-        // Lo intentamos insertar justo arriba de los nombres de los días ("Dom", "Lun")
         const headerDias = document.querySelector('.header-dias-semana');
         if(headerDias) {
             headerDias.parentNode.insertBefore(toggleContainer, headerDias);
@@ -2693,7 +2672,6 @@ window.renderizarCalendario = async () => {
         }
     }
 
-    // Lógica visual del Switch (Naranja si está activo, Gris si no)
     const isPropios = window.vistaCalendarioMkt === 'PROPIOS';
     toggleContainer.innerHTML = `
         <div style="background: #f3f4f6; padding: 4px; border-radius: 30px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid #e5e7eb;">
@@ -2706,10 +2684,8 @@ window.renderizarCalendario = async () => {
         </div>
     `;
 
-    // Ponemos un mensajito de carga mientras buscamos en Firebase
     grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6b7280; font-weight: bold;">Cargando tareas... ⏳</div>';
 
-    // 1. DESCARGAMOS LAS TAREAS DE LA BASE DE DATOS
     try {
         const snapshot = await db.collection('calendario_marketing').get();
         tareasMarketingGlobal = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -2726,7 +2702,6 @@ window.renderizarCalendario = async () => {
     const primerDia = new Date(anio, mes, 1).getDay();
     const diasEnMes = new Date(anio, mes + 1, 0).getDate();
 
-    // Rellenar espacios vacíos antes del 1 del mes
     for (let i = 0; i < primerDia; i++) {
         const divVacio = document.createElement('div');
         divVacio.style.cssText = "background: transparent; min-height: 100px;";
@@ -2734,26 +2709,22 @@ window.renderizarCalendario = async () => {
     }
 
     const hoyReal = new Date();
-    // Conseguimos "hoy" pero a las 00:00:00 para comparar fácil
     const hoyPuro = new Date(hoyReal.getFullYear(), hoyReal.getMonth(), hoyReal.getDate());
     
-    // Dibujamos todos los días
     for (let dia = 1; dia <= diasEnMes; dia++) {
         const fechaCelda = new Date(anio, mes, dia);
         const esHoy = (fechaCelda.getTime() === hoyPuro.getTime());
-        const esPasado = (fechaCelda < hoyPuro); // ¡MAGIA ACÁ! Se da cuenta si el día ya pasó
+        const esPasado = (fechaCelda < hoyPuro); 
         
         const divDia = document.createElement('div');
-        
         const diaSemana = fechaCelda.getDay();
         const esFinde = (diaSemana === 0 || diaSemana === 6);
-
         const colorFondo = esFinde ? '#f9fafb' : 'white';
-        
-        // Si es pasado lo hacemos transparente (0.4), si es finde un poquito (0.8), sino 1.
-        let opacidadFinal = '1';
-        if (esPasado) opacidadFinal = '0.4'; 
-        else if (esFinde) opacidadFinal = '0.8';
+        let opacidadFinal = esPasado ? '0.4' : (esFinde ? '0.8' : '1');
+
+        // 🚀 NUEVO: Le inyectamos el ID para que el patinaje (scroll) lo encuentre
+        const diaStrLimpio = String(dia).padStart(2, '0');
+        divDia.id = `cal-mkt-day-${diaStrLimpio}`;
 
         divDia.style.cssText = `
             background: ${colorFondo}; opacity: ${opacidadFinal}; border: 1px solid ${esHoy ? '#ef5a1a' : '#e5e7eb'}; border-radius: 8px; 
@@ -2761,7 +2732,6 @@ window.renderizarCalendario = async () => {
             transition: box-shadow 0.2s, transform 0.2s, opacity 0.2s; box-shadow: ${esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none'};
         `;
         
-        // Efecto hover (Iluminar al pasar el mouse)
         if (esPasado) {
             divDia.onmouseover = () => { divDia.style.boxShadow = '0 4px 10px rgba(0,0,0,0.05)'; divDia.style.opacity = '0.8'; };
             divDia.onmouseout = () => { divDia.style.boxShadow = 'none'; divDia.style.opacity = '0.4'; };
@@ -2770,34 +2740,37 @@ window.renderizarCalendario = async () => {
             divDia.onmouseout = () => divDia.style.boxShadow = esHoy ? '0 0 0 2px rgba(239, 90, 26, 0.2)' : 'none';
         }
 
-        // Armamos la fecha exacta de este cuadradito
-        const fechaString = `${anio}-${String(mes+1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-        
-        // Filtramos las tareas que caen EXACTAMENTE en este día
+        const fechaString = `${anio}-${String(mes+1).padStart(2, '0')}-${diaStrLimpio}`;
         let tareasDelDia = tareasMarketingGlobal.filter(t => t.fecha === fechaString);
 
-        // 👁️ 3. APLICAR EL FILTRO DE VISTA (El "Ojito")
+        // 👁️ 3. APLICAR EL FILTRO DE VISTA (EL ARREGLO PARA LEER ARRAYS)
+        const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
         if (window.vistaCalendarioMkt === 'PROPIOS') {
-            const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
-            // Solo deja pasar las que me asignaron a mí o las que son globales ("TODOS")
-            tareasDelDia = tareasDelDia.filter(t => t.asignado === miFranquicia || t.asignado === 'TODOS');
+            tareasDelDia = tareasDelDia.filter(t => {
+                if (Array.isArray(t.asignado)) {
+                    return t.asignado.includes(miFranquicia) || t.asignado.includes('TODOS');
+                } else {
+                    return t.asignado === miFranquicia || t.asignado === 'TODOS';
+                }
+            });
         }
 
-        // Creamos el HTML de las tarjetitas
         let htmlTareas = '';
         tareasDelDia.forEach(tarea => {
-            
-            // LA MAGIA: Verificamos si esta tarea es para el usuario que está mirando la pantalla
-            const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
-            const esParaMi = (tarea.asignado === miFranquicia || tarea.asignado === 'TODOS');
+            // LÓGICA ARRAY PARA SABER SI ES MÍA Y PINTAR EL RECUADRO AZUL Y LA CAMPANA
+            const esParaMi = Array.isArray(tarea.asignado) 
+                ? (tarea.asignado.includes(miFranquicia) || tarea.asignado.includes('TODOS')) 
+                : (tarea.asignado === miFranquicia || tarea.asignado === 'TODOS');
 
-            // Buscamos el color y abreviatura de la etiqueta
             const infoEtiqueta = etiquetasMarketingGlobal.find(e => e.nombre === tarea.tipo) || { abrev: 'MKT', color: '#6b7280' };
-
-            // Diseño: Si es para mí (azul vibrante). Si es de otro (gris neutro).
             const fondoTarea = esParaMi ? '#eff6ff' : '#f9fafb';
             const bordeIzquierdo = esParaMi ? '4px solid #3b82f6' : '2px solid #e5e7eb';
             const colorTextoAsignado = esParaMi ? '#1e3a8a' : '#6b7280';
+            
+            // Texto abreviado para no explotar la tarjetita
+            const asignadoMostrado = Array.isArray(tarea.asignado) 
+                ? (tarea.asignado.includes('TODOS') ? 'Todas' : (tarea.asignado.length > 1 ? `Múltiples (${tarea.asignado.length})` : tarea.asignado[0]))
+                : tarea.asignado;
 
             htmlTareas += `
                 <div onclick="window.verDetalleTareaMkt(event, '${tarea.id}')"
@@ -2812,13 +2785,12 @@ window.renderizarCalendario = async () => {
                     </div>
                     
                     <div style="font-weight: 700; font-size: 0.75em; color: ${colorTextoAsignado}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        Para: ${tarea.asignado}
+                        Para: ${asignadoMostrado}
                     </div>
                 </div>
             `;
         });
 
-        // Inyectamos todo adentro del día
         divDia.innerHTML = `
             <div style="font-weight: bold; font-size: 1.1em; color: ${esHoy ? '#ef5a1a' : '#11173d'}; margin-bottom: 8px;">${dia}</div>
             <div style="flex: 1; display: flex; flex-direction: column;">
@@ -2826,7 +2798,6 @@ window.renderizarCalendario = async () => {
             </div>
         `;
 
-        // Al hacer clic en el espacio en blanco del día, abre para crear una tarea nueva
         divDia.onclick = () => {
             window.abrirFormularioMarketing(fechaString);
         };
@@ -2835,31 +2806,24 @@ window.renderizarCalendario = async () => {
     }
 };
 
-// Función para ver los detalles de una tarea (AHORA USA EL MODAL PREMIUM DE PROMOS)
+// Función para ver los detalles y dibujar los "Badges" (Viñetas EN LISTA VERTICAL)
 window.verDetalleTareaMkt = (event, idTarea) => {
     event.stopPropagation(); 
     
     const tarea = tareasMarketingGlobal.find(t => t.id === idTarea);
     if(!tarea) return;
 
-    // 🪄 EL TRUCO: Usamos el mismo contenedor exacto de los paquetes (Promos)
     const modal = dom.modal;
     const modalBody = dom.modalBody;
 
-    // 1. Fechas y Etiquetas
     const partes = tarea.fecha.split('-');
     const fechaFormat = `${partes[2]}/${partes[1]}/${partes[0]}`;
     const infoEtiqueta = etiquetasMarketingGlobal.find(e => e.nombre === tarea.tipo) || { abrev: 'MKT', color: '#56DDE0' };
-    
-    // Etiqueta adentro del modal (Igual que Promos)
     const bubbleStyle = `background-color: ${infoEtiqueta.color}; color: white; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.8em; display: inline-block; margin-top: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);`;
 
-    // 2. Permisos y Botones finitos
-    let adminTools = '';
     const tienePermisos = userData && (userData.rol === 'admin' || userData.rol === 'editor' || currentUser.email === tarea.creador);
-    
+    let adminTools = '';
     if (tienePermisos) {
-        // Botones Editar/Borrar idénticos a los de Paquetes
         adminTools = `
         <div class="modal-tools" style="position: absolute; top: 20px; right: 70px; display:flex; gap:10px;">
             <button class="btn btn-secundario" onclick="window.editarTareaMktProxy('${tarea.id}')" style="padding:5px 15px; font-size:0.8em;">✏️ Editar</button>
@@ -2867,18 +2831,62 @@ window.verDetalleTareaMkt = (event, idTarea) => {
         </div>`;
     }
 
-    // 3. Estilo para el link de Drive (Más ordenado y cliqueable)
     let driveHtml = '';
     if (tarea.drive && tarea.drive.trim() !== "") {
         driveHtml = `
             <div style="margin-top: 20px; background: #eef2f5; padding: 15px; border-radius: 8px;">
                 <h4 style="margin: 0 0 8px 0; color: #11173d;">📁 Archivo / Link de Drive</h4>
                 <a href="${tarea.drive}" target="_blank" style="color: #ef5a1a; text-decoration: none; word-break: break-all; font-weight: 500;">${tarea.drive}</a>
-            </div>
-        `;
+            </div>`;
     }
 
-    // 4. INYECTAMOS EL HTML CON LA ESTRUCTURA DE PAQUETES
+    // PRESENTACIÓN LIMPIA DE LA COTIZACIÓN ESPECIAL
+    let contenidoDetalle = '';
+    if (tarea.tipo === TAG_COTIZACION_HISTORIA && tarea.cotiz_data) {
+        const d = tarea.cotiz_data;
+        const servStr = d.servicios && d.servicios.length > 0 ? d.servicios.join(' / ') : '-';
+        const mesesStr = d.meses && d.meses.length > 0 ? d.meses.join(' / ') : '-';
+        const hotelesStr = d.hoteles && d.hoteles.length > 0 ? d.hoteles.join(' / ') : '-';
+
+        contenidoDetalle = `<ul style="line-height:1.8; margin-top:10px; padding-left:20px; color:#333; font-size: 0.95em;">`;
+        if(d.destino) contenidoDetalle += `<li><b>📍 Destino:</b> ${d.destino}</li>`;
+        if(servStr !== '-') contenidoDetalle += `<li><b>✅ Servicios incluidos:</b> ${servStr}</li>`;
+        if(mesesStr !== '-') contenidoDetalle += `<li><b>📅 Meses de viaje:</b> ${mesesStr}</li>`;
+        if(d.noches) contenidoDetalle += `<li><b>🌙 Noches:</b> ${d.noches}</li>`;
+        if(hotelesStr !== '-') contenidoDetalle += `<li><b>🏨 Categoría de Hotel:</b> ${hotelesStr}</li>`;
+        if(d.regimen) contenidoDetalle += `<li><b>🍽️ Régimen:</b> ${d.regimen}</li>`;
+        if(d.cuotas) contenidoDetalle += `<li><b>💳 Con seña y cuotas:</b> ${d.cuotas}</li>`;
+        if(d.obs) contenidoDetalle += `<li><b>📝 Observaciones:</b> <span style="white-space:pre-wrap;">${d.obs}</span></li>`;
+        
+        const esAdminEditor = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+        if (esAdminEditor && d.obs_internas) {
+            contenidoDetalle += `<li style="color:#c0392b; background:#fdedec; padding:8px; border-radius:6px; margin-top:8px; list-style:none;"><b>🔒 Obs. Internas:</b> <span style="white-space:pre-wrap;">${d.obs_internas}</span></li>`;
+        }
+        contenidoDetalle += `</ul>`;
+    } else {
+        contenidoDetalle = `<p style="white-space: pre-wrap; color: #555; line-height: 1.6; font-size: 0.95em; margin-top:10px;">${tarea.notas || 'Sin instrucciones adicionales.'}</p>`;
+    }
+
+    // MAGIA VISUAL: Badges para Franquicias en COLUMNA (Lista vertical)
+    let textoAsignadosHTML = '';
+    if (Array.isArray(tarea.asignado)) {
+        if (tarea.asignado.includes('TODOS')) {
+            textoAsignadosHTML = `<span style="background: #eefaf6; color: #047857; padding: 4px 10px; border-radius: 6px; font-size: 0.85em; font-weight:bold; border: 1px solid #10b981; display:inline-block; margin-top:5px;">📢 A Todas las Franquicias</span>`;
+        } else {
+            // ACÁ ESTÁ EL CAMBIO: flex-direction: column y align-items: flex-start
+            textoAsignadosHTML = `<div style="display:flex; flex-direction:column; align-items:flex-start; gap:6px; margin-top:5px;">` + 
+                tarea.asignado.map(f => `<span style="background: #eff6ff; color: #1e3a8a; padding: 4px 10px; border-radius: 6px; font-size: 0.85em; font-weight:bold; border: 1px solid #bfdbfe;">🏢 ${f}</span>`).join('') +
+                `</div>`;
+        }
+    } else {
+        // Compatibilidad para tareas muy viejas
+        if (tarea.asignado === 'TODOS') {
+            textoAsignadosHTML = `<span style="background: #eefaf6; color: #047857; padding: 4px 10px; border-radius: 6px; font-size: 0.85em; font-weight:bold; border: 1px solid #10b981; display:inline-block; margin-top:5px;">📢 A Todas las Franquicias</span>`;
+        } else {
+            textoAsignadosHTML = `<span style="background: #eff6ff; color: #1e3a8a; padding: 4px 10px; border-radius: 6px; font-size: 0.85em; font-weight:bold; border: 1px solid #bfdbfe; display:inline-block; margin-top:5px;">🏢 ${tarea.asignado || 'Sin asignar'}</span>`;
+        }
+    }
+
     modalBody.innerHTML = `
         ${adminTools}
         <div class="modal-detalle-header" style="display:block; padding-bottom: 25px;">
@@ -2890,16 +2898,15 @@ window.verDetalleTareaMkt = (event, idTarea) => {
 
         <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; padding: 20px;">
             <div>
-                <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Instrucciones y Detalles</h3>
-                <p style="white-space: pre-wrap; color: #555; line-height: 1.6; font-size: 0.95em; margin-top:10px;">${tarea.notas || 'Sin instrucciones adicionales.'}</p>
+                <h3 style="border-bottom:2px solid #eee; padding-bottom:10px; margin-top:0; color:#11173d;">Detalles de Contenido</h3>
+                ${contenidoDetalle}
                 ${driveHtml}
             </div>
-            <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content;">
+            <div style="background:#f9fbfd; padding:15px; border-radius:8px; height:fit-content; border: 1px solid #e5e7eb;">
                 <h4 style="margin:0 0 15px 0; color:#11173d; border-bottom:1px solid #eee; padding-bottom:10px;">Resumen</h4>
                 <p style="margin:8px 0 15px 0; font-size:0.95em;"><b>📅 Entrega:</b> ${fechaFormat}</p>
-                
-                <p style="margin:8px 0 4px 0; font-size:0.95em;"><b>🏢 Asignado a:</b></p>
-                <div style="color:#ef5a1a; font-weight:bold; font-size: 1.1em; line-height: 1.3;">${tarea.asignado}</div>
+                <div style="margin:8px 0 4px 0; font-size:0.95em;"><b>🏢 Asignado a:</b></div>
+                ${textoAsignadosHTML}
             </div>
         </div>
         
@@ -2910,7 +2917,6 @@ window.verDetalleTareaMkt = (event, idTarea) => {
             </div>
         </div>
     `;
-
     modal.style.display = 'flex';
 };
 
@@ -2984,6 +2990,7 @@ if(btnSig) {
 
 // --- 3. GESTIÓN DE ETIQUETAS DE MARKETING ---
 let etiquetasMarketingGlobal = [];
+const TAG_COTIZACION_HISTORIA = "Cotización SOLO X HOY- Historia";
 
 window.cargarEtiquetasMarketing = async () => {
     const contenedor = document.getElementById('lista-etiquetas-admin');
@@ -2992,9 +2999,13 @@ window.cargarEtiquetasMarketing = async () => {
         const doc = await db.collection('metadata').doc('config').get();
         if(doc.exists && doc.data().tipos_marketing) etiquetasMarketingGlobal = doc.data().tipos_marketing;
 
+        // 🛡️ PROTECCIÓN: Inyectamos la etiqueta dura si alguien la borró de la base
+        if (!etiquetasMarketingGlobal.find(e => e.nombre === TAG_COTIZACION_HISTORIA)) {
+            etiquetasMarketingGlobal.unshift({ nombre: TAG_COTIZACION_HISTORIA, abrev: "COT-H", color: "#f1c40f" });
+        }
+
         if(contenedor) {
             contenedor.innerHTML = '';
-            if(etiquetasMarketingGlobal.length === 0) contenedor.innerHTML = '<span style="color: #999; font-size: 0.9em;">No hay etiquetas creadas.</span>';
             etiquetasMarketingGlobal.forEach((eti, index) => {
                 contenedor.innerHTML += `
                 <div style="background: ${eti.color}15; border: 1px solid ${eti.color}; color: #11173d; padding: 5px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; font-size: 0.85em;">
@@ -3013,25 +3024,16 @@ window.cargarEtiquetasMarketing = async () => {
         const leyendaCalendario = document.getElementById('leyenda-etiquetas-marketing');
         if(leyendaCalendario) {
             leyendaCalendario.innerHTML = '';
-            if(etiquetasMarketingGlobal.length === 0) {
-                leyendaCalendario.innerHTML = '<span style="color: #999; font-size: 0.8em;">No hay etiquetas creadas.</span>';
-            } else {
-                etiquetasMarketingGlobal.forEach(eti => {
-                    leyendaCalendario.innerHTML += `
-                        <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85em; color: #555; background: #f9fafb; padding: 4px 10px; border-radius: 6px; border: 1px solid #e5e7eb;">
-                            <span style="background: ${eti.color}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">${eti.abrev}</span>
-                            <span style="font-weight: 500;">= ${eti.nombre}</span>
-                        </div>
-                    `;
-                });
-            }
+            etiquetasMarketingGlobal.forEach(eti => {
+                leyendaCalendario.innerHTML += `
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 0.85em; color: #555; background: #f9fafb; padding: 4px 10px; border-radius: 6px; border: 1px solid #e5e7eb;">
+                        <span style="background: ${eti.color}; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.8em;">${eti.abrev}</span>
+                        <span style="font-weight: 500;">= ${eti.nombre}</span>
+                    </div>`;
+            });
         }
-        
     } catch(e) { console.error("Error al cargar etiquetas:", e); }
 };
- 
-
-
 
 const btnNuevaEti = document.getElementById('btn-agregar-etiqueta');
 if(btnNuevaEti) {
@@ -3054,6 +3056,10 @@ if(btnNuevaEti) {
 }
 
 window.borrarEtiquetaMkt = async (index) => {
+    // 🛡️ BLOQUEO: No dejamos borrar la especial
+    if(etiquetasMarketingGlobal[index].nombre === TAG_COTIZACION_HISTORIA) {
+        return window.showAlert("No podés borrar esta etiqueta reservada del sistema.", "error");
+    }
     if(!confirm("¿Borrar esta etiqueta?")) return;
     etiquetasMarketingGlobal.splice(index, 1);
     showLoader(true, "Borrando...");
@@ -3062,107 +3068,218 @@ window.borrarEtiquetaMkt = async (index) => {
     showLoader(false);
 };
 
+
 // --- 4. FORMULARIO Y MODAL DE TAREAS ---
 const modalMkt = document.getElementById('modal-marketing');
 const formMkt = document.getElementById('form-marketing');
-const selectAsignado = document.getElementById('marketing-asignado');
+
+// Lógica para alternar el formulario
+document.getElementById('marketing-tipo').addEventListener('change', (e) => {
+    const isSpecial = e.target.value === TAG_COTIZACION_HISTORIA;
+    document.getElementById('marketing-campos-estandar').style.display = isSpecial ? 'none' : 'flex';
+    document.getElementById('marketing-campos-cotizacion').style.display = isSpecial ? 'flex' : 'none';
+    
+    // Obligatorios dinámicos
+    document.getElementById('marketing-notas').required = !isSpecial;
+    document.getElementById('mkt-cotiz-destino').required = isSpecial;
+
+    // Mostrar observaciones internas solo a jefes
+    const esAdminEditor = userData && (userData.rol === 'admin' || userData.rol === 'editor');
+    document.getElementById('container-obs-internas').style.display = (isSpecial && esAdminEditor) ? 'block' : 'none';
+});
 
 // Abre para CREAR
 window.abrirFormularioMarketing = async (fechaElegida) => {
     if (!modalMkt) return;
-    isEditingMktId = null; // Reiniciamos el ID de edición
-    if(formMkt) formMkt.reset(); // Limpiamos el formulario
+    isEditingMktId = null;
+    if(formMkt) formMkt.reset();
+    document.querySelectorAll('.chk-mkt-servicio, .chk-mkt-mes, .chk-mkt-hotel').forEach(c => c.checked = false);
+    
+    // Forzamos el cambio visual para reiniciar la pantalla
+    document.getElementById('marketing-tipo').dispatchEvent(new Event('change'));
 
     const partes = fechaElegida.split('-');
     document.getElementById('marketing-fecha-display').innerText = `${partes[2]}/${partes[1]}/${partes[0]}`;
     document.getElementById('marketing-fecha-input').value = fechaElegida;
     
-    await llenarComboFranquiciasMkt();
+    await llenarComboFranquiciasMkt([]);
     modalMkt.style.display = 'flex';
 };
 
-// Abre para EDITAR (Nueva función)
+// Abre para EDITAR
 window.editarTareaMkt = async (tarea) => {
     if (!modalMkt) return;
-    isEditingMktId = tarea.id; // Guardamos el ID que estamos editando
-    
-    // Ocultamos el modal de detalle y abrimos el de carga
+    isEditingMktId = tarea.id;
     document.getElementById('modal-detalle-tarea').style.display = 'none';
 
     const partes = tarea.fecha.split('-');
     document.getElementById('marketing-fecha-display').innerText = `${partes[2]}/${partes[1]}/${partes[0]}`;
     document.getElementById('marketing-fecha-input').value = tarea.fecha;
 
-    await llenarComboFranquiciasMkt();
-
-    // Llenamos los datos existentes
     document.getElementById('marketing-tipo').value = tarea.tipo || '';
-    document.getElementById('marketing-asignado').value = tarea.asignado || '';
+    
+    // Llenamos el combo múltiple
+    let asignadosArr = Array.isArray(tarea.asignado) ? tarea.asignado : [tarea.asignado];
+    await llenarComboFranquiciasMkt(asignadosArr);
+
     document.getElementById('marketing-drive').value = tarea.drive || '';
     document.getElementById('marketing-notas').value = tarea.notas || '';
 
+    // Si es la especial, llenamos sus datos
+    if (tarea.tipo === TAG_COTIZACION_HISTORIA && tarea.cotiz_data) {
+        document.getElementById('mkt-cotiz-destino').value = tarea.cotiz_data.destino || '';
+        document.getElementById('mkt-cotiz-noches').value = tarea.cotiz_data.noches || '';
+        document.getElementById('mkt-cotiz-regimen').value = tarea.cotiz_data.regimen || 'Sin regimen';
+        document.getElementById('mkt-cotiz-cuotas').value = tarea.cotiz_data.cuotas || 'Si';
+        document.getElementById('mkt-cotiz-obs').value = tarea.cotiz_data.obs || '';
+        document.getElementById('mkt-cotiz-obsinternas').value = tarea.cotiz_data.obs_internas || '';
+
+        document.querySelectorAll('.chk-mkt-servicio').forEach(c => c.checked = (tarea.cotiz_data.servicios || []).includes(c.value));
+        document.querySelectorAll('.chk-mkt-mes').forEach(c => c.checked = (tarea.cotiz_data.meses || []).includes(c.value));
+        document.querySelectorAll('.chk-mkt-hotel').forEach(c => c.checked = (tarea.cotiz_data.hoteles || []).includes(c.value));
+    }
+
+    document.getElementById('marketing-tipo').dispatchEvent(new Event('change'));
     modalMkt.style.display = 'flex';
 };
 
-// Función auxiliar para cargar el combo (para no repetir código)
-async function llenarComboFranquiciasMkt() {
-    selectAsignado.innerHTML = '<option value="">Seleccionar...</option><option value="TODOS">📢 A Todas las Franquicias</option>';
+// Generador del Buscador Múltiple de Franquicias (BOTONES ILUMINADOS 🚀)
+async function llenarComboFranquiciasMkt(seleccionadosPrevios = []) {
+    const contenedor = document.getElementById('marketing-asignado-container');
+    const isTodosChecked = seleccionadosPrevios.includes('TODOS');
+    
+    let html = `
+        <label class="franq-item ${isTodosChecked ? 'selected' : ''}">
+            <input type="checkbox" style="display:none;" class="chk-franquicia-mkt" value="TODOS" ${isTodosChecked ? 'checked' : ''} onchange="this.parentElement.classList.toggle('selected', this.checked); window.actualizarTextoFranqMkt();"> 
+            📢 A Todas las Franquicias
+        </label>
+        <hr style="margin:5px 0; border:0; border-top:1px solid #ddd; width:100%;">
+    `;
+    
     try {
         const doc = await db.collection('metadata').doc('config').get();
         if (doc.exists && doc.data().franquicias) {
-            doc.data().franquicias.forEach(f => selectAsignado.innerHTML += `<option value="${f}">🏢 ${f}</option>`);
+            doc.data().franquicias.forEach(f => {
+                const isChecked = seleccionadosPrevios.includes(f);
+                html += `
+                    <label class="franq-item franq-filterable ${isChecked ? 'selected' : ''}">
+                        <input type="checkbox" style="display:none;" class="chk-franquicia-mkt" value="${f}" ${isChecked ? 'checked' : ''} onchange="this.parentElement.classList.toggle('selected', this.checked); window.actualizarTextoFranqMkt();"> 
+                        🏢 <span class="franq-name">${f}</span>
+                    </label>
+                `;
+            });
         }
-    } catch(e) { console.error(e); }
+    } catch(e) {}
+    contenedor.innerHTML = html;
+    window.actualizarTextoFranqMkt();
 }
 
+// Filtro del buscador de franquicias en tiempo real
+window.filtrarFranquiciasMkt = () => {
+    const term = document.getElementById('mkt-franq-search').value.toLowerCase();
+    const items = document.querySelectorAll('.franq-filterable');
+    items.forEach(item => {
+        const name = item.querySelector('.franq-name').innerText.toLowerCase();
+        item.style.display = name.includes(term) ? 'flex' : 'none';
+    });
+};
+
+// Actualiza el texto de la cabecera del desplegable
+window.actualizarTextoFranqMkt = () => {
+    const checked = document.querySelectorAll('.chk-franquicia-mkt:checked');
+    const span = document.getElementById('franq-select-text');
+    if(!span) return;
+    if(checked.length === 0) {
+        span.innerText = "Seleccionar franquicias...";
+        span.style.color = "#6b7280";
+    } else if(Array.from(checked).some(c => c.value === 'TODOS')) {
+        span.innerHTML = "<span style='background:#eefaf6; color:#047857; padding:4px 10px; border-radius:6px; font-size:0.9em; font-weight:bold;'>📢 A Todas las Franquicias</span>";
+    } else {
+        span.innerHTML = `<span style='background:#eff6ff; color:#1e3a8a; padding:4px 10px; border-radius:6px; font-size:0.9em; font-weight:bold;'>${checked.length} Franquicias asignadas</span>`;
+    }
+};
+
+// Cerrar el desplegable si hacen clic en cualquier otra parte de la pantalla
+document.addEventListener('click', (e) => {
+    const container = document.getElementById('franq-select-container');
+    const dropdown = document.getElementById('franq-dropdown');
+    if(container && dropdown && !container.contains(e.target)) {
+        dropdown.style.display = 'none';
+    }
+});
+
+// --- DEVOLVIENDO LA VIDA AL BOTÓN CERRAR ---
 const btnCerrarMkt = document.getElementById('modal-marketing-cerrar');
-if(btnCerrarMkt) btnCerrarMkt.onclick = () => { modalMkt.style.display = 'none'; if(formMkt) formMkt.reset(); };
+if(btnCerrarMkt) {
+    btnCerrarMkt.onclick = () => { 
+        if(modalMkt) modalMkt.style.display = 'none'; 
+        if(formMkt) formMkt.reset(); 
+    };
+}
+if(modalMkt) {
+    modalMkt.addEventListener('click', (e) => {
+        if(e.target === modalMkt) {
+            modalMkt.style.display = 'none';
+            if(formMkt) formMkt.reset();
+        }
+    });
+}
 
 if (formMkt) {
     formMkt.addEventListener('submit', async (e) => {
         e.preventDefault();
         showLoader(true, isEditingMktId ? "Actualizando tarea..." : "Guardando tarea...");
         
-        // Buscamos si hay datos originales para conservarlos (creador y timestamp original)
-        let tareaOriginal = null;
-        if (isEditingMktId) {
-            tareaOriginal = tareasMarketingGlobal.find(t => t.id === isEditingMktId);
+        let tareaOriginal = isEditingMktId ? tareasMarketingGlobal.find(t => t.id === isEditingMktId) : null;
+
+        // Recopilamos las franquicias tildadas de los nuevos botones iluminados
+        const chkAsignados = document.querySelectorAll('.chk-franquicia-mkt:checked');
+        let asignadosArray = Array.from(chkAsignados).map(c => c.value);
+        if (asignadosArray.length === 0) {
+            showLoader(false);
+            return window.showAlert("Tenés que asignar la tarea a al menos una franquicia", "error");
+        }
+        
+        const tipoSelect = document.getElementById('marketing-tipo').value;
+
+        // Recopilamos los datos específicos si es la especial (Solo X Hoy)
+        let cotizData = null;
+        if (tipoSelect === TAG_COTIZACION_HISTORIA) {
+            cotizData = {
+                destino: document.getElementById('mkt-cotiz-destino').value,
+                servicios: Array.from(document.querySelectorAll('.chk-mkt-servicio:checked')).map(c=>c.value),
+                meses: Array.from(document.querySelectorAll('.chk-mkt-mes:checked')).map(c=>c.value),
+                noches: document.getElementById('mkt-cotiz-noches').value,
+                hoteles: Array.from(document.querySelectorAll('.chk-mkt-hotel:checked')).map(c=>c.value),
+                regimen: document.getElementById('mkt-cotiz-regimen').value,
+                cuotas: document.getElementById('mkt-cotiz-cuotas').value,
+                obs: document.getElementById('mkt-cotiz-obs').value,
+                obs_internas: document.getElementById('mkt-cotiz-obsinternas').value
+            };
         }
 
         const payload = {
             fecha: document.getElementById('marketing-fecha-input').value,
-            tipo: document.getElementById('marketing-tipo').value,
-            asignado: document.getElementById('marketing-asignado').value,
+            tipo: tipoSelect,
+            asignado: asignadosArray, // ARRAY COMPLETO MULTIPLE
             drive: document.getElementById('marketing-drive').value,
             notas: document.getElementById('marketing-notas').value,
-            // Si editamos, mantenemos al creador original. Si es nueva, ponemos al actual.
+            cotiz_data: cotizData,
             creador: isEditingMktId && tareaOriginal ? tareaOriginal.creador : ((userData && userData.franquicia) ? userData.franquicia : (currentUser ? currentUser.email : 'Anónimo')),
-            // Misma lógica para la fecha de creación
             timestamp: isEditingMktId && tareaOriginal ? tareaOriginal.timestamp : Date.now(),
-            // Agregamos una marca de quién editó
             last_edited_by: isEditingMktId ? currentUser.email : null
         };
 
         try {
-            if (isEditingMktId) {
-                // Modo Edición
-                await db.collection('calendario_marketing').doc(isEditingMktId).update(payload);
-                window.showAlert("¡Tarea actualizada con éxito!", "success");
-            } else {
-                // Modo Creación
-                await db.collection('calendario_marketing').add(payload);
-                window.showAlert("¡Tarea asignada con éxito!", "success");
-            }
+            if (isEditingMktId) await db.collection('calendario_marketing').doc(isEditingMktId).update(payload);
+            else await db.collection('calendario_marketing').add(payload);
             
+            window.showAlert("¡Tarea guardada con éxito!", "success");
             modalMkt.style.display = 'none';
             formMkt.reset();
-            isEditingMktId = null; // Limpiamos el control
-
+            isEditingMktId = null;
             await window.renderizarCalendario();
-        } catch(error) {
-            console.error(error);
-            window.showAlert("Error al guardar en BD.", "error");
-        }
+        } catch(error) { window.showAlert("Error al guardar en BD.", "error"); }
         showLoader(false);
     });
 }
@@ -3655,7 +3772,7 @@ window.renderizarCalendarioAgentes = async () => {
         let htmlTareas = '';
         tareasDelDia.forEach(tarea => {
             const miFranquicia = userData && userData.franquicia ? userData.franquicia : '';
-            const esParaMi = (tarea.asignado === miFranquicia || tarea.asignado === 'TODOS');
+            const esParaMi = Array.isArray(tarea.asignado) ? (tarea.asignado.includes(miFranquicia) || tarea.asignado.includes('TODOS')) : (tarea.asignado === miFranquicia || tarea.asignado === 'TODOS');
             const infoEtiqueta = etiquetasMarketingGlobal.find(e => e.nombre === tarea.tipo) || { abrev: 'AGT', color: '#6b7280' };
 
             const fondoTarea = esParaMi ? '#fffdf0' : '#f9fafb';

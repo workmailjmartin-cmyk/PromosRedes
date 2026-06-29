@@ -68,164 +68,45 @@
                     <button id="btn-sub-buscar" class="btn" style="background: #11173d; color: white; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">🔍 Buscar</button>
                     <button id="btn-sub-cargar" class="btn" style="background: #f3f4f6; color: #6b7280; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">➕ Cargar</button>
                 </div>
-                <div id="weekly-planner" class="planner-wrapper" style="display:none;">
+                <div id="weekly-planner" class="planner-wrapper" style="margin-bottom: 20px;">
                     <div class="planner-header" id="planner-header-btn">
-                        <div class="planner-title">
-                            📅 Planificación Semanal: Cotizaciones Solo x Hoy (COT SXH)
-                        </div>
+                        <div class="planner-title" style="font-weight: bold; color: #11173d;">📅 Mis Tareas de esta Semana</div>
                         <div class="planner-toggle-icon">▼</div>
                     </div>
                     
                     <div class="planner-body" id="planner-body-content">
-                        <div class="planner-grid">
-                            <style>
-                                .plan-input { width: 100%; box-sizing: border-box; border: none; border-bottom: 1px dashed #d1d5db; padding: 4px 2px; font-size: 0.85em; background: transparent; color: #11173d; outline: none; margin-bottom: 6px; transition: 0.2s; font-family: inherit; }
-                                .plan-input:focus { border-bottom: 1px solid #ef5a1a; background: #fffdf0; }
-                                .plan-obs { resize: vertical; border: 1px solid #e5e7eb; background: #f9fafb; border-radius: 6px; padding: 8px; margin-top: 2px; min-height: 80px; }
-                                .plan-obs:focus { border: 1px solid #ef5a1a; background: #fffdf0; }
-                                .day-read { flex: 1; display: flex; flex-direction: column; gap: 6px; font-size: 0.85em; overflow-y: auto; padding-right: 5px; }
-                                .day-edit { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding-right: 5px; }
-                                .plan-label { font-size: 0.7em; font-weight: bold; color: #6b7280; margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-                            </style>
+                        <div id="mini-planner-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; padding: 20px; background: #f9fafb;">
                             
-                            <div class="day-card" id="day-card-1">
-                                <div class="day-title">Lunes <span id="date-1" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <div class="day-read" id="read-lunes" style="display:none;"></div>
-                                <div class="day-edit" id="edit-lunes" style="display:none;">
-                                    <label class="plan-label">📍 Destino/s</label>
-                                    <input type="text" id="plan-dest-lunes" class="plan-input">
-                                    
-                                    <label class="plan-label">🍽️ Régimen</label>
-                                    <input type="text" id="plan-reg-lunes" class="plan-input">
-                                    
-                                    <label class="plan-label">🚕 Traslados</label>
-                                    <input type="text" id="plan-trf-lunes" class="plan-input">
-                                    
-                                    <label class="plan-label">🌙 Cant. Días</label>
-                                    <input type="text" id="plan-dias-lunes" class="plan-input">
-                                    
-                                    <label class="plan-label">💰 Precio ideal</label>
-                                    <input type="text" id="plan-precio-lunes" class="plan-input">
-
-                                    <label class="plan-label">💡 Recomendamos cotizar en</label>
-                                    <input type="text" id="plan-recom-lunes" class="plan-input">
-                                    
-                                    <label class="plan-label">📝 Observaciones</label>
-                                    <textarea id="plan-obs-lunes" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
-                                </div>
+                            <div class="day-card" id="mini-day-1" onclick="irAlCalendarioMarketing()" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                <div style="font-weight: bold; color: #11173d; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Lunes</div>
+                                <div id="mini-date-1" style="color: #6b7280; font-size: 0.75em; margin-bottom: 10px;">--/--</div>
+                                <div id="mini-content-1">⏳</div>
                             </div>
                             
-                            <div class="day-card" id="day-card-2">
-                                <div class="day-title">Martes <span id="date-2" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <div class="day-read" id="read-martes" style="display:none;"></div>
-                                <div class="day-edit" id="edit-martes" style="display:none;">
-                                    <label class="plan-label">📍 Destino/s</label>
-                                    <input type="text" id="plan-dest-martes" class="plan-input">
-                                    
-                                    <label class="plan-label">🍽️ Régimen</label>
-                                    <input type="text" id="plan-reg-martes" class="plan-input">
-                                    
-                                    <label class="plan-label">🚕 Traslados</label>
-                                    <input type="text" id="plan-trf-martes" class="plan-input">
-                                    
-                                    <label class="plan-label">🌙 Cant. Días</label>
-                                    <input type="text" id="plan-dias-martes" class="plan-input">
-                                    
-                                    <label class="plan-label">💰 Precio ideal</label>
-                                    <input type="text" id="plan-precio-martes" class="plan-input">
-
-                                    <label class="plan-label">💡 Recomendamos cotizar en</label>
-                                    <input type="text" id="plan-recom-martes" class="plan-input">
-                                    
-                                    <label class="plan-label">📝 Observaciones</label>
-                                    <textarea id="plan-obs-martes" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
-                                </div>
+                            <div class="day-card" id="mini-day-2" onclick="irAlCalendarioMarketing()" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                <div style="font-weight: bold; color: #11173d; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Martes</div>
+                                <div id="mini-date-2" style="color: #6b7280; font-size: 0.75em; margin-bottom: 10px;">--/--</div>
+                                <div id="mini-content-2">⏳</div>
                             </div>
                             
-                            <div class="day-card" id="day-card-3">
-                                <div class="day-title">Miércoles <span id="date-3" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <div class="day-read" id="read-miercoles" style="display:none;"></div>
-                                <div class="day-edit" id="edit-miercoles" style="display:none;">
-                                    <label class="plan-label">📍 Destino/s</label>
-                                    <input type="text" id="plan-dest-miercoles" class="plan-input">
-                                    
-                                    <label class="plan-label">🍽️ Régimen</label>
-                                    <input type="text" id="plan-reg-miercoles" class="plan-input">
-                                    
-                                    <label class="plan-label">🚕 Traslados</label>
-                                    <input type="text" id="plan-trf-miercoles" class="plan-input">
-                                    
-                                    <label class="plan-label">🌙 Cant. Días</label>
-                                    <input type="text" id="plan-dias-miercoles" class="plan-input">
-                                    
-                                    <label class="plan-label">💰 Precio ideal</label>
-                                    <input type="text" id="plan-precio-miercoles" class="plan-input">
-
-                                    <label class="plan-label">💡 Recomendamos cotizar en</label>
-                                    <input type="text" id="plan-recom-miercoles" class="plan-input">
-                                    
-                                    <label class="plan-label">📝 Observaciones</label>
-                                    <textarea id="plan-obs-miercoles" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
-                                </div>
+                            <div class="day-card" id="mini-day-3" onclick="irAlCalendarioMarketing()" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                <div style="font-weight: bold; color: #11173d; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Miércoles</div>
+                                <div id="mini-date-3" style="color: #6b7280; font-size: 0.75em; margin-bottom: 10px;">--/--</div>
+                                <div id="mini-content-3">⏳</div>
                             </div>
                             
-                            <div class="day-card" id="day-card-4">
-                                <div class="day-title">Jueves <span id="date-4" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <div class="day-read" id="read-jueves" style="display:none;"></div>
-                                <div class="day-edit" id="edit-jueves" style="display:none;">
-                                    <label class="plan-label">📍 Destino/s</label>
-                                    <input type="text" id="plan-dest-jueves" class="plan-input">
-                                    
-                                    <label class="plan-label">🍽️ Régimen</label>
-                                    <input type="text" id="plan-reg-jueves" class="plan-input">
-                                    
-                                    <label class="plan-label">🚕 Traslados</label>
-                                    <input type="text" id="plan-trf-jueves" class="plan-input">
-                                    
-                                    <label class="plan-label">🌙 Cant. Días</label>
-                                    <input type="text" id="plan-dias-jueves" class="plan-input">
-                                    
-                                    <label class="plan-label">💰 Precio ideal</label>
-                                    <input type="text" id="plan-precio-jueves" class="plan-input">
-
-                                    <label class="plan-label">💡 Recomendamos cotizar en</label>
-                                    <input type="text" id="plan-recom-jueves" class="plan-input">
-                                    
-                                    <label class="plan-label">📝 Observaciones</label>
-                                    <textarea id="plan-obs-jueves" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
-                                </div>
+                            <div class="day-card" id="mini-day-4" onclick="irAlCalendarioMarketing()" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                <div style="font-weight: bold; color: #11173d; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Jueves</div>
+                                <div id="mini-date-4" style="color: #6b7280; font-size: 0.75em; margin-bottom: 10px;">--/--</div>
+                                <div id="mini-content-4">⏳</div>
                             </div>
                             
-                            <div class="day-card" id="day-card-5">
-                                <div class="day-title">Viernes <span id="date-5" style="font-weight:400; font-size:0.8em;"></span></div>
-                                <div class="day-read" id="read-viernes" style="display:none;"></div>
-                                <div class="day-edit" id="edit-viernes" style="display:none;">
-                                    <label class="plan-label">📍 Destino/s</label>
-                                    <input type="text" id="plan-dest-viernes" class="plan-input">
-                                    
-                                    <label class="plan-label">🍽️ Régimen</label>
-                                    <input type="text" id="plan-reg-viernes" class="plan-input">
-                                    
-                                    <label class="plan-label">🚕 Traslados</label>
-                                    <input type="text" id="plan-trf-viernes" class="plan-input">
-                                    
-                                    <label class="plan-label">🌙 Cant. Días</label>
-                                    <input type="text" id="plan-dias-viernes" class="plan-input">
-                                    
-                                    <label class="plan-label">💰 Precio ideal</label>
-                                    <input type="text" id="plan-precio-viernes" class="plan-input">
-
-                                    <label class="plan-label">💡 Recomendamos cotizar en</label>
-                                    <input type="text" id="plan-recom-viernes" class="plan-input">
-                                    
-                                    <label class="plan-label">📝 Observaciones</label>
-                                    <textarea id="plan-obs-viernes" placeholder="Detalle libre..." class="plan-input plan-obs" rows="4"></textarea>
-                                </div>
+                            <div class="day-card" id="mini-day-5" onclick="irAlCalendarioMarketing()" style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; text-align: center; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                                <div style="font-weight: bold; color: #11173d; margin-bottom: 5px; text-transform: uppercase; font-size: 0.85em;">Viernes</div>
+                                <div id="mini-date-5" style="color: #6b7280; font-size: 0.75em; margin-bottom: 10px;">--/--</div>
+                                <div id="mini-content-5">⏳</div>
                             </div>
-                        </div>
-                        
-                        <div class="planner-actions">
-                            <button id="btn-save-planning" class="btn btn-primario" style="padding: 8px 20px; font-size:0.9em;">💾 Guardar Planificación</button>
+
                         </div>
                     </div>
                 </div>
@@ -406,7 +287,7 @@
                 <!-- Cabecera del Calendario -->
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e5e7eb; padding-bottom: 15px; margin-bottom: 20px;">
                     <h2 style="color: #11173d; margin: 0; display: flex; align-items: center; gap: 10px;">
-                        📅 Calendario de Contenidos
+                        📅 Calendario Cuenta Oficial
                     </h2>
 
                     
@@ -731,39 +612,141 @@
     <!-- MODAL: CARGA DE TAREAS MARKETING -->
     <!-- ================================================== -->
     <div id="modal-marketing" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17, 23, 61, 0.8); z-index: 10000; justify-content: center; align-items: center;">
-        <div style="background: white; width: 90%; max-width: 500px; border-radius: 12px; padding: 25px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-height: 85vh; overflow-y: auto;">
+        <!-- ACA SE AGRANDÓ A 700px -->
+        <div style="background: white; width: 90%; max-width: 700px; border-radius: 12px; padding: 25px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto;">
             <button id="modal-marketing-cerrar" style="position: absolute; top: 15px; right: 15px; background: transparent; border: none; font-size: 1.5em; cursor: pointer; color: #11173d;">&times;</button>
             <h2 style="margin-top: 0; color: #11173d;">📝 Asignar Tarea</h2>
             <p style="color: #6b7280; font-size: 0.9em; margin-bottom: 20px;">Fecha de entrega: <strong id="marketing-fecha-display"></strong></p>
+
+            <style>
+                /* Estilos mágicos para los botones iluminados */
+                .toggle-btn-group { display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.9em; }
+                .toggle-btn-label { cursor: pointer; user-select: none; }
+                .toggle-btn-input { display: none; }
+                .toggle-btn-text { display: inline-block; padding: 8px 16px; border-radius: 20px; border: 1px solid #d1d5db; background: #f9fafb; color: #6b7280; transition: all 0.2s ease; font-weight: 500; }
+                .toggle-btn-input:checked + .toggle-btn-text { background: #eefaf6; border-color: #10b981; color: #047857; box-shadow: 0 2px 5px rgba(16, 185, 129, 0.2); font-weight: bold; }
+                
+                /* Estilos para el desplegable con buscador */
+                .custom-select-container { position: relative; width: 100%; font-family: inherit; }
+                .custom-select-header { padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; background: white; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }
+                .custom-select-header:hover { border-color: #b1b5c3; }
+                .custom-select-dropdown { position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 6px 15px rgba(0,0,0,0.15); margin-top: 5px; z-index: 100; display: none; flex-direction: column; overflow: hidden; }
+                .custom-select-search { padding: 10px; border-bottom: 1px solid #e5e7eb; background:#f9fafb; }
+                .custom-select-search input { width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #d1d5db; box-sizing: border-box; outline:none; }
+                .custom-select-search input:focus { border-color: #ef5a1a; }
+                .custom-select-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; }
+                .franq-item { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: 0.1s; display: flex; align-items: center; margin: 0; }
+                .franq-item:hover { background: #f3f4f6; }
+                .franq-item.selected { background: #eff6ff; color: #1e3a8a; border-left: 4px solid #3b82f6; font-weight: bold; }
+            </style>
 
             <form id="form-marketing" style="display: flex; flex-direction: column; gap: 15px;">
                 <input type="hidden" id="marketing-fecha-input">
                 
                 <div class="form-group" style="margin:0;">
                     <label>Tipo de Contenido</label>
-                    <select id="marketing-tipo" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    <select id="marketing-tipo" required style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; outline:none;">
                         <option value="">Seleccionar...</option>
                     </select>
                 </div>
 
+                <!-- NUEVO: Selector Desplegable con Buscador -->
                 <div class="form-group" style="margin:0;">
-                    <label>Asignado a</label>
-                    <select id="marketing-asignado" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                        <option value="">Cargando opciones...</option>
-                    </select>
+                    <label>Asignado a (Podés tildar varias)</label>
+                    <div class="custom-select-container" id="franq-select-container">
+                        <div class="custom-select-header" onclick="document.getElementById('franq-dropdown').style.display = document.getElementById('franq-dropdown').style.display === 'flex' ? 'none' : 'flex'; document.getElementById('mkt-franq-search').focus();">
+                            <span id="franq-select-text" style="color: #6b7280;">Seleccionar franquicias...</span>
+                            <span style="font-size: 0.8em; color: #999;">▼</span>
+                        </div>
+                        <div class="custom-select-dropdown" id="franq-dropdown">
+                            <div class="custom-select-search">
+                                <input type="text" id="mkt-franq-search" placeholder="🔍 Buscar franquicia..." onkeyup="window.filtrarFranquiciasMkt()">
+                            </div>
+                            <div class="custom-select-list" id="marketing-asignado-container">
+                                <!-- JS llenará esto -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="form-group" style="margin:0;">
-                    <label>Link de Carpeta (Google Drive)</label>
-                    <input type="url" id="marketing-drive" placeholder="https://drive.google.com/..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <!-- CONTENEDOR ESTÁNDAR -->
+                <div id="marketing-campos-estandar" style="display:flex; flex-direction:column; gap:15px;">
+                    <div class="form-group" style="margin:0;">
+                        <label>Link de Carpeta (Google Drive)</label>
+                        <input type="url" id="marketing-drive" placeholder="https://drive.google.com/..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label>Instrucciones y Detalles</label>
+                        <textarea id="marketing-notas" rows="3" placeholder="Ej: Subir el video en formato vertical, usar logo blanco..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; font-family: inherit;"></textarea>
+                    </div>
                 </div>
 
-                <div class="form-group" style="margin:0;">
-                    <label>Instrucciones y Detalles</label>
-                    <textarea id="marketing-notas" rows="3" placeholder="Ej: Subir el video en formato vertical, usar logo blanco..." required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; font-family: inherit;"></textarea>
+                <!-- CONTENEDOR NUEVO (SOLO X HOY) CON BOTONES ILUMINADOS -->
+                <div id="marketing-campos-cotizacion" style="display:none; flex-direction:column; gap:15px; background:#fffdf0; padding:20px; border-radius:8px; border: 1px solid #f1c40f;">
+                    
+                    <div class="form-group" style="margin:0;"><label>📍 Destino <span style="color:red">*</span></label><input type="text" id="mkt-cotiz-destino" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; outline:none;"></div>
+                    
+                    <div class="form-group" style="margin:0;"><label>✅ Servicio</label>
+                        <div class="toggle-btn-group">
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-servicio toggle-btn-input" value="Paquete"><span class="toggle-btn-text">Paquete</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-servicio toggle-btn-input" value="Vuelos"><span class="toggle-btn-text">Vuelos</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-servicio toggle-btn-input" value="Alojamientos"><span class="toggle-btn-text">Alojamientos</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-servicio toggle-btn-input" value="Circuitos"><span class="toggle-btn-text">Circuitos</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-servicio toggle-btn-input" value="Traslado"><span class="toggle-btn-text">Traslado</span></label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin:0;"><label>📅 Fechas de Viaje</label>
+                        <div class="toggle-btn-group">
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-mes toggle-btn-input" value="Enero"><span class="toggle-btn-text">Ene</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-mes toggle-btn-input" value="Febrero"><span class="toggle-btn-text">Feb</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-mes toggle-btn-input" value="Marzo"><span class="toggle-btn-text">Mar</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-mes toggle-btn-input" value="Abril"><span class="toggle-btn-text">Abr</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-mes toggle-btn-input" value="Mayo"><span class="toggle-btn-text">May</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-mes toggle-btn-input" value="Junio"><span class="toggle-btn-text">Jun</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-mes toggle-btn-input" value="Julio"><span class="toggle-btn-text">Jul</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-mes toggle-btn-input" value="Agosto"><span class="toggle-btn-text">Ago</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-mes toggle-btn-input" value="Septiembre"><span class="toggle-btn-text">Sep</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-mes toggle-btn-input" value="Octubre"><span class="toggle-btn-text">Oct</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-mes toggle-btn-input" value="Noviembre"><span class="toggle-btn-text">Nov</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-mes toggle-btn-input" value="Diciembre"><span class="toggle-btn-text">Dic</span></label>
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                        <div class="form-group" style="margin:0;"><label>🌙 Noches</label><input type="text" id="mkt-cotiz-noches" placeholder="Ej: 7 noches..." style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; outline:none;"></div>
+                        <div class="form-group" style="margin:0;"><label>🍽️ Régimen</label>
+                            <select id="mkt-cotiz-regimen" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; outline:none;">
+                                <option value="Sin regimen">Sin régimen</option>
+                                <option value="Desayuno">Desayuno</option>
+                                <option value="Media Pension">Media Pensión</option>
+                                <option value="All Inclusive">All Inclusive</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin:0;"><label>🏨 Tipo de Hotel</label>
+                        <div class="toggle-btn-group">
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-hotel toggle-btn-input" value="Low cost"><span class="toggle-btn-text">Low cost</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-hotel toggle-btn-input" value="Medium"><span class="toggle-btn-text">Medium</span></label>
+                            <label class="toggle-btn-label"><input type="checkbox" class="chk-mkt-hotel toggle-btn-input" value="Premium"><span class="toggle-btn-text">Premium</span></label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin:0; border-top:1px dashed #d1d5db; padding-top:10px;"><label>💳 Con seña y cuotas</label>
+                        <select id="mkt-cotiz-cuotas" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; outline:none;">
+                            <option value="Si">Sí</option>
+                            <option value="No">No</option>
+                        </select>
+                        <small style="color:#d35400; display:block; margin-top:4px; line-height:1.2;">* Para calcular seña hacer NETO AEREO + Ganancia: Las cuotas son los meses que queden a la salida. Todos los servicios con cancelación gratis.</small>
+                    </div>
+
+                    <div class="form-group" style="margin:0;"><label>📝 Observaciones</label><textarea id="mkt-cotiz-obs" rows="2" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; outline:none; font-family:inherit;"></textarea></div>
+                    
+                    <div id="container-obs-internas" class="form-group" style="margin:0; display:none;"><label style="color:#c0392b;">🔒 Observaciones Internas (Solo Admin/Editores)</label><textarea id="mkt-cotiz-obsinternas" rows="2" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #fadbd8; background:#fdedec; outline:none; font-family:inherit;"></textarea></div>
                 </div>
 
-                <button type="submit" style="background: #ef5a1a; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px;">
+                <button type="submit" style="background: #ef5a1a; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 1.1em; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.2s;">
                     Guardar y Asignar
                 </button>
             </form>
