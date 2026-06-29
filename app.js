@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         "Misiones": [{nombre: "Iguazú", sigla: "IGR"}, {nombre: "Posadas", sigla: "PSS"}],
         "Neuquén": [{nombre: "Neuquén", sigla: "NQN"}, {nombre: "San Martín de los Andes", sigla: "CPC"}],
         "Río Negro": [{nombre: "Bariloche", sigla: "BRC"}, {nombre: "Viedma", sigla: "VDM"}],
-        "Salta": [{nombre: "Salta - Güemes", sigla: "SLA"}],
+        "Salta": [{nombre: "Salta - Gral. Martín Miguel de Güemes", sigla: "SLA"}],
         "San Juan": [{nombre: "San Juan", sigla: "UAQ"}],
         "San Luis": [{nombre: "San Luis", sigla: "LUQ"}, {nombre: "Merlo", sigla: "RLO"}],
         "Santa Cruz": [
@@ -2047,7 +2047,7 @@ window.approvePackage = async (pkg) => {
                     if (tareasMias.length > 0) {
                         contentDiv.innerHTML = `<div style="background: #eefaf6; color: #047857; padding: 6px; border-radius: 6px; font-weight: bold; font-size: 0.9em; display:flex; align-items:center; justify-content:center; gap:5px; border: 1px solid #10b981;"><span>🔔</span> ${tareasMias.length} Tarea${tareasMias.length > 1 ? 's' : ''}</div>`;
                     } else {
-                        contentDiv.innerHTML = `<div style="color: #9ca3af; font-size: 0.85em; padding: 6px;">✅ Libre</div>`;
+                        contentDiv.innerHTML = `<div style="color: #9ca3af; font-size: 0.85em; padding: 6px;">☕ No te toca cotizar hoy</div>`;
                     }
                 }
             }
