@@ -330,26 +330,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (pkg.alcance === 'casa_central') return false; // Bloquea promo interna
                     if (pkg.status === 'pending') return false; // Bloquea no aprobados
                     
-                    // ❌ REGLA 1: Si el Admin marcó "Ocultar", no se muestra
+                    // ❌ REGLA 1: Si el Admin marcó "Ocultar", no se muestra jamás
                     if (pkg.ocultar_cliente) return false; 
                     
-                    // 📅 REGLA NUEVA: Ocultar promos de FEED automáticamente a los 14 días
-                    if (pkg.tipo_promo === 'FEED' && pkg.fecha_creacion) {
-                        const parts = pkg.fecha_creacion.split('/');
-                        if (parts.length === 3) {
-                            const fechaCreacion = new Date(parts[2], parts[1] - 1, parts[0]);
-                            const hoy = new Date();
-                            hoy.setHours(0,0,0,0);
-                            
-                            const diasPasados = Math.ceil((hoy - fechaCreacion) / (1000 * 60 * 60 * 24));
-                            if (diasPasados > 14) {
-                                return false; // Se oculta a los clientes (pero sigue en BD)
-                            }
+                    // 📅 REGLA 2: Promos de FEED y ADS duran exactamente 7 días
+                    if (pkg.tipo_promo === 'FEED' || pkg.tipo_promo === 'ADS') {
+                        const ahora = Date.now();
+                        const antiguedad = ahora - (pkg.timestamp || 0);
+                        const sieteDiasMs = 7 * 24 * 60 * 60 * 1000;
+                        
+                        if (antiguedad > sieteDiasMs) {
+                            return false; // Pasaron los 7 días -> Se oculta al cliente
                         }
+                        
+                        // Si sobrevive al filtro de los 7 días, retorna true directamente 
+                        // para SALTEAR la regla de las 12hs.
+                        return true; 
                     }
 
-                    // ⏳ REGLA 2: Corte de "La Cenicienta" (12hs)
-                    if (!pkg.reflejo_cliente && pkg.timestamp && pkg.timestamp < cutoffEpoch) return false; 
+                    // ⏳ REGLA 3: Corte de "La Cenicienta" (12hs)
+                    // Como FEED y ADS ya retornaron arriba, esto solo afecta a "Solo X Hoy" o nuevas categorías
+                    if (!pkg.reflejo_cliente && pkg.timestamp && pkg.timestamp < cutoffEpoch) {
+                        return false; 
+                    }
                     
                     return true;
                 });
