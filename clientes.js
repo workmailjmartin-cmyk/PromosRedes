@@ -385,12 +385,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const BANCO_IMAGENES = [
-        { id: 'caribe', url: 'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?q=80&w=800&auto=format&fit=crop' },
-        { id: 'brasil', url: 'https://images.unsplash.com/photo-1548574505-5e239809ee19?q=80&w=800&auto=format&fit=crop' },
-        { id: 'ciudad', url: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?q=80&w=800&auto=format&fit=crop' },
-        { id: 'nieve', url: 'https://images.unsplash.com/photo-1478265409131-1f65c88f965c?q=80&w=800&auto=format&fit=crop' },
-        { id: 'crucero', url: 'https://images.unsplash.com/photo-1599640842225-85d111c60e6b?q=80&w=800&auto=format&fit=crop' },
-        { id: 'cataratas', url: 'https://images.unsplash.com/photo-1433086966358-54859d0ed716?q=80&w=800&auto=format&fit=crop' }
+        { id: 'caribe', url: 'https://images.unsplash.com/photo-1582468546235-9bf31e5bc4a1?q=80&w=800&auto=format&fit=crop' },
+        { id: 'brasil', url: 'https://images.unsplash.com/photo-1519046904884-53103b34b206?q=80&w=800&auto=format&fit=crop' },
+        { id: 'rio', url: 'https://images.unsplash.com/photo-1483729558449-99ef09a8c325?q=80&w=800&auto=format&fit=crop' },
+        { id: 'crucero1', url: 'https://images.unsplash.com/photo-1599640842225-85d111c60e6b?q=80&w=800&auto=format&fit=crop' },
+        { id: 'crucero2', url: 'https://images.unsplash.com/photo-1505086811283-edebce986c75?q=80&w=800&auto=format&fit=crop' },
+        { id: 'disney', url: 'https://images.unsplash.com/photo-1538356111053-748a48e1acb8?q=80&w=800&auto=format&fit=crop' },
+        { id: 'universal', url: 'https://images.unsplash.com/photo-1603513492128-ba7df87ef1c0?q=80&w=800&auto=format&fit=crop' },
+        { id: 'miami', url: 'https://images.unsplash.com/photo-1533106497176-45ae19e68ba2?q=80&w=800&auto=format&fit=crop' },
+        { id: 'ny', url: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=800&auto=format&fit=crop' },
+        { id: 'europa', url: 'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=80&w=800&auto=format&fit=crop' },
+        { id: 'nieve', url: 'https://images.unsplash.com/photo-1517823382935-51bfcb0ec6bc?q=80&w=800&auto=format&fit=crop' },
+        { id: 'cataratas', url: 'https://images.unsplash.com/photo-1595304928099-23c28c68ebcc?q=80&w=800&auto=format&fit=crop' },
+        { id: 'naturaleza', url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop' }
     ];
 
     function renderCards(list) {
