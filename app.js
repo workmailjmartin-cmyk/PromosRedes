@@ -443,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
         texto += `-Tarifas y disponibilidad sujetas a cambio al momento de la reserva.\n`;
         texto += `-Cotización válida al ${fechaCotizacion}\n\n`;
         
-        texto += `ℹ Más info: (https://felizviaje.tur.ar/informacion-antes-de-contratar)\n\n`;
+        texto += `ℹ Más info: (https://info.felizviaje.ar/informacion-antes-de-viajar/)\n\n`;
         
         texto += `⚠¡Cupos limitados!\n`;
         texto += `-Para asegurar esta tarifa y evitar aumentos, recomendamos avanzar con la seña lo antes posible.\n`;
@@ -3922,6 +3922,145 @@ window.cargarEtiquetasMarketing = async () => {
             leyendaAg.innerHTML += `<div style="display:flex; align-items:center; gap:6px; font-size:0.85em; color:#555; background:#f9fafb; padding:4px 10px; border-radius:6px; border:1px solid #e5e7eb;"><span style="background:${e.color}; color:white; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.8em;">${e.abrev}</span><span style="font-weight:500;">= ${e.nombre}</span></div>`;
         });
     }
+};
+
+// ====================================================================
+// 🖼️ MÓDULO VIDRIERA B2C (CARRUSEL DESTACADO)
+// ====================================================================
+
+const BANCO_IMAGENES = [
+    { id: 'caribe', nombre: '🏖️ Playa Caribe', url: 'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?q=80&w=800&auto=format&fit=crop' },
+    { id: 'brasil', nombre: '🌴 Playa Brasil', url: 'https://images.unsplash.com/photo-1548574505-5e239809ee19?q=80&w=800&auto=format&fit=crop' },
+    { id: 'ciudad', nombre: '🏙️ Ciudad / Europa', url: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?q=80&w=800&auto=format&fit=crop' },
+    { id: 'nieve', nombre: '🏔️ Patagonia / Nieve', url: 'https://images.unsplash.com/photo-1478265409131-1f65c88f965c?q=80&w=800&auto=format&fit=crop' },
+    { id: 'crucero', nombre: '🚢 Crucero', url: 'https://images.unsplash.com/photo-1599640842225-85d111c60e6b?q=80&w=800&auto=format&fit=crop' },
+    { id: 'cataratas', nombre: '🌊 Cataratas / Naturaleza', url: 'https://images.unsplash.com/photo-1433086966358-54859d0ed716?q=80&w=800&auto=format&fit=crop' }
+];
+
+let vidrieraGlobal = [
+    { paquete_id: '', imagen_id: 'caribe' },
+    { paquete_id: '', imagen_id: 'brasil' },
+    { paquete_id: '', imagen_id: 'ciudad' },
+    { paquete_id: '', imagen_id: 'crucero' }
+];
+
+// Inyectar la interfaz de la Vidriera en la pestaña de Configuración/Gestión
+const inyectarPanelVidriera = () => {
+    // Buscamos un buen lugar en la pestaña de gestión (al final)
+    const viewGestion = document.getElementById('view-gestion');
+    if (!viewGestion || document.getElementById('panel-vidriera-b2c')) return;
+
+    const divVidriera = document.createElement('div');
+    divVidriera.id = 'panel-vidriera-b2c';
+    divVidriera.style.cssText = "background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-top: 30px; border: 1px solid #e5e7eb;";
+    
+    divVidriera.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+            <div>
+                <h3 style="margin:0; color:#11173d; font-size:1.5em;">🖼️ Vidriera Web (Top 4)</h3>
+                <p style="margin:5px 0 0 0; color:#6b7280; font-size:0.9em;">Elegí qué 4 paquetes querés destacar con imágenes en la web de clientes.</p>
+            </div>
+            <button id="btn-guardar-vidriera" class="btn btn-primario" style="background:#25d366;">💾 Guardar Vidriera</button>
+        </div>
+        <div id="grid-vidriera-slots" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+            <!-- Acá se dibujan los 4 slots -->
+        </div>
+    `;
+    
+    viewGestion.appendChild(divVidriera);
+
+    document.getElementById('btn-guardar-vidriera').addEventListener('click', async () => {
+        showLoader(true, "Guardando Vidriera...");
+        try {
+            await db.collection('metadata').doc('config').set({ vidriera: vidrieraGlobal }, { merge: true });
+            window.showAlert("Vidriera actualizada en la web", "success");
+        } catch(e) { window.showAlert("Error al guardar", "error"); }
+        showLoader(false);
+    });
+};
+
+window.renderizarSlotsVidriera = async () => {
+    inyectarPanelVidriera();
+    const contenedor = document.getElementById('grid-vidriera-slots');
+    if (!contenedor) return;
+
+    try {
+        const doc = await db.collection('metadata').doc('config').get();
+        if (doc.exists && doc.data().vidriera) {
+            vidrieraGlobal = doc.data().vidriera;
+        }
+    } catch(e){}
+
+    contenedor.innerHTML = '';
+    
+    // Generar options de paquetes (Solo aprobados)
+    let opcionesPaquetes = '<option value="">-- Seleccionar Paquete --</option>';
+    uniquePackages.forEach(pkg => {
+        if (pkg.status === 'approved' && !pkg.ocultar_cliente) {
+            opcionesPaquetes += `<option value="${pkg.id_paquete || pkg.id}">${pkg.destino} ($${pkg.tarifa})</option>`;
+        }
+    });
+
+    // Generar options de imágenes
+    let opcionesImagenes = '';
+    BANCO_IMAGENES.forEach(img => {
+        opcionesImagenes += `<option value="${img.id}">${img.nombre}</option>`;
+    });
+
+    for (let i = 0; i < 4; i++) {
+        const slot = vidrieraGlobal[i] || { paquete_id: '', imagen_id: 'caribe' };
+        const imgUrl = BANCO_IMAGENES.find(img => img.id === slot.imagen_id)?.url || BANCO_IMAGENES[0].url;
+
+        contenedor.innerHTML += `
+            <div style="border: 2px dashed #ddd; border-radius: 8px; padding: 10px; background: #f9fafb;">
+                <div style="font-weight: bold; color: #ef5a1a; margin-bottom: 10px;">Posición ${i + 1}</div>
+                
+                <label style="font-size: 0.8em; font-weight: bold;">Paquete a destacar:</label>
+                <select id="vidriera-pkg-${i}" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;" onchange="window.actualizarSlotVidriera(${i})">
+                    ${opcionesPaquetes}
+                </select>
+                
+                <label style="font-size: 0.8em; font-weight: bold;">Fondo de Alta Calidad:</label>
+                <select id="vidriera-img-${i}" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;" onchange="window.actualizarSlotVidriera(${i})">
+                    ${opcionesImagenes}
+                </select>
+                
+                <div style="height: 100px; width: 100%; border-radius: 6px; overflow: hidden; border: 1px solid #ddd;">
+                    <img id="vidriera-preview-${i}" src="${imgUrl}" style="width: 100%; height: 100%; object-fit: cover;">
+                </div>
+            </div>
+        `;
+    }
+
+    // Setear los valores seleccionados
+    setTimeout(() => {
+        for (let i = 0; i < 4; i++) {
+            const slot = vidrieraGlobal[i];
+            const selPkg = document.getElementById(`vidriera-pkg-${i}`);
+            const selImg = document.getElementById(`vidriera-img-${i}`);
+            if (selPkg) selPkg.value = slot.paquete_id;
+            if (selImg) selImg.value = slot.imagen_id;
+        }
+    }, 100);
+};
+
+window.actualizarSlotVidriera = (index) => {
+    const pkgId = document.getElementById(`vidriera-pkg-${index}`).value;
+    const imgId = document.getElementById(`vidriera-img-${index}`).value;
+    
+    vidrieraGlobal[index] = { paquete_id: pkgId, imagen_id: imgId };
+    
+    // Actualizar la miniatura al instante
+    const imgUrl = BANCO_IMAGENES.find(img => img.id === imgId)?.url;
+    const preview = document.getElementById(`vidriera-preview-${index}`);
+    if (preview) preview.src = imgUrl;
+};
+
+// Enganchamos la carga de la vidriera a la carga de promociones para que se actualice
+const originalCargarPromocionesAdmin = window.cargarPromocionesAdmin;
+window.cargarPromocionesAdmin = async () => {
+    if(typeof originalCargarPromocionesAdmin === 'function') await originalCargarPromocionesAdmin();
+    window.renderizarSlotsVidriera();
 };
 
 });

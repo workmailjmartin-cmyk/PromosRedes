@@ -313,17 +313,18 @@ document.addEventListener('DOMContentLoaded', () => {
             showLoader(false);
         });
 
-    // --- CARGA Y FILTRADO ---
-    let textoListonGlobal = "SOLO X HOY"; // Texto por defecto
+    let textoListonGlobal = "SOLO X HOY";
+    let vidrieraGlobal = []; // Memoria de la vidriera
 
     async function fetchAndLoadPackages() { 
         showLoader(true);
         try { 
-            // 1. NUEVO: Traer la configuración del texto del listón desde Firebase
+            // 1. Traer la configuración del texto y la vidriera
             try {
                 const configDoc = await db.collection('metadata').doc('config').get();
-                if (configDoc.exists && configDoc.data().texto_liston) {
-                    textoListonGlobal = configDoc.data().texto_liston;
+                if (configDoc.exists) {
+                    if (configDoc.data().texto_liston) textoListonGlobal = configDoc.data().texto_liston;
+                    if (configDoc.data().vidriera) vidrieraGlobal = configDoc.data().vidriera;
                 }
             } catch(e) { console.error("Error trayendo config:", e); }
 
@@ -332,48 +333,21 @@ document.addEventListener('DOMContentLoaded', () => {
             
             allPackages = snapshot.docs.map(doc => ({ id_paquete: doc.id, ...doc.data() }))
                 .filter(pkg => {
-                    if (pkg.alcance === 'casa_central') return false; // Bloquea promo interna
-                    if (pkg.status === 'pending') return false; // Bloquea no aprobados
-                    
-                    // ❌ REGLA 1: Si el Admin marcó "Ocultar", no se muestra jamás
-                    if (pkg.ocultar_cliente) return false; 
-                    
-                    // 📅 REGLA 2: Promos de FEED y ADS duran exactamente 7 días
+                    if (pkg.alcance === 'casa_central' || pkg.status === 'pending' || pkg.ocultar_cliente) return false; 
                     if (pkg.tipo_promo === 'FEED' || pkg.tipo_promo === 'ADS') {
-                        const ahora = Date.now();
-                        const antiguedad = ahora - (pkg.timestamp || 0);
-                        const sieteDiasMs = 7 * 24 * 60 * 60 * 1000;
-                        
-                        if (antiguedad > sieteDiasMs) {
-                            return false; // Pasaron los 7 días -> Se oculta al cliente
-                        }
-                        
-                        // Si sobrevive al filtro de los 7 días, retorna true directamente 
-                        // para SALTEAR la regla de las 12hs.
-                        return true; 
+                        const antiguedad = Date.now() - (pkg.timestamp || 0);
+                        return antiguedad <= (7 * 24 * 60 * 60 * 1000); 
                     }
-
-                    // ⏳ REGLA 3: Corte de "La Cenicienta" (12hs)
-                    // Como FEED y ADS ya retornaron arriba, esto solo afecta a "Solo X Hoy" o nuevas categorías
-                    if (!pkg.reflejo_cliente && pkg.timestamp && pkg.timestamp < cutoffEpoch) {
-                        return false; 
-                    }
-                    
+                    if (!pkg.reflejo_cliente && pkg.timestamp && pkg.timestamp < cutoffEpoch) return false; 
                     return true;
                 });
 
-            const salidasDisponibles = [...new Set(allPackages.map(pkg => pkg.salida))]
-                .filter(salida => salida && salida.trim() !== '') // Sacamos vacíos
-                .sort(); // Ordenamos alfabéticamente (A->Z)
+            const salidasDisponibles = [...new Set(allPackages.map(pkg => pkg.salida))].filter(s => s && s.trim() !== '').sort();
 
-            // Limpiamos las opciones actuales del select
             if (dom.filtroSalida) {
                 dom.filtroSalida.innerHTML = '<option value="">Todas las Provincias</option>';
                 salidasDisponibles.forEach(salida => {
-                    const option = document.createElement('option');
-                    option.value = salida;
-                    option.textContent = salida; 
-                    dom.filtroSalida.appendChild(option);
+                    dom.filtroSalida.innerHTML += `<option value="${salida}">${salida}</option>`;
                 });
             }
                 
@@ -410,25 +384,139 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCards(result);
     }
 
-    // --- RENDERIZADO DE GRILLA B2C ---
+    const BANCO_IMAGENES = [
+        { id: 'caribe', url: 'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?q=80&w=800&auto=format&fit=crop' },
+        { id: 'brasil', url: 'https://images.unsplash.com/photo-1548574505-5e239809ee19?q=80&w=800&auto=format&fit=crop' },
+        { id: 'ciudad', url: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?q=80&w=800&auto=format&fit=crop' },
+        { id: 'nieve', url: 'https://images.unsplash.com/photo-1478265409131-1f65c88f965c?q=80&w=800&auto=format&fit=crop' },
+        { id: 'crucero', url: 'https://images.unsplash.com/photo-1599640842225-85d111c60e6b?q=80&w=800&auto=format&fit=crop' },
+        { id: 'cataratas', url: 'https://images.unsplash.com/photo-1433086966358-54859d0ed716?q=80&w=800&auto=format&fit=crop' }
+    ];
+
     function renderCards(list) {
+        let wrapperOfertas = document.getElementById('wrapper-ofertas-destacadas');
+        if (!wrapperOfertas) {
+            wrapperOfertas = document.createElement('div');
+            wrapperOfertas.id = 'wrapper-ofertas-destacadas';
+            dom.grid.parentNode.insertBefore(wrapperOfertas, dom.grid);
+        }
+
+        wrapperOfertas.innerHTML = '';
         dom.grid.innerHTML = ''; 
+
+        // 🌟 MAGIA 1: DIBUJAR LA VIDRIERA PERSONALIZADA
+        // Ignoramos los filtros de búsqueda para la vidriera, ¡la vidriera siempre se ve!
+        const paquetesVidriera = [];
+        if (vidrieraGlobal && vidrieraGlobal.length > 0) {
+            vidrieraGlobal.forEach(slot => {
+                if (slot.paquete_id) {
+                    const pkgEncontrado = allPackages.find(p => p.id_paquete === slot.paquete_id || p.id === slot.paquete_id);
+                    if (pkgEncontrado) {
+                        // Le pegamos el ID de la imagen para saber cuál usar
+                        pkgEncontrado._imagenIdFondo = slot.imagen_id;
+                        paquetesVidriera.push(pkgEncontrado);
+                    }
+                }
+            });
+        }
+
+        if (paquetesVidriera.length > 0) {
+            let htmlOfertas = `
+                <div style="text-align: center; margin-bottom: 25px; margin-top: 20px;">
+                    <h2 style="font-size: 2.2em; font-weight: 900; color: #11173d; margin: 0 0 5px 0;">Ofertas Destacadas ✈️</h2>
+                    <p style="color: #6b7280; margin: 0; font-size: 1.1em;">Selección especial de nuestros asesores</p>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 50px;" id="grid-ofertas"></div>
+                <div style="text-align: center; margin-bottom: 25px; border-top: 1px solid #eee; padding-top: 30px;">
+                    <h2 style="font-size: 2em; font-weight: 900; color: #11173d; margin: 0;">Descubrí el destino perfecto</h2>
+                </div>
+            `;
+            wrapperOfertas.innerHTML = htmlOfertas;
+            const gridOfertas = document.getElementById('grid-ofertas');
+
+            paquetesVidriera.forEach(pkg => {
+                const noches = typeof getNoches === 'function' ? getNoches(pkg) : 0;
+                const tarifa = parseFloat(pkg['tarifa']) || 0;
+                const divisor = parseInt(pkg.base_pasajeros) === 4 ? 4 : 2;
+                const tarifaPorPersona = Math.round(tarifa / divisor);
+
+                let sGrid = []; try { sGrid = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e){}
+                
+                const nombresInclusiones = sGrid.map(s => {
+                    if (s.tipo === 'aereo') return 'Vuelo';
+                    if (s.tipo === 'hotel') return 'Hotel';
+                    if (s.tipo === 'traslado') return 'Traslados';
+                    if (s.tipo === 'seguro' || s.asistencia) return 'Asistencia';
+                    if (s.tipo === 'bus') return 'Bus';
+                    if (s.tipo === 'crucero') return 'Crucero';
+                    return '';
+                }).filter(Boolean);
+                const incUnicas = [...new Set(nombresInclusiones)];
+                const inclusionesTexto = incUnicas.length > 0 ? `Incluye: ${incUnicas.join(' + ')}` : 'Servicios incluidos';
+
+                let mes = 'VARIAS FECHAS';
+                if (pkg.fecha_salida) {
+                    const p = pkg.fecha_salida.split('-');
+                    if (p.length === 3) {
+                        const d = new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
+                        mes = d.toLocaleString('es-ES', { month: 'long' }).toUpperCase();
+                    }
+                }
+
+                // Obtener URL de la imagen elegida por el admin
+                const imgFondo = BANCO_IMAGENES.find(img => img.id === pkg._imagenIdFondo)?.url || BANCO_IMAGENES[0].url;
+                const lugarSalida = pkg.salida ? `saliendo desde ${pkg.salida}` : '';
+
+                const cardOf = document.createElement('div');
+                cardOf.style.cssText = "background: white; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: box-shadow 0.3s; height: 100%;";
+                cardOf.onmouseover = () => cardOf.style.boxShadow = "0 10px 15px rgba(0,0,0,0.1)";
+                cardOf.onmouseout = () => cardOf.style.boxShadow = "0 4px 6px rgba(0,0,0,0.05)";
+
+                cardOf.innerHTML = `
+                    <div style="height: 170px; overflow: hidden; position: relative; background: #eee;">
+                        <img src="${imgFondo}" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    </div>
+                    <div style="padding: 20px; display: flex; flex-direction: column; flex-grow: 1;">
+                        <div style="font-size: 0.65em; color: #6b7280; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 8px;">${noches > 0 ? noches + ' NOCHES' : 'PAQUETE'} - ${mes}</div>
+                        <h3 style="font-size: 1.1em; font-weight: 800; color: #11173d; margin: 0 0 12px 0; line-height: 1.3; text-transform: uppercase;">
+                            ${pkg.destino} ${noches > 0 ? noches + ' NOCHES' : ''} ${lugarSalida}
+                        </h3>
+                        <p style="font-size: 0.8em; color: #4b5563; margin: 0 0 20px 0; font-weight: 500;">${inclusionesTexto}</p>
+                        
+                        <div style="margin-top: auto; padding-top: 15px; border-top: 1px solid #f3f4f6;">
+                            <div style="font-size: 0.75em; color: #6b7280; font-weight: 500; margin-bottom: 2px;">Precio por persona</div>
+                            <div style="font-size: 1.4em; font-weight: 900; color: #11173d; margin-bottom: 15px; display: flex; align-items: baseline; gap: 4px;">
+                                <span style="font-size: 0.7em;">${pkg.moneda || 'USD'}</span> 
+                                ${typeof formatMoney === 'function' ? formatMoney(tarifaPorPersona) : tarifaPorPersona}
+                            </div>
+                            <button class="btn-oferta" style="width: 100%; background: #2563eb; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; font-size: 0.95em;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">
+                                Ver paquete
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                gridOfertas.appendChild(cardOf);
+                cardOf.querySelector('.btn-oferta').addEventListener('click', () => openModal(pkg));
+            });
+        }
+
         if (!list || list.length === 0) { 
-            dom.grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#666;">No encontramos viajes para esa búsqueda, ¡Contactanos al WhatsApp y lo armamos a medida!</p>'; 
+            dom.grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#666;">No encontramos viajes para esa búsqueda.</p>'; 
             return; 
         }
-        
+
+        // 📦 GRILLA NORMAL (El buscador sí filtra esto)
         list.forEach(pkg => {
             if (!pkg.destino) return; 
             const card = document.createElement('div');
             
-            let sGrid = []; 
-            try { sGrid = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e){}
+            let sGrid = []; try { sGrid = typeof pkg.servicios === 'string' ? JSON.parse(pkg.servicios) : pkg.servicios; } catch(e){}
             const tieneAereo = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'aereo');
             const esCircuito = Array.isArray(sGrid) && sGrid.some(s => s.tipo === 'circuito');
             const fechaMostrar = (!pkg.fecha_salida && esCircuito && !tieneAereo) ? 'Múltiples Salidas' : formatDateAR(pkg.fecha_salida);
             
-            const noches = getNoches(pkg);
+            const noches = typeof getNoches === 'function' ? getNoches(pkg) : 0;
             let lugarSalidaGrid = pkg['salida'];
             if (!tieneAereo) {
                 const crucero = Array.isArray(sGrid) && sGrid.find(s => s.tipo === 'crucero');
@@ -439,12 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.className = 'paquete-card'; 
             const tarifaMostrar = parseFloat(pkg['tarifa']) || 0; 
-            
-            // 👉 LÓGICA MATEMÁTICA SEGURA
-            let divisor = 2;
-            if (pkg.base_pasajeros && parseInt(pkg.base_pasajeros) === 4) {
-                divisor = 4;
-            }
+            const divisor = parseInt(pkg.base_pasajeros) === 4 ? 4 : 2;
             const tarifaPorPersona = Math.round(tarifaMostrar / divisor);
             
             const m = {'aereo':'✈️','hotel':'🏨','traslado':'🚕','seguro':'🛡️','bus':'🚌','crucero':'🚢','circuito':'🗺️'};
@@ -453,43 +536,15 @@ document.addEventListener('DOMContentLoaded', () => {
             let ribbonHtml = '';
             if (pkg.tipo_promo === 'Solo X Hoy') {
                 const textoRibbon = typeof textoListonGlobal !== 'undefined' ? textoListonGlobal : 'SOLO X HOY';
-                ribbonHtml = `
-                <div style="position: absolute; top: 0; right: 0; width: 110px; height: 110px; overflow: hidden; pointer-events: none; z-index: 10; border-radius: 0 8px 0 0;">
-                    <div style="position: absolute; top: 22px; right: -35px; width: 155px; transform: rotate(45deg); background: linear-gradient(90deg, #ffffff 0%, #56DDE0 100%); color: #11173d; font-weight: 800; font-size: 0.68em; text-align: center; padding: 4px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.15); letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap;">
-                        ${textoRibbon}
-                    </div>
-                </div>`;
+                ribbonHtml = `<div style="position: absolute; top: 0; right: 0; width: 110px; height: 110px; overflow: hidden; pointer-events: none; z-index: 10; border-radius: 0 8px 0 0;"><div style="position: absolute; top: 22px; right: -35px; width: 155px; transform: rotate(45deg); background: linear-gradient(90deg, #ffffff 0%, #56DDE0 100%); color: #11173d; font-weight: 800; font-size: 0.68em; text-align: center; padding: 4px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.15); letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap;">${textoRibbon}</div></div>`;
             }
 
             card.innerHTML = `
                 <div class="card-clickable" style="height:100%; position: relative;">
                     ${ribbonHtml}
-                    <div class="card-header">
-                        <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
-                            <div style="max-width:${pkg.tipo_promo === 'Solo X Hoy' ? '72%' : '100%'}; padding-right:10px;">
-                                <h3 style="margin:0;font-size:1.4em;line-height:1.2;color:#11173d;">${pkg.destino}</h3>
-                            </div>
-                        </div>
-                        <div class="fecha">📅 Salida: ${fechaMostrar}</div>
-                    </div>
-                    
-                    <div class="card-body">
-                        <div style="font-size:0.85em;color:#555;display:flex;align-items:center;flex-wrap:wrap;gap:10px;line-height:1.4;">
-                            <span>${summaryIcons}</span>
-                            ${noches > 0 ? `<span style="background:#eef2f5;color:#11173d;padding:4px 8px;border-radius:12px;font-weight:bold;font-size:0.85em;display:inline-flex;align-items:center;gap:4px;">🌙 ${noches}</span>` : ''}
-                        </div>
-                    </div>
-                    
-                    <div class="card-footer" style="display:flex; justify-content:flex-end; align-items:flex-end; position:relative; z-index: 1;">
-                        <div style="text-align: right;">
-                            <div style="font-size: 0.85em; color: #666; margin-bottom: -5px;">
-                                Desde <strong style="color: #11173d; font-weight: 800;">${lugarSalidaGrid || 'Varias'}</strong>
-                            </div>
-                            <p class="precio-valor" style="margin: 5px 0 0 0;">
-                                ${pkg.moneda || 'USD'} $${formatMoney(tarifaPorPersona)} <span style="font-size:0.5em; color:#999; font-weight:normal;">x Persona</span>
-                            </p>
-                        </div>
-                    </div>
+                    <div class="card-header"><div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;"><div style="max-width:${pkg.tipo_promo === 'Solo X Hoy' ? '72%' : '100%'}; padding-right:10px;"><h3 style="margin:0;font-size:1.4em;line-height:1.2;color:#11173d;">${pkg.destino}</h3></div></div><div class="fecha">📅 Salida: ${fechaMostrar}</div></div>
+                    <div class="card-body"><div style="font-size:0.85em;color:#555;display:flex;align-items:center;flex-wrap:wrap;gap:10px;line-height:1.4;"><span>${summaryIcons}</span>${noches > 0 ? `<span style="background:#eef2f5;color:#11173d;padding:4px 8px;border-radius:12px;font-weight:bold;font-size:0.85em;display:inline-flex;align-items:center;gap:4px;">🌙 ${noches}</span>` : ''}</div></div>
+                    <div class="card-footer" style="display:flex; justify-content:flex-end; align-items:flex-end; position:relative; z-index: 1;"><div style="text-align: right;"><div style="font-size: 0.85em; color: #666; margin-bottom: -5px;">Desde <strong style="color: #11173d; font-weight: 800;">${lugarSalidaGrid || 'Varias'}</strong></div><p class="precio-valor" style="margin: 5px 0 0 0;">${pkg.moneda || 'USD'} $${typeof formatMoney === 'function' ? formatMoney(tarifaPorPersona) : tarifaPorPersona} <span style="font-size:0.5em; color:#999; font-weight:normal;">x Persona</span></p></div></div>
                 </div>`;
             
             dom.grid.appendChild(card); 
@@ -575,7 +630,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="text-align:right; max-width: 250px;">
                     <small style="color: #ef5a1a; font-size: 0.85em; line-height: 1.3; display: block; font-weight: 500;">
                         * Tarifas y cupos sujetos a disponibilidad.<br>
-                        Revisar <a href="https://felizviaje.tur.ar/informacion-antes-de-contratar" target="_blank" style="color: #56DDE0; text-decoration: underline;">bases y condiciones</a>.
+                        Revisar <a href="https://info.felizviaje.ar/informacion-antes-de-viajar/" target="_blank" style="color: #56DDE0; text-decoration: underline;">bases y condiciones</a>.
                     </small>
                 </div>
             </div>`;
