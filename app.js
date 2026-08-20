@@ -572,8 +572,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(x.crucero_noches) det.push(`🌙 ${x.crucero_noches} Noches`);
                 if(det.length > 0) l.push(`<small>${det.join(' | ')}</small>`);
 
+                // ACÁ ESTÁ LA MAGIA: white-space:pre-wrap respeta tus Enters y saltos de línea al pegar
                 if(x.crucero_paradas) {
-                    l.push(`🗺️ <b>Recorrido:</b> ${x.crucero_paradas}`);
+                    l.push(`🗺️ <b>Recorrido:</b><br><span style="white-space:pre-wrap; margin-top:4px; display:inline-block;">${x.crucero_paradas}</span>`);
                 }
 
                 l.push(`<div style="margin-top:5px;"><b>Incluye:</b><br>
@@ -1153,26 +1154,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             }
-       else if(tipo === 'crucero') {
-            // Limpiamos el ID para que no tenga puntos decimales que rompan el CSS
-            const idLimpio = String(id).replace('.', '_'); 
-            
-            let paradasHtml = '';
-            let paradasValue = '';
-            if (data && data.crucero_paradas) {
-                paradasValue = data.crucero_paradas;
-                const paradasArray = data.crucero_paradas.split(' - ');
-                paradasArray.forEach((p, index) => {
-                    paradasHtml += `<div style="display:flex; gap:5px; margin-bottom:5px;">
-                        <input type="text" class="form-control parada-input-${idLimpio}" value="${p}" oninput="window.actualizarParadas('${idLimpio}')">
-                        ${index > 0 ? `<button type="button" class="btn btn-secundario" style="padding:2px 8px;" onclick="this.parentElement.remove(); window.actualizarParadas('${idLimpio}');">🗑️</button>` : ''}
-                    </div>`;
-                });
-            } else {
-                paradasHtml = `<div style="display:flex; gap:5px; margin-bottom:5px;">
-                    <input type="text" class="form-control parada-input-${idLimpio}" placeholder="Ej: Punta del Este..." oninput="window.actualizarParadas('${idLimpio}')">
-                </div>`;
-            }
+        else if(tipo === 'crucero') {
+            let paradasValue = (data && data.crucero_paradas) ? data.crucero_paradas : '';
 
             html += `
                 <div style="margin-bottom:15px; border-bottom: 2px solid #f8f9fa; padding-bottom:10px;">
@@ -1204,18 +1187,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
 
                 <div class="form-group" style="border: 1px solid #eee; padding: 10px; border-radius: 5px; margin-bottom:10px;">
-                    <label>Paradas del Recorrido</label>
-                    <div id="paradas-container-${id}">
-                        ${paradasHtml}
-                    </div>
-                    <button type="button" class="btn btn-secundario" style="padding: 2px 10px; font-size: 0.9em; margin-top:5px;" onclick="
-                        const cont = document.getElementById('paradas-container-${id}');
-                        const div = document.createElement('div');
-                        div.style.cssText = 'display:flex; gap:5px; margin-bottom:5px;';
-                        div.innerHTML = '<input type=\\'text\\' class=\\'form-control parada-input-${id}\\' placeholder=\\'Siguiente parada...\\' oninput=\\'window.actualizarParadas(\\'${id}\\')\\'><button type=\\'button\\' class=\\'btn btn-secundario\\' style=\\'padding:2px 8px;\\' onclick=\\'this.parentElement.remove(); window.actualizarParadas(\\'${id}\\');\\'>🗑️</button>';
-                        cont.appendChild(div);
-                    ">+ Agregar Parada</button>
-                    <input type="hidden" name="crucero_paradas" id="hidden_paradas_${id}" value="${paradasValue}">
+                    <label>Itinerario / Paradas del Recorrido</label>
+                    <textarea name="crucero_paradas" class="form-control" rows="4" placeholder="Pegá acá el recorrido (Ej: Día 1: Buenos Aires... Día 2: Navegación...)" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; margin-top: 5px;">${paradasValue}</textarea>
                 </div>
 
                 <div class="form-group-row">

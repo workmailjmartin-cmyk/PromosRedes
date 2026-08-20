@@ -261,7 +261,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(x.checkin) det.push(`Embarque: ${formatDateAR(x.checkin)}`);
                 if(x.crucero_noches) det.push(`🌙 ${x.crucero_noches} Noches`);
                 if(det.length > 0) l.push(`<small>${det.join(' | ')}</small>`);
-                if(x.crucero_paradas) l.push(`🗺️ <b>Recorrido:</b> ${x.crucero_paradas}`);
+                
+                // ACÁ ESTÁ LA MAGIA PARA CLIENTES: white-space:pre-wrap respeta tus Enters
+                if(x.crucero_paradas) {
+                    l.push(`🗺️ <b>Recorrido:</b><br><span style="white-space:pre-wrap; margin-top:4px; display:inline-block;">${x.crucero_paradas}</span>`);
+                }
+                
                 l.push(`<div style="margin-top:5px;"><b>Incluye:</b><br><span style="color:#2ecc71;">✓ Pensión Completa</span><br><span style="color:#2ecc71;">✓ Asistencia al Viajero</span>${x.crucero_bebidas ? '<br><span style="color:#2ecc71;">✓ Paquete de Bebidas</span>' : ''}${x.crucero_propinas ? '<br><span style="color:#2ecc71;">✓ Propinas Incluidas</span>' : ''}</div>`);
             }
             else if(x.tipo === 'circuito'){
