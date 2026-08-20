@@ -3944,43 +3944,22 @@ let vidrieraGlobal = [
     { paquete_id: '', imagen_id: 'crucero' }
 ];
 
-// Inyectar la interfaz de la Vidriera en la pestaña de Configuración/Gestión
-const inyectarPanelVidriera = () => {
-    // Buscamos un buen lugar en la pestaña de gestión (al final)
-    const viewGestion = document.getElementById('view-gestion');
-    if (!viewGestion || document.getElementById('panel-vidriera-b2c')) return;
-
-    const divVidriera = document.createElement('div');
-    divVidriera.id = 'panel-vidriera-b2c';
-    divVidriera.style.cssText = "background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-top: 30px; border: 1px solid #e5e7eb;";
-    
-    divVidriera.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-            <div>
-                <h3 style="margin:0; color:#11173d; font-size:1.5em;">🖼️ Vidriera Web (Top 4)</h3>
-                <p style="margin:5px 0 0 0; color:#6b7280; font-size:0.9em;">Elegí qué 4 paquetes querés destacar con imágenes en la web de clientes.</p>
-            </div>
-            <button id="btn-guardar-vidriera" class="btn btn-primario" style="background:#25d366;">💾 Guardar Vidriera</button>
-        </div>
-        <div id="grid-vidriera-slots" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
-            <!-- Acá se dibujan los 4 slots -->
-        </div>
-    `;
-    
-    viewGestion.appendChild(divVidriera);
-
-    document.getElementById('btn-guardar-vidriera').addEventListener('click', async () => {
+// Evento para guardar en Firebase
+const btnGuardarVidriera = document.getElementById('btn-guardar-vidriera');
+if (btnGuardarVidriera) {
+    btnGuardarVidriera.addEventListener('click', async () => {
         showLoader(true, "Guardando Vidriera...");
         try {
             await db.collection('metadata').doc('config').set({ vidriera: vidrieraGlobal }, { merge: true });
-            window.showAlert("Vidriera actualizada en la web", "success");
-        } catch(e) { window.showAlert("Error al guardar", "error"); }
+            window.showAlert("Vidriera actualizada en la web de clientes", "success");
+        } catch(e) { 
+            window.showAlert("Error al guardar", "error"); 
+        }
         showLoader(false);
     });
-};
+}
 
 window.renderizarSlotsVidriera = async () => {
-    inyectarPanelVidriera();
     const contenedor = document.getElementById('grid-vidriera-slots');
     if (!contenedor) return;
 
@@ -3993,46 +3972,47 @@ window.renderizarSlotsVidriera = async () => {
 
     contenedor.innerHTML = '';
     
-    // Generar options de paquetes (Solo aprobados)
-    let opcionesPaquetes = '<option value="">-- Seleccionar Paquete --</option>';
+    // 1. Generar options de paquetes (Solo aprobados y no ocultos)
+    let opcionesPaquetes = '<option value="">-- Vacío (No mostrar) --</option>';
     uniquePackages.forEach(pkg => {
         if (pkg.status === 'approved' && !pkg.ocultar_cliente) {
             opcionesPaquetes += `<option value="${pkg.id_paquete || pkg.id}">${pkg.destino} ($${pkg.tarifa})</option>`;
         }
     });
 
-    // Generar options de imágenes
+    // 2. Generar options de imágenes del Banco
     let opcionesImagenes = '';
     BANCO_IMAGENES.forEach(img => {
         opcionesImagenes += `<option value="${img.id}">${img.nombre}</option>`;
     });
 
+    // 3. Dibujar los 4 slots
     for (let i = 0; i < 4; i++) {
         const slot = vidrieraGlobal[i] || { paquete_id: '', imagen_id: 'caribe' };
         const imgUrl = BANCO_IMAGENES.find(img => img.id === slot.imagen_id)?.url || BANCO_IMAGENES[0].url;
 
         contenedor.innerHTML += `
-            <div style="border: 2px dashed #ddd; border-radius: 8px; padding: 10px; background: #f9fafb;">
-                <div style="font-weight: bold; color: #ef5a1a; margin-bottom: 10px;">Posición ${i + 1}</div>
+            <div style="border: 2px dashed #ccc; border-radius: 8px; padding: 15px; background: #f9fafb;">
+                <div style="font-weight: 900; color: #11173d; margin-bottom: 12px; font-size: 1.1em;">Posición ${i + 1}</div>
                 
-                <label style="font-size: 0.8em; font-weight: bold;">Paquete a destacar:</label>
-                <select id="vidriera-pkg-${i}" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;" onchange="window.actualizarSlotVidriera(${i})">
+                <label style="font-size: 0.8em; font-weight: bold; color: #555;">Paquete a destacar:</label>
+                <select id="vidriera-pkg-${i}" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 6px; background: white;" onchange="window.actualizarSlotVidriera(${i})">
                     ${opcionesPaquetes}
                 </select>
                 
-                <label style="font-size: 0.8em; font-weight: bold;">Fondo de Alta Calidad:</label>
-                <select id="vidriera-img-${i}" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;" onchange="window.actualizarSlotVidriera(${i})">
+                <label style="font-size: 0.8em; font-weight: bold; color: #555;">Fondo de Alta Calidad:</label>
+                <select id="vidriera-img-${i}" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 6px; background: white;" onchange="window.actualizarSlotVidriera(${i})">
                     ${opcionesImagenes}
                 </select>
                 
-                <div style="height: 100px; width: 100%; border-radius: 6px; overflow: hidden; border: 1px solid #ddd;">
+                <div style="height: 120px; width: 100%; border-radius: 6px; overflow: hidden; border: 1px solid #ddd; background: #eee;">
                     <img id="vidriera-preview-${i}" src="${imgUrl}" style="width: 100%; height: 100%; object-fit: cover;">
                 </div>
             </div>
         `;
     }
 
-    // Setear los valores seleccionados
+    // 4. Setear los valores seleccionados correctamente después de dibujar
     setTimeout(() => {
         for (let i = 0; i < 4; i++) {
             const slot = vidrieraGlobal[i];
@@ -4050,13 +4030,13 @@ window.actualizarSlotVidriera = (index) => {
     
     vidrieraGlobal[index] = { paquete_id: pkgId, imagen_id: imgId };
     
-    // Actualizar la miniatura al instante
+    // Actualizar la miniatura al instante para que veas qué fondo elegiste
     const imgUrl = BANCO_IMAGENES.find(img => img.id === imgId)?.url;
     const preview = document.getElementById(`vidriera-preview-${index}`);
     if (preview) preview.src = imgUrl;
 };
 
-// Enganchamos la carga de la vidriera a la carga de promociones para que se actualice
+// Enganchamos la carga de la vidriera a la carga general
 const originalCargarPromocionesAdmin = window.cargarPromocionesAdmin;
 window.cargarPromocionesAdmin = async () => {
     if(typeof originalCargarPromocionesAdmin === 'function') await originalCargarPromocionesAdmin();
