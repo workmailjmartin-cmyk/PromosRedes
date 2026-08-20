@@ -3929,18 +3929,18 @@ window.cargarEtiquetasMarketing = async () => {
 // ====================================================================
 
 const BANCO_IMAGENES = [
-    { id: 'caribe', nombre: '🏖️ Playa Caribe (Punta Cana / Cancún)', url: 'https://images.unsplash.com/photo-1582468546235-9bf31e5bc4a1?q=80&w=800&auto=format&fit=crop' },
+    { id: 'caribe', nombre: '🏖️ Playa Caribe (Punta Cana / Cancún)', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800&auto=format&fit=crop' },
     { id: 'brasil', nombre: '🌴 Playa Brasil (Buzios / Maceió)', url: 'https://images.unsplash.com/photo-1519046904884-53103b34b206?q=80&w=800&auto=format&fit=crop' },
     { id: 'rio', nombre: '⛰️ Río de Janeiro', url: 'https://images.unsplash.com/photo-1483729558449-99ef09a8c325?q=80&w=800&auto=format&fit=crop' },
     { id: 'crucero1', nombre: '🚢 Crucero (Vista lateral)', url: 'https://images.unsplash.com/photo-1599640842225-85d111c60e6b?q=80&w=800&auto=format&fit=crop' },
     { id: 'crucero2', nombre: '🛳️ Crucero 2 (Vista frontal)', url: 'https://images.unsplash.com/photo-1505086811283-edebce986c75?q=80&w=800&auto=format&fit=crop' },
-    { id: 'disney', nombre: '🏰 Disney (Castillo)', url: 'https://images.unsplash.com/photo-1538356111053-748a48e1acb8?q=80&w=800&auto=format&fit=crop' },
-    { id: 'universal', nombre: '🌎 Universal Studios', url: 'https://images.unsplash.com/photo-1603513492128-ba7df87ef1c0?q=80&w=800&auto=format&fit=crop' },
+    { id: 'disney', nombre: '🏰 Disney (Castillo)', url: 'https://images.unsplash.com/photo-1545580492-8859ba8323f0?q=80&w=800&auto=format&fit=crop' },
+    { id: 'universal', nombre: '🌎 Universal Studios', url: 'https://images.unsplash.com/photo-1533034947-88d407ffce4d?q=80&w=800&auto=format&fit=crop' },
     { id: 'miami', nombre: '😎 Ciudad Miami', url: 'https://images.unsplash.com/photo-1533106497176-45ae19e68ba2?q=80&w=800&auto=format&fit=crop' },
     { id: 'ny', nombre: '🗽 Ciudad New York', url: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=800&auto=format&fit=crop' },
     { id: 'europa', nombre: '🗼 Ciudad Europea (París/Madrid)', url: 'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=80&w=800&auto=format&fit=crop' },
-    { id: 'nieve', nombre: '⛷️ Montaña con Nieve (Bariloche)', url: 'https://images.unsplash.com/photo-1517823382935-51bfcb0ec6bc?q=80&w=800&auto=format&fit=crop' },
-    { id: 'cataratas', nombre: '🌊 Cataratas del Iguazú', url: 'https://images.unsplash.com/photo-1595304928099-23c28c68ebcc?q=80&w=800&auto=format&fit=crop' },
+    { id: 'nieve', nombre: '⛷️ Montaña con Nieve (Centro de Ski)', url: 'https://images.unsplash.com/photo-1551524164-687a55dd1126?q=80&w=800&auto=format&fit=crop' },
+    { id: 'cataratas', nombre: '🌊 Cataratas del Iguazú', url: 'https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?q=80&w=800&auto=format&fit=crop' },
     { id: 'naturaleza', nombre: '🌲 Paisaje / Naturaleza', url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop' }
 ];
 
