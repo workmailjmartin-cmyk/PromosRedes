@@ -3925,33 +3925,16 @@ window.cargarEtiquetasMarketing = async () => {
 };
 
 // ====================================================================
-// 🖼️ MÓDULO VIDRIERA B2C (CARRUSEL DESTACADO)
+// 🖼️ MÓDULO VIDRIERA B2C Y BANCO DE IMÁGENES PROPIO
 // ====================================================================
 
-const BANCO_IMAGENES = [
-    { id: 'caribe', nombre: '🏖️ Playa Caribe (Punta Cana / Cancún)', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800&auto=format&fit=crop' },
-    { id: 'brasil', nombre: '🌴 Playa Brasil (Buzios / Maceió)', url: 'https://images.unsplash.com/photo-1519046904884-53103b34b206?q=80&w=800&auto=format&fit=crop' },
-    { id: 'rio', nombre: '⛰️ Río de Janeiro', url: 'https://images.unsplash.com/photo-1483729558449-99ef09a8c325?q=80&w=800&auto=format&fit=crop' },
-    { id: 'crucero1', nombre: '🚢 Crucero (Vista lateral)', url: 'https://images.unsplash.com/photo-1599640842225-85d111c60e6b?q=80&w=800&auto=format&fit=crop' },
-    { id: 'crucero2', nombre: '🛳️ Crucero 2 (Vista frontal)', url: 'https://images.unsplash.com/photo-1505086811283-edebce986c75?q=80&w=800&auto=format&fit=crop' },
-    { id: 'disney', nombre: '🏰 Disney (Castillo)', url: 'https://images.unsplash.com/photo-1545580492-8859ba8323f0?q=80&w=800&auto=format&fit=crop' },
-    { id: 'universal', nombre: '🌎 Universal Studios', url: 'https://images.unsplash.com/photo-1533034947-88d407ffce4d?q=80&w=800&auto=format&fit=crop' },
-    { id: 'miami', nombre: '😎 Ciudad Miami', url: 'https://images.unsplash.com/photo-1533106497176-45ae19e68ba2?q=80&w=800&auto=format&fit=crop' },
-    { id: 'ny', nombre: '🗽 Ciudad New York', url: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=800&auto=format&fit=crop' },
-    { id: 'europa', nombre: '🗼 Ciudad Europea (París/Madrid)', url: 'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=80&w=800&auto=format&fit=crop' },
-    { id: 'nieve', nombre: '⛷️ Montaña con Nieve (Centro de Ski)', url: 'https://images.unsplash.com/photo-1551524164-687a55dd1126?q=80&w=800&auto=format&fit=crop' },
-    { id: 'cataratas', nombre: '🌊 Cataratas del Iguazú', url: 'https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?q=80&w=800&auto=format&fit=crop' },
-    { id: 'naturaleza', nombre: '🌲 Paisaje / Naturaleza', url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop' }
-];
-
 let vidrieraGlobal = [
-    { paquete_id: '', imagen_id: 'caribe' },
-    { paquete_id: '', imagen_id: 'brasil' },
-    { paquete_id: '', imagen_id: 'ciudad' },
-    { paquete_id: '', imagen_id: 'crucero' }
+    { paquete_id: '', imagen_id: '' }, { paquete_id: '', imagen_id: '' },
+    { paquete_id: '', imagen_id: '' }, { paquete_id: '', imagen_id: '' }
 ];
+let bancoImagenesGlobal = [];
 
-// Evento para guardar en Firebase
+// Evento para guardar la vidriera en Firebase
 const btnGuardarVidriera = document.getElementById('btn-guardar-vidriera');
 if (btnGuardarVidriera) {
     btnGuardarVidriera.addEventListener('click', async () => {
@@ -3959,27 +3942,113 @@ if (btnGuardarVidriera) {
         try {
             await db.collection('metadata').doc('config').set({ vidriera: vidrieraGlobal }, { merge: true });
             window.showAlert("Vidriera actualizada en la web de clientes", "success");
-        } catch(e) { 
-            window.showAlert("Error al guardar", "error"); 
-        }
+        } catch(e) { window.showAlert("Error al guardar", "error"); }
         showLoader(false);
     });
 }
 
+// Dibuja los Slots y el Banco de Imágenes
 window.renderizarSlotsVidriera = async () => {
-    const contenedor = document.getElementById('grid-vidriera-slots');
-    if (!contenedor) return;
+    const contenedorSlots = document.getElementById('grid-vidriera-slots');
+    
+    // Inyectamos el HTML del Banco de Imágenes si no existe
+    let panelVidriera = document.getElementById('panel-vidriera-b2c');
+    if (panelVidriera && !document.getElementById('banco-imagenes-container')) {
+        panelVidriera.innerHTML += `
+            <hr style="margin: 30px 0; border: 0; border-top: 2px solid #e5e7eb;">
+            <div id="banco-imagenes-container">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; flex-wrap: wrap;">
+                    <div>
+                        <h3 style="margin:0; color:#11173d; font-size:1.4em;">📂 Mi Banco de Imágenes</h3>
+                        <p style="margin:5px 0 0 0; color:#6b7280; font-size:0.9em;">Subí tus propias fotos para usarlas de fondo (Máximo 15).</p>
+                    </div>
+                </div>
+                
+                <div style="display:flex; gap: 10px; align-items:center; flex-wrap:wrap; margin-bottom: 25px; background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px dashed #ccc;">
+                    <input type="text" id="nueva-img-nombre" placeholder="Nombre (Ej: Playa Cancún)" class="form-control" style="flex:1; min-width: 200px;">
+                    <input type="file" id="nueva-img-file" accept="image/*" class="form-control" style="flex:1; min-width: 200px;">
+                    <button id="btn-subir-imagen-banco" class="btn btn-primario" style="background:#2563eb; padding: 10px 20px;">⬆️ Subir Foto</button>
+                </div>
+                
+                <div id="grid-banco-imagenes" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px;"></div>
+            </div>
+        `;
 
+        // Lógica para subir foto
+        document.getElementById('btn-subir-imagen-banco').addEventListener('click', async () => {
+            if (bancoImagenesGlobal.length >= 15) return window.showAlert("Límite de 15 imágenes alcanzado. Borrá alguna para subir otra.", "error");
+            
+            const nombreInput = document.getElementById('nueva-img-nombre').value.trim();
+            const fileInput = document.getElementById('nueva-img-file');
+            
+            if (!nombreInput || !fileInput.files || fileInput.files.length === 0) {
+                return window.showAlert("Completá el nombre y seleccioná una imagen.", "error");
+            }
+
+            showLoader(true, "Comprimiendo y subiendo imagen...");
+            try {
+                const file = fileInput.files[0];
+                const compressedBlob = await comprimirImagen(file, 1000, 1000, 0.7); // La comprime para que cargue rapidísimo
+                
+                const storageRef = firebase.storage().ref();
+                const imageRef = storageRef.child(`vidriera/${Date.now()}_${file.name}`);
+                await imageRef.put(compressedBlob);
+                const url = await imageRef.getDownloadURL();
+
+                const nuevaImg = { id: 'img_' + Date.now(), nombre: nombreInput, url: url };
+                bancoImagenesGlobal.push(nuevaImg);
+
+                await db.collection('metadata').doc('config').set({ banco_imagenes: bancoImagenesGlobal }, { merge: true });
+                
+                document.getElementById('nueva-img-nombre').value = '';
+                fileInput.value = '';
+                window.renderizarSlotsVidriera();
+                window.showAlert("¡Imagen subida con éxito!", "success");
+            } catch(e) {
+                console.error(e);
+                window.showAlert("Error al subir la imagen.", "error");
+            }
+            showLoader(false);
+        });
+    }
+
+    if (!contenedorSlots) return;
+
+    // Traer datos de Firebase
     try {
         const doc = await db.collection('metadata').doc('config').get();
-        if (doc.exists && doc.data().vidriera) {
-            vidrieraGlobal = doc.data().vidriera;
+        if (doc.exists) {
+            if (doc.data().vidriera) vidrieraGlobal = doc.data().vidriera;
+            if (doc.data().banco_imagenes) bancoImagenesGlobal = doc.data().banco_imagenes;
         }
     } catch(e){}
 
-    contenedor.innerHTML = '';
+    // --- DIBUJAR BANCO DE IMÁGENES ---
+    const gridBanco = document.getElementById('grid-banco-imagenes');
+    if (gridBanco) {
+        gridBanco.innerHTML = '';
+        if (bancoImagenesGlobal.length === 0) {
+            gridBanco.innerHTML = '<p style="color:#999; font-size:0.85em; grid-column:1/-1;">Aún no subiste ninguna imagen.</p>';
+        } else {
+            bancoImagenesGlobal.forEach((img, index) => {
+                gridBanco.innerHTML += `
+                    <div style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: white; display: flex; flex-direction: column;">
+                        <div style="height: 100px; width: 100%; background: #eee;">
+                            <img src="${img.url}" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        <div style="padding: 8px; text-align: center;">
+                            <div style="font-size: 0.8em; font-weight: bold; color: #333; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${img.nombre}">${img.nombre}</div>
+                            <button onclick="window.borrarImagenBanco(${index})" style="background: #fce8e6; color: #d93025; border: 1px solid #fad2cf; width: 100%; padding: 4px; border-radius: 4px; cursor: pointer; font-size: 0.8em; font-weight: bold;">🗑️ Borrar</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    }
+
+    // --- DIBUJAR SLOTS DE LA VIDRIERA ---
+    contenedorSlots.innerHTML = '';
     
-    // 1. Generar options de paquetes (Solo aprobados y no ocultos)
     let opcionesPaquetes = '<option value="">-- Vacío (No mostrar) --</option>';
     uniquePackages.forEach(pkg => {
         if (pkg.status === 'approved' && !pkg.ocultar_cliente) {
@@ -3987,18 +4056,16 @@ window.renderizarSlotsVidriera = async () => {
         }
     });
 
-    // 2. Generar options de imágenes del Banco
-    let opcionesImagenes = '';
-    BANCO_IMAGENES.forEach(img => {
+    let opcionesImagenes = '<option value="">-- Seleccionar Fondo --</option>';
+    bancoImagenesGlobal.forEach(img => {
         opcionesImagenes += `<option value="${img.id}">${img.nombre}</option>`;
     });
 
-    // 3. Dibujar los 4 slots
     for (let i = 0; i < 4; i++) {
-        const slot = vidrieraGlobal[i] || { paquete_id: '', imagen_id: 'caribe' };
-        const imgUrl = BANCO_IMAGENES.find(img => img.id === slot.imagen_id)?.url || BANCO_IMAGENES[0].url;
+        const slot = vidrieraGlobal[i] || { paquete_id: '', imagen_id: '' };
+        const imgUrl = bancoImagenesGlobal.find(img => img.id === slot.imagen_id)?.url || 'https://via.placeholder.com/800x400?text=Sub%C3%AD+una+foto+al+banco';
 
-        contenedor.innerHTML += `
+        contenedorSlots.innerHTML += `
             <div style="border: 2px dashed #ccc; border-radius: 8px; padding: 15px; background: #f9fafb;">
                 <div style="font-weight: 900; color: #11173d; margin-bottom: 12px; font-size: 1.1em;">Posición ${i + 1}</div>
                 
@@ -4007,7 +4074,7 @@ window.renderizarSlotsVidriera = async () => {
                     ${opcionesPaquetes}
                 </select>
                 
-                <label style="font-size: 0.8em; font-weight: bold; color: #555;">Fondo de Alta Calidad:</label>
+                <label style="font-size: 0.8em; font-weight: bold; color: #555;">Fondo:</label>
                 <select id="vidriera-img-${i}" style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 6px; background: white;" onchange="window.actualizarSlotVidriera(${i})">
                     ${opcionesImagenes}
                 </select>
@@ -4019,7 +4086,6 @@ window.renderizarSlotsVidriera = async () => {
         `;
     }
 
-    // 4. Setear los valores seleccionados correctamente después de dibujar
     setTimeout(() => {
         for (let i = 0; i < 4; i++) {
             const slot = vidrieraGlobal[i];
@@ -4031,19 +4097,28 @@ window.renderizarSlotsVidriera = async () => {
     }, 100);
 };
 
+window.borrarImagenBanco = async (index) => {
+    if (!await window.showConfirm("¿Seguro que querés borrar esta imagen?")) return;
+    showLoader(true, "Borrando imagen...");
+    try {
+        bancoImagenesGlobal.splice(index, 1);
+        await db.collection('metadata').doc('config').set({ banco_imagenes: bancoImagenesGlobal }, { merge: true });
+        window.renderizarSlotsVidriera();
+    } catch(e) { window.showAlert("Error al borrar", "error"); }
+    showLoader(false);
+};
+
 window.actualizarSlotVidriera = (index) => {
     const pkgId = document.getElementById(`vidriera-pkg-${index}`).value;
     const imgId = document.getElementById(`vidriera-img-${index}`).value;
     
     vidrieraGlobal[index] = { paquete_id: pkgId, imagen_id: imgId };
     
-    // Actualizar la miniatura al instante para que veas qué fondo elegiste
-    const imgUrl = BANCO_IMAGENES.find(img => img.id === imgId)?.url;
+    const imgUrl = bancoImagenesGlobal.find(img => img.id === imgId)?.url || 'https://via.placeholder.com/800x400?text=Sub%C3%AD+una+foto+al+banco';
     const preview = document.getElementById(`vidriera-preview-${index}`);
     if (preview) preview.src = imgUrl;
 };
 
-// Enganchamos la carga de la vidriera a la carga general
 const originalCargarPromocionesAdmin = window.cargarPromocionesAdmin;
 window.cargarPromocionesAdmin = async () => {
     if(typeof originalCargarPromocionesAdmin === 'function') await originalCargarPromocionesAdmin();

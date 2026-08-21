@@ -316,15 +316,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let textoListonGlobal = "SOLO X HOY";
     let vidrieraGlobal = []; // Memoria de la vidriera
 
+    let textoListonGlobal = "SOLO X HOY";
+    let vidrieraGlobal = []; 
+    let bancoImagenesGlobal = []; // <--- AHORA ES DINÁMICO
+
     async function fetchAndLoadPackages() { 
         showLoader(true);
         try { 
-            // 1. Traer la configuración del texto y la vidriera
             try {
                 const configDoc = await db.collection('metadata').doc('config').get();
                 if (configDoc.exists) {
                     if (configDoc.data().texto_liston) textoListonGlobal = configDoc.data().texto_liston;
                     if (configDoc.data().vidriera) vidrieraGlobal = configDoc.data().vidriera;
+                    // Descargamos tu banco de fotos:
+                    if (configDoc.data().banco_imagenes) bancoImagenesGlobal = configDoc.data().banco_imagenes; 
                 }
             } catch(e) { console.error("Error trayendo config:", e); }
 
@@ -343,20 +348,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
             const salidasDisponibles = [...new Set(allPackages.map(pkg => pkg.salida))].filter(s => s && s.trim() !== '').sort();
-
             if (dom.filtroSalida) {
                 dom.filtroSalida.innerHTML = '<option value="">Todas las Provincias</option>';
-                salidasDisponibles.forEach(salida => {
-                    dom.filtroSalida.innerHTML += `<option value="${salida}">${salida}</option>`;
-                });
+                salidasDisponibles.forEach(salida => dom.filtroSalida.innerHTML += `<option value="${salida}">${salida}</option>`);
             }
                 
             applyFilters();
             
-        } catch(e) { 
-            console.error("Error Firebase:", e); 
-            dom.grid.innerHTML = '<p style="text-align:center;">No se pudieron cargar las promociones.</p>';
-        }
+        } catch(e) { dom.grid.innerHTML = '<p style="text-align:center;">No se pudieron cargar las promociones.</p>'; }
         showLoader(false);
     }
 
@@ -384,21 +383,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCards(result);
     }
 
-    const BANCO_IMAGENES = [
-        { id: 'caribe', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800&auto=format&fit=crop' },
-        { id: 'brasil', url: 'https://images.unsplash.com/photo-1519046904884-53103b34b206?q=80&w=800&auto=format&fit=crop' },
-        { id: 'rio', url: 'https://images.unsplash.com/photo-1483729558449-99ef09a8c325?q=80&w=800&auto=format&fit=crop' },
-        { id: 'crucero1', url: 'https://images.unsplash.com/photo-1599640842225-85d111c60e6b?q=80&w=800&auto=format&fit=crop' },
-        { id: 'crucero2', url: 'https://images.unsplash.com/photo-1505086811283-edebce986c75?q=80&w=800&auto=format&fit=crop' },
-        { id: 'disney', url: 'https://images.unsplash.com/photo-1545580492-8859ba8323f0?q=80&w=800&auto=format&fit=crop' },
-        { id: 'universal', url: 'https://images.unsplash.com/photo-1533034947-88d407ffce4d?q=80&w=800&auto=format&fit=crop' },
-        { id: 'miami', url: 'https://images.unsplash.com/photo-1533106497176-45ae19e68ba2?q=80&w=800&auto=format&fit=crop' },
-        { id: 'ny', url: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=800&auto=format&fit=crop' },
-        { id: 'europa', url: 'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=80&w=800&auto=format&fit=crop' },
-        { id: 'nieve', url: 'https://images.unsplash.com/photo-1551524164-687a55dd1126?q=80&w=800&auto=format&fit=crop' },
-        { id: 'cataratas', url: 'https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?q=80&w=800&auto=format&fit=crop' },
-        { id: 'naturaleza', url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop' }
-    ];
 
     function renderCards(list) {
         let wrapperOfertas = document.getElementById('wrapper-ofertas-destacadas');
@@ -471,7 +455,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Obtener URL de la imagen elegida por el admin
-                const imgFondo = BANCO_IMAGENES.find(img => img.id === pkg._imagenIdFondo)?.url || BANCO_IMAGENES[0].url;
+                // Obtener URL de la imagen que subiste a tu banco
+const imgFondo = bancoImagenesGlobal.find(img => img.id === pkg._imagenIdFondo)?.url || 'https://via.placeholder.com/800x400?text=Sin+Imagen';
                 const lugarSalida = pkg.salida ? `saliendo desde ${pkg.salida}` : '';
 
                 const cardOf = document.createElement('div');
